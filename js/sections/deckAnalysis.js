@@ -25,17 +25,25 @@ window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
     suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
     recognizeDeckAnalysisButton.disabled = true;
 
-    deckAnalysisImageUpload.onchange = () => { // addEventListenerの代わりにonchangeを使用
+    // イベントリスナーを再登録する前に、以前のリスナーを削除する（重複登録を防ぐため）
+    // ただし、今回は addEventListener を使うため、通常は重複登録を気にする必要はないが、
+    // 念のため、既存の onclick プロパティを null に設定してクリーンアップする
+    if (deckAnalysisImageUpload) deckAnalysisImageUpload.onchange = null;
+    if (recognizeDeckAnalysisButton) recognizeDeckAnalysisButton.onclick = null;
+    const deckAnalysisSection = document.getElementById('tcg-deckAnalysis-section');
+    if (deckAnalysisSection) deckAnalysisSection.onpaste = null;
+
+
+    deckAnalysisImageUpload.addEventListener('change', () => { // addEventListenerを使用
         if (deckAnalysisImageUpload.files.length > 0) {
             recognizeDeckAnalysisButton.disabled = false;
         } else {
             recognizeDeckAnalysisButton.disabled = true;
         }
-    };
+    });
 
-    const deckAnalysisSection = document.getElementById('tcg-deckAnalysis-section'); // idを修正
     if (deckAnalysisSection) {
-        deckAnalysisSection.onpaste = async (event) => { // addEventListenerの代わりにonpasteを使用
+        deckAnalysisSection.addEventListener('paste', async (event) => { // addEventListenerを使用
             const items = event.clipboardData.items;
             for (const item of items) {
                 if (item.type.startsWith('image/')) {
@@ -50,10 +58,10 @@ window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
                 }
             }
             showCustomDialog('貼り付け失敗', 'クリップボードに画像がありませんでした。');
-        };
+        });
     }
 
-    recognizeDeckAnalysisButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
+    recognizeDeckAnalysisButton.addEventListener('click', async () => { // addEventListenerを使用
         if (!deckAnalysisImageUpload.files || deckAnalysisImageUpload.files.length === 0) {
             showCustomDialog('エラー', 'デッキ画像をアップロードしてください。');
             return;
@@ -67,7 +75,7 @@ window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
             await processDeckImage(base64ImageData, file.type);
         };
         reader.readAsDataURL(file);
-    };
+    });
 
     async function processDeckImage(base64ImageData, mimeType) {
         recognizedDeckAnalysisList.innerHTML = '<p><div class="spinner"></div> 画像認識中...</p>';

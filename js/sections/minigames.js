@@ -1,7 +1,9 @@
-// js/sections/minigames/minigames.js
+// js/sections/minigames.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
 window.initMinigamesSection = function(allCards, showCustomDialog) {
+    console.log("Minigames section initialized.");
+
     // 現在のクイズの状態を管理する変数
     let currentQuiz = {
         type: null, // 'cardName', 'enlarge', 'silhouette', 'mosaic'
@@ -516,7 +518,7 @@ window.initMinigamesSection = function(allCards, showCustomDialog) {
              ctx.font = '20px Arial';
              ctx.textAlign = 'center';
              ctx.fillText('画像エラー', quizCanvas.width / 2, quizCanvas.height / 2);
-             ctx.fillText('(_transparent.pngが見つからないか無効です)', quizCanvas.width / 2, quizCanvas.height / 2 + 30);
+             ctx.fillText('(_transparent.pngが見つからないか無効です)', canvasWidth / 2, canvasHeight / 2 + 30);
         }
 
         quizResetButton.style.display = 'inline-block';
@@ -524,30 +526,30 @@ window.initMinigamesSection = function(allCards, showCustomDialog) {
 
     // イベントリスナーの設定
     if (quizCardNameButton) {
-        quizCardNameButton.addEventListener('click', () => startQuiz('cardName'));
+        quizCardNameButton.onclick = () => startQuiz('cardName'); // addEventListenerの代わりにonclickを使用
     }
     if (quizIllustrationEnlargeButton) {
-        quizIllustrationEnlargeButton.addEventListener('click', () => startQuiz('enlarge'));
+        quizIllustrationEnlargeButton.onclick = () => startQuiz('enlarge'); // addEventListenerの代わりにonclickを使用
     }
     if (quizIllustrationSilhouetteButton) {
-        quizIllustrationSilhouetteButton.addEventListener('click', () => startQuiz('silhouette'));
+        quizIllustrationSilhouetteButton.onclick = () => startQuiz('silhouette'); // addEventListenerの代わりにonclickを使用
     }
     if (quizIllustrationMosaicButton) {
-        quizIllustrationMosaicButton.addEventListener('click', () => startQuiz('mosaic'));
+        quizIllustrationMosaicButton.onclick = () => startQuiz('mosaic'); // addEventListenerの代わりにonclickを使用
     }
 
     if (quizSubmitButton) {
-        quizSubmitButton.addEventListener('click', checkAnswer);
+        quizSubmitButton.onclick = checkAnswer; // addEventListenerの代わりにonclickを使用
         if (quizAnswerInput) {
-            quizAnswerInput.addEventListener('keypress', (e) => {
+            quizAnswerInput.onkeypress = (e) => { // addEventListenerの代わりにonkeypressを使用
                 if (e.key === 'Enter') {
                     checkAnswer();
                 }
-            });
+            };
         }
     }
     if (quizNextButton) {
-        quizNextButton.addEventListener('click', () => {
+        quizNextButton.onclick = () => { // addEventListenerの代わりにonclickを使用
             if (currentQuiz.type === 'cardName') {
                 displayCardNameQuizHint();
             } else {
@@ -558,11 +560,11 @@ window.initMinigamesSection = function(allCards, showCustomDialog) {
                 quizResultArea.textContent = '';
                 quizResultArea.className = 'quiz-result-area';
             }
-        });
+        };
     }
     if (quizResetButton) {
-        quizResetButton.addEventListener('click', resetQuiz);
+        quizResetButton.onclick = resetQuiz; // addEventListenerの代わりにonclickを使用
     }
 
-    resetQuiz();
+    resetQuiz(); // 初期状態ではクイズUIを非表示に
 }; // End of initMinigamesSection

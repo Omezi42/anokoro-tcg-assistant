@@ -1,7 +1,9 @@
-// js/sections/deck/deck.js
+// js/sections/deckAnalysis.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initDeckSection = function(allCards, showCustomDialog) {
+window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
+    console.log("DeckAnalysis section initialized.");
+
     /**
      * デッキ分析UIを初期化し、イベントリスナーを設定します。
      */
@@ -23,17 +25,17 @@ window.initDeckSection = function(allCards, showCustomDialog) {
     suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
     recognizeDeckAnalysisButton.disabled = true;
 
-    deckAnalysisImageUpload.addEventListener('change', () => {
+    deckAnalysisImageUpload.onchange = () => { // addEventListenerの代わりにonchangeを使用
         if (deckAnalysisImageUpload.files.length > 0) {
             recognizeDeckAnalysisButton.disabled = false;
         } else {
             recognizeDeckAnalysisButton.disabled = true;
         }
-    });
+    };
 
-    const deckAnalysisSection = document.getElementById('tcg-deck-section');
+    const deckAnalysisSection = document.getElementById('tcg-deckAnalysis-section'); // idを修正
     if (deckAnalysisSection) {
-        deckAnalysisSection.addEventListener('paste', async (event) => {
+        deckAnalysisSection.onpaste = async (event) => { // addEventListenerの代わりにonpasteを使用
             const items = event.clipboardData.items;
             for (const item of items) {
                 if (item.type.startsWith('image/')) {
@@ -48,10 +50,10 @@ window.initDeckSection = function(allCards, showCustomDialog) {
                 }
             }
             showCustomDialog('貼り付け失敗', 'クリップボードに画像がありませんでした。');
-        });
+        };
     }
 
-    recognizeDeckAnalysisButton.addEventListener('click', async () => {
+    recognizeDeckAnalysisButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
         if (!deckAnalysisImageUpload.files || deckAnalysisImageUpload.files.length === 0) {
             showCustomDialog('エラー', 'デッキ画像をアップロードしてください。');
             return;
@@ -65,7 +67,7 @@ window.initDeckSection = function(allCards, showCustomDialog) {
             await processDeckImage(base64ImageData, file.type);
         };
         reader.readAsDataURL(file);
-    });
+    };
 
     async function processDeckImage(base64ImageData, mimeType) {
         recognizedDeckAnalysisList.innerHTML = '<p><div class="spinner"></div> 画像認識中...</p>';
@@ -156,11 +158,12 @@ window.initDeckSection = function(allCards, showCustomDialog) {
             return;
         }
 
+        // コストカーブの計算
         const costCurve = {};
-        for (let i = 0; i <= 10; i++) {
+        for (let i = 0; i <= 10; i++) { // 0コストから10コストまで
             costCurve[i] = 0;
         }
-        costCurve['11+'] = 0;
+        costCurve['11+'] = 0; // 11コスト以上
 
         deckCards.forEach(card => {
             const costInfo = card.info.find(info => info.startsWith('このカードのコストは'));
@@ -177,9 +180,10 @@ window.initDeckSection = function(allCards, showCustomDialog) {
             }
         });
 
+        // タイプ別集計
         const typeDistribution = {};
-        const cardTypes = ['モンスター', '魔法', '罠', 'エネルギー', 'フィールド'];
-        const speciesTypes = new Set();
+        const cardTypes = ['モンスター', '魔法', '罠', 'エネルギー', 'フィールド']; // 主要なカードタイプ
+        const speciesTypes = new Set(); // 種別（属性/カテゴリ）
 
         deckCards.forEach(card => {
             const typeInfo = card.info.find(info => 
@@ -205,13 +209,14 @@ window.initDeckSection = function(allCards, showCustomDialog) {
                 const speciesText = speciesInfo.replace('このカードの種別は', '').replace('です。', '');
                 speciesText.split(',').forEach(s => {
                     const trimmedSpecies = s.trim();
-                    if (trimmedSpecies && trimmedSpecies !== '無い') {
+                    if (trimmedSpecies && trimmedSpecies !== '無い') { // 「無い」は除外
                         speciesTypes.add(trimmedSpecies);
                     }
                 });
             }
         });
 
+        // 分析結果の表示
         let summaryHtml = `<h4>デッキ枚数: ${deckCards.length}枚</h4>`;
         summaryHtml += `<h5>コストカーブ:</h5><ul>`;
         for (const cost in costCurve) {
@@ -232,11 +237,12 @@ window.initDeckSection = function(allCards, showCustomDialog) {
             });
             summaryHtml += `</ul>`;
         } else {
-            suggestedCardsDiv.innerHTML += `<p>主要な種別は見つかりませんでした。</p>`;
+            summaryHtml += `<p>主要な種別は見つかりませんでした。</p>`;
         }
 
         deckAnalysisSummary.innerHTML = summaryHtml;
 
+        // おすすめカードのサジェスト
         suggestCards(deckCards, Array.from(speciesTypes));
     }
 
@@ -258,23 +264,26 @@ window.initDeckSection = function(allCards, showCustomDialog) {
         const energyCount = deckCards.filter(card => card.info.some(info => info.includes('このカードはエネルギーです。'))).length;
         const fieldCount = deckCards.filter(card => card.info.some(info => info.includes('このカードはフィールドです。'))).length;
 
-        if (totalCards < 40) {
+        // 例: デッキ枚数が少ない場合
+        if (totalCards < 40) { // 一般的なデッキ枚数を想定
             suggestions.push("デッキ枚数を40枚以上にすることをおすすめします。");
         }
 
-        if (monsterCount / totalCards < 0.4) {
+        // 例: モンスターが少ない場合
+        if (monsterCount / totalCards < 0.4) { // モンスター比率が低い場合
             suggestions.push("より多くのモンスターカードを追加して、盤面展開力を高めることを検討してください。");
             const monsterSuggestions = allCards.filter(card => 
                 card.info.some(info => info.includes('このカードはモンスターです。')) &&
-                !deckCards.some(deckCard => deckCard.name === card.name)
+                !deckCards.some(deckCard => deckCard.name === card.name) // デッキにないカード
             ).slice(0, 3).map(card => card.name);
             if (monsterSuggestions.length > 0) {
                 suggestions.push(`おすすめモンスター: ${monsterSuggestions.join(', ')}`);
             }
         }
 
+        // 例: ドローソースが少ない場合 (効果に「引く」を含むカードを検出)
         const drawCards = deckCards.filter(card => card.info.some(info => info.includes('枚引く')));
-        if (drawCards.length < 3) {
+        if (drawCards.length < 3) { // ドローソースが少ない場合
             suggestions.push("手札の補充を助けるドローソースカードの追加を検討してください。");
             const drawSuggestions = allCards.filter(card => 
                 card.info.some(info => info.includes('枚引く')) &&
@@ -285,12 +294,13 @@ window.initDeckSection = function(allCards, showCustomDialog) {
             }
         }
 
+        // 例: 特定の種別（属性）に特化している場合、その種別のサポートカードを提案
         if (deckSpeciesTypes.length > 0) {
             deckSpeciesTypes.forEach(species => {
                 const speciesSupportCards = allCards.filter(card => 
-                    card.info.some(info => info.includes(`[${species}]`)) &&
-                    !deckCards.some(deckCard => deckCard.name === card.name) &&
-                    !card.info.some(info => info.includes('このカードはモンスターです。'))
+                    card.info.some(info => info.includes(`[${species}]`)) && // その種別をサポートする効果
+                    !deckCards.some(deckCard => deckCard.name === card.name) && // デッキにないカード
+                    !card.info.some(info => info.includes('このカードはモンスターです。')) // モンスター以外のサポートカードを優先
                 ).slice(0, 2).map(card => card.name);
                 if (speciesSupportCards.length > 0) {
                     suggestions.push(`「${species}」タイプのサポートとして、${speciesSupportCards.join(', ')} などのカードを検討してください。`);
@@ -298,6 +308,7 @@ window.initDeckSection = function(allCards, showCustomDialog) {
             });
         }
 
+        // 例: コストカーブの偏り
         const lowCostCards = deckCards.filter(card => {
             const costInfo = card.info.find(info => info.startsWith('このカードのコストは'));
             if (costInfo) {
@@ -324,7 +335,7 @@ window.initDeckSection = function(allCards, showCustomDialog) {
 
         if (lowCostCards / totalCards < 0.2) {
             suggestions.push("序盤の展開を安定させるために、低コストのカードを増やすことを検討してください。");
-        } else if (highCostCards / totalCards > 0.3 && energyCount < 5) {
+        } else if (highCostCards / totalCards > 0.3 && energyCount < 5) { // 高コストが多いのにエネルギーが少ない
             suggestions.push("高コストカードが多いようです。エネルギーカードの枚数を増やすことを検討してください。");
         }
 
@@ -340,4 +351,4 @@ window.initDeckSection = function(allCards, showCustomDialog) {
             suggestedCardsDiv.innerHTML = '<p>現在のデッキはバランスが良いようです！</p>';
         }
     }
-}; // End of initDeckSection
+}; // End of initDeckAnalysisSection

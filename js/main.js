@@ -114,11 +114,24 @@ function updateMenuIconsVisibility() {
  * 右サイドメニュー（アイコン群）を作成・挿入します。
  */
 function createRightSideMenu() {
-    const menuContainer = document.getElementById('tcg-right-menu-container');
-    if (!menuContainer) {
-        console.error("tcg-right-menu-container not found in HTML.");
-        return;
-    }
+    // HTMLから要素を取得するのではなく、動的に生成する
+    const menuContainer = document.createElement('div');
+    menuContainer.id = 'tcg-right-menu-container';
+    menuContainer.innerHTML = `
+        <div class="tcg-menu-icons-wrapper">
+            <button class="tcg-menu-icon" data-section="home" title="ホーム"><i class="fas fa-home"></i></button>
+            <button class="tcg-menu-icon" data-section="rateMatch" title="レート戦"><i class="fas fa-fist-raised"></i></button>
+            <button class="tcg-menu-icon" data-section="memo" title="メモ"><i class="fas fa-clipboard"></i></button>
+            <button class="tcg-menu-icon" data-section="search" title="検索"><i class="fas fa-search"></i></button>
+            <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
+            <button class="tcg-menu-icon" data-section="battleRecord" title="戦いの記録"><i class="fas fa-trophy"></i></button>
+            <button class="tcg-menu-icon" data-section="deckAnalysis" title="デッキ分析"><i class="fas fa-cube"></i></button>
+        </div>
+        <button class="tcg-menu-toggle-button" id="tcg-menu-toggle-button" title="メニューを隠す/表示">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    `;
+    document.body.appendChild(menuContainer);
 
     const menuIconsWrapper = menuContainer.querySelector('.tcg-menu-icons-wrapper');
     const menuIcons = menuIconsWrapper.querySelectorAll('.tcg-menu-icon');
@@ -298,32 +311,38 @@ async function showSection(sectionId) {
     });
 
     // ターゲットセクションのコンテナ
-    const targetSection = document.getElementById(`tcg-${sectionId}-section`);
+    const tcgSectionsWrapper = document.getElementById('tcg-sections-wrapper');
+    let targetSection = document.getElementById(`tcg-${sectionId}-section`);
+
+    // セクションコンテナが存在しない場合は動的に作成
     if (!targetSection) {
-        console.error(`Target section container tcg-${sectionId}-section not found in index.html.`);
-        return;
+        targetSection = document.createElement('div');
+        targetSection.id = `tcg-${sectionId}-section`;
+        targetSection.className = 'tcg-section';
+        if (tcgSectionsWrapper) {
+            tcgSectionsWrapper.appendChild(targetSection);
+            console.log(`Created new section container: tcg-${sectionId}-section`);
+        } else {
+            console.error("tcg-sections-wrapper not found. Cannot append new section.");
+            return;
+        }
     }
 
-    // homeセクションはHTMLに直接埋め込まれているため、innerHTMLは更新しない
-    if (sectionId !== 'home') {
-        try {
-            // index.html に直接記述されている各セクションのコンテンツを切り替えるため、
-            // ここではinnerHTMLの更新は不要。
-            // ただし、もしセクションが空の場合に備えて、コンテンツを埋めるロジックは残す。
-            if (targetSection.innerHTML.trim() === '') {
-                 // これは、もし将来的にセクションのHTMLを外部ファイルからロードする方針に戻した場合のためのプレースホルダー
-                 // 現状ではindex.htmlに全セクションが記述されているため、通常は空ではない
-                 targetSection.innerHTML = `<h2 class="section-title">${getSectionTitle(sectionId)}</h2><p>コンテンツをロード中...</p>`;
-            }
-
-        } catch (error) {
-            console.error(`Error loading HTML for section ${sectionId}:`, error);
-            targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました: ${sectionId}<br>エラー: ${error.message}</p>`;
-            return; // HTMLロード失敗時は後続処理を中断
+    // セクションのHTMLをロード
+    try {
+        const htmlPath = chrome.runtime.getURL(`html/sections/${sectionId}.html`); // 各セクションのHTMLを個別にロード
+        console.log(`Fetching HTML from: ${htmlPath}`);
+        const response = await fetch(htmlPath);
+        if (!response.ok) {
+            throw new Error(`Failed to load HTML for ${sectionId}: ${response.statusText} (${response.status})`);
         }
-    } else {
-        // homeセクションの場合、innerHTMLは変更しない（index.htmlに直接記述されているため）
-        console.log("Home section is directly in index.html, skipping HTML injection.");
+        const htmlContent = await response.text();
+        targetSection.innerHTML = htmlContent;
+        console.log(`HTML loaded and injected for section: ${sectionId}`);
+    } catch (error) {
+        console.error(`Error loading HTML for section ${sectionId}:`, error);
+        targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました: ${sectionId}<br>エラー: ${error.message}</p>`;
+        return; // HTMLロード失敗時は後続処理を中断
     }
 
 
@@ -564,28 +583,31 @@ async function injectUIIntoPage() {
         // 必要なUIコンテナをbodyに直接追加
         const rightMenuContainer = tempDiv.querySelector('#tcg-right-menu-container');
         const contentArea = tempDiv.querySelector('#tcg-content-area');
-        const customDialogOverlay = tempDiv.querySelector('#tcg-custom-dialog-overlay');
-        const screenshotOverlayElement = tempDiv.querySelector('#screenshot-overlay'); // screenshotOverlayElementに名前変更
+        // カスタムダイアログとスクリーンショットオーバーレイはindex.htmlに直接記述されているため、
+        // ここで再取得してグローバル変数に割り当て直す
+        const customDialogOverlay = document.getElementById('tcg-custom-dialog-overlay');
+        const screenshotOverlayElement = document.getElementById('screenshot-overlay'); // index.htmlに静的に存在
 
+        // 動的に生成した要素を追加
         if (rightMenuContainer) document.body.appendChild(rightMenuContainer);
         if (contentArea) document.body.appendChild(contentArea);
-        if (customDialogOverlay) document.body.appendChild(customDialogOverlay);
-        if (screenshotOverlayElement) document.body.appendChild(screenshotOverlayElement); // bodyに挿入
+        // customDialogOverlayとscreenshotOverlayElementは既にbodyに存在するため、追加は不要
 
         console.log("UI elements injected into the page.");
 
         // グローバル変数にDOM要素を再割り当て
+        // main.jsのトップレベルで宣言された変数に、ここでDOM要素を割り当てる
         Object.assign(window, {
-            screenshotOverlay: document.getElementById('screenshot-overlay'),
+            screenshotOverlay: screenshotOverlayElement,
             screenshotCanvas: document.getElementById('screenshot-canvas'),
             cropScreenshotButton: document.getElementById('crop-screenshot-button'),
             pasteFullScreenshotButton: document.getElementById('paste-full-screenshot-button'),
             cancelCropButton: document.getElementById('cancel-crop-button')
         });
 
-        // UI要素がDOMに挿入された後に初期化関数を呼び出す
-        createRightSideMenu();
-        initializeExtensionFeatures();
+        // UI要素がDOMに挿入され、グローバル変数が割り当てられた後に初期化関数を呼び出す
+        createRightSideMenu(); // 右サイドメニューのイベントリスナー設定
+        initializeExtensionFeatures(); // カードデータロード、スクリーンショット関連初期化
 
         // 初期表示セクションをロード
         chrome.storage.local.get(['activeSection'], (result) => {

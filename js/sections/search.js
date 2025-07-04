@@ -1,7 +1,9 @@
-// js/sections/search/search.js
+// js/sections/search.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
 window.initSearchSection = function(allCards, showCustomDialog) {
+    console.log("Search section initialized.");
+
     // === 検索セクションのロジック ===
     // 各要素を関数内で取得
     const searchInput = document.getElementById('search-input');
@@ -42,12 +44,15 @@ window.initSearchSection = function(allCards, showCustomDialog) {
      * @returns {string} 正規化された文字列
      */
     function normalizeText(text) {
+        // 半角カタカナを全角カタカナに変換
         text = text.replace(/[\uFF61-\uFF9F]/g, (s) => {
             return String.fromCharCode(s.charCodeAt(0) + 0x20);
         });
+        // 全角ひらがなを全角カタカナに変換
         text = text.replace(/[\u3041-\u3096]/g, (s) => {
             return String.fromCharCode(s.charCodeAt(0) + 0x60);
         });
+        // スペースを削除
         text = text.replace(/\s+/g, '');
         return text.toLowerCase();
     }
@@ -73,10 +78,14 @@ window.initSearchSection = function(allCards, showCustomDialog) {
             for (let j = 1; j <= n; j++) {
                 const cost = (s1[i - 1] === s2[j - 1]) ? 0 : 1;
                 dp[i][j] = Math.min(
-                    dp[i - 1][j] + 1,
-                    dp[i][j - 1] + 1,
-                    dp[i - 1][j - 1] + cost
+                    dp[i - 1][j] + 1,      // deletion
+                    dp[i][j - 1] + 1,      // insertion
+                    dp[i - 1][j - 1] + cost // substitution
                 );
+            }
+            // 検索クエリが長すぎる場合、パフォーマンスのために早期終了
+            if (dp[i][n] > fuzzyThreshold + 1) { // 閾値+1よりも大きければ、これ以上計算しても無駄
+                return Infinity;
             }
         }
         return dp[m][n];
@@ -91,12 +100,13 @@ window.initSearchSection = function(allCards, showCustomDialog) {
      */
     async function performCardSearch(query, textTarget, typeFilter, setFilter) {
         if (!searchResults) return;
-        searchResults.innerHTML = '<p><div class="spinner"></div> 検索中...</p>';
+        searchResults.innerHTML = '<p><div class="spinner"></div> 検索中...</p>'; // ローディングスピナー表示
 
         const normalizedQuery = normalizeText(query);
-        const fuzzyThreshold = 2;
+        const fuzzyThreshold = 2; // 許容する誤字脱字の閾値 (例: 2文字までの違いを許容)
 
         let filteredCards = allCards.filter(card => {
+            // テキスト検索
             let textMatches = true;
             if (query) {
                 let cardText = '';
@@ -115,11 +125,14 @@ window.initSearchSection = function(allCards, showCustomDialog) {
                         cardText = card.name + ' ' + card.info.join(' ');
                         break;
                 }
+                // レーベンシュタイン距離を使ったあいまい検索
                 textMatches = levenshteinDistance(cardText, normalizedQuery) <= fuzzyThreshold || normalizeText(cardText).includes(normalizedQuery);
             }
 
+            // タイプフィルター
             const matchesType = !typeFilter || card.info.some(info => info.includes(`このカードは${typeFilter}`));
 
+            // セットフィルター
             const matchesSet = !setFilter || card.info.some(info => info.includes(`このカードの収録セットは、${setFilter}`));
 
             return textMatches && matchesType && matchesSet;
@@ -127,7 +140,7 @@ window.initSearchSection = function(allCards, showCustomDialog) {
 
         if (filteredCards.length > 0) {
             let resultsHtml = `<p>「<strong>${query || '全てのカード'}</strong>」の検索結果 (${filteredCards.length}件):</p><ul>`;
-            filteredCards.forEach(card => {
+            filteredCards.forEach(card => { // すべて表示するためにsliceを削除
                 resultsHtml += `<li><a href="#" class="card-name-link" data-card-name="${card.name}"><strong>${card.name}</strong></a><br>`;
                 card.info.forEach(info => {
                     if (info.startsWith("このカードの効果は、「")) {
@@ -141,15 +154,17 @@ window.initSearchSection = function(allCards, showCustomDialog) {
             resultsHtml += `</ul>`;
             searchResults.innerHTML = resultsHtml;
 
+            // カード名リンクにイベントリスナーを追加
             searchResults.querySelectorAll('.card-name-link').forEach(link => {
-                link.addEventListener('click', (e) => {
+                link.onclick = (e) => { // addEventListenerの代わりにonclickを使用
                     e.preventDefault();
                     const cardName = e.target.dataset.cardName;
                     displayCardDetails(cardName);
-                });
+                };
             });
 
         } else {
+            // Gemini APIを呼び出して架空のカードを生成
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: `TCGカードの検索機能です。以下の条件に合致する架空のカード名、効果、世界観の情報をJSON形式で3つ生成してください。もし情報が見つからない場合は「見つかりませんでした」と返してください。
             フォーマット：
@@ -175,7 +190,7 @@ window.initSearchSection = function(allCards, showCustomDialog) {
                 }
             }
 
-            const apiKey = "";
+            const apiKey = ""; // Canvas環境で自動提供
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
             try {
@@ -233,13 +248,13 @@ window.initSearchSection = function(allCards, showCustomDialog) {
         popup.innerHTML = detailHtml;
         document.body.appendChild(popup);
 
-        popup.querySelector('#close-card-detail-popup').addEventListener('click', () => {
+        popup.querySelector('#close-card-detail-popup').onclick = () => { // addEventListenerの代わりにonclickを使用
             popup.remove();
-        });
+        };
     }
 
     if (performSearchButton) {
-        performSearchButton.addEventListener('click', async () => {
+        performSearchButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
             if (!searchInput || !searchTextTarget || !searchFilterType || !searchFilterSet) return;
             const query = searchInput.value.trim();
             const textTarget = searchTextTarget.value;
@@ -251,12 +266,12 @@ window.initSearchSection = function(allCards, showCustomDialog) {
             } else {
                 if (searchResults) searchResults.innerHTML = '<p>検索キーワードまたはフィルターを入力してください。</p>';
             }
-        });
+        };
     }
 
     // オートコンプリート機能
     if (searchInput && autocompleteSuggestions && performSearchButton) {
-        searchInput.addEventListener('input', () => {
+        searchInput.oninput = () => { // addEventListenerの代わりにoninputを使用
             const query = searchInput.value.trim().toLowerCase();
             autocompleteSuggestions.innerHTML = '';
 
@@ -270,11 +285,11 @@ window.initSearchSection = function(allCards, showCustomDialog) {
                     suggestions.slice(0, 5).forEach(suggestion => {
                         const div = document.createElement('div');
                         div.textContent = suggestion;
-                        div.addEventListener('click', () => {
+                        div.onclick = () => { // addEventListenerの代わりにonclickを使用
                             searchInput.value = suggestion;
                             autocompleteSuggestions.style.display = 'none';
-                            performSearchButton.click();
-                        });
+                            performSearchButton.click(); // オートコンプリート選択後、検索を実行
+                        };
                         autocompleteSuggestions.appendChild(div);
                     });
                 } else {
@@ -283,13 +298,14 @@ window.initSearchSection = function(allCards, showCustomDialog) {
             } else {
                 autocompleteSuggestions.style.display = 'none';
             }
-        });
+        };
 
-        searchInput.addEventListener('blur', () => {
+        // 検索インプットからフォーカスが外れたらサジェストを隠す
+        searchInput.onblur = () => { // addEventListenerの代わりにonblurを使用
             setTimeout(() => {
                 if (autocompleteSuggestions) autocompleteSuggestions.style.display = 'none';
-            }, 100);
-        });
+            }, 100); // クリックイベントが発火するのを待つ
+        };
     }
 
     // 検索フィルターを初期化

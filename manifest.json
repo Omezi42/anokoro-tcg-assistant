@@ -20,7 +20,8 @@
     {
       "matches": ["https://unityroom.com/games/anokorotcg*"],
       "css": ["css/style.css"],
-      "js": ["js/main.js"]
+      "js": ["js/main.js"],
+      "run_at": "document_idle"
     }
   ],
   "action": {

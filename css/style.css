@@ -461,6 +461,71 @@ h4 {
 }
 
 
+/* ポップアップメッセージの共通スタイル */
+#tcg-custom-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10002;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+#tcg-custom-dialog-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.tcg-modal-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+#tcg-modal-content.show .tcg-modal-content {
+    transform: scale(1);
+}
+
+.tcg-modal-content h3 {
+    color: #5cb85c;
+    margin-bottom: 20px;
+}
+
+.tcg-modal-content p {
+    font-size: 1.1em;
+    margin-bottom: 25px;
+    color: #555;
+}
+
+.tcg-modal-content button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
+}
+
+.tcg-modal-content button:hover {
+    background-color: #0056b3;
+}
+
+
 /* メモ固有のスタイル */
 #screenshot-button {
     background-color: #17a2b8; /* 水色 */

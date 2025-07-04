@@ -304,21 +304,9 @@ async function showSection(sectionId) {
         return;
     }
 
-    // セクションのHTMLをロード (index.htmlに直接記述されているため、ここでは表示を切り替えるのみ)
-    // ただし、homeセクションはHTMLに直接埋め込まれているため、innerHTMLは更新しない
+    // homeセクションはHTMLに直接埋め込まれているため、innerHTMLは更新しない
     if (sectionId !== 'home') {
         try {
-            // 各セクションのHTMLスニペットを動的にロードする場合のパス（今回はindex.htmlに統合されているため、この部分は不要）
-            // const htmlPath = chrome.runtime.getURL(`html/sections/${sectionId}.html`);
-            // console.log(`Fetching HTML from: ${htmlPath}`);
-            // const response = await fetch(htmlPath);
-            // if (!response.ok) {
-            //     throw new Error(`Failed to load HTML for ${sectionId}: ${response.statusText} (${response.status})`);
-            // }
-            // const htmlContent = await response.text();
-            // targetSection.innerHTML = htmlContent;
-            // console.log(`HTML loaded and injected for section: ${sectionId}`);
-
             // index.html に直接記述されている各セクションのコンテンツを切り替えるため、
             // ここではinnerHTMLの更新は不要。
             // ただし、もしセクションが空の場合に備えて、コンテンツを埋めるロジックは残す。
@@ -346,35 +334,29 @@ async function showSection(sectionId) {
     if (!loadedSectionScripts[jsPath]) {
         try {
             console.log(`Checking JS existence: ${jsPath}`);
-            const response = await fetch(jsPath, { method: 'HEAD' });
-            if (response.ok) {
-                const script = document.createElement('script');
-                script.src = jsPath;
-                // script.type = 'module'; // ESモジュールとしてロード (windowに公開するためtype='module'は削除)
-                document.body.appendChild(script);
-                loadedSectionScripts[jsPath] = true;
-                console.log(`JS script element appended for section: ${sectionId}`);
+            const script = document.createElement('script');
+            script.src = jsPath;
+            document.body.appendChild(script);
+            loadedSectionScripts[jsPath] = true;
+            console.log(`JS script element appended for section: ${sectionId}`);
 
-                // スクリプトがロードされてから初期化関数を呼び出す
-                script.onload = () => {
-                    console.log(`Script loaded: ${jsPath}`);
-                    // DOMが完全に更新されるのを待つためにsetTimeout(0)を使用
-                    setTimeout(() => {
-                        if (typeof window[initFunctionName] === 'function') {
-                            console.log(`Calling initialization function: ${initFunctionName}`);
-                            // 各セクションのJSはDOM要素を自身で取得するため、引数はallCardsとshowCustomDialogのみ
-                            window[initFunctionName](allCards, showCustomDialog);
-                        } else {
-                            console.warn(`Initialization function ${initFunctionName} not found on window object after script load for section ${sectionId}. This might indicate a scoping issue in the section's JS file.`);
-                        }
-                    }, 0); // 0ms delay to allow DOM to settle
-                };
-                script.onerror = (e) => {
-                    console.error(`Error loading script: ${jsPath}`, e);
-                };
-            } else {
-                console.warn(`JavaScript file not found or accessible: ${jsPath}`);
-            }
+            // スクリプトがロードされてから初期化関数を呼び出す
+            script.onload = () => {
+                console.log(`Script loaded: ${jsPath}`);
+                // DOMが完全に更新されるのを待つためにsetTimeout(0)を使用
+                setTimeout(() => {
+                    if (typeof window[initFunctionName] === 'function') {
+                        console.log(`Calling initialization function: ${initFunctionName}`);
+                        // 各セクションのJSはDOM要素を自身で取得するため、引数はallCardsとshowCustomDialogのみ
+                        window[initFunctionName](allCards, showCustomDialog);
+                    } else {
+                        console.warn(`Initialization function ${initFunctionName} not found on window object after script load for section ${sectionId}. This might indicate a scoping issue in the section's JS file.`);
+                    }
+                }, 0); // 0ms delay to allow DOM to settle
+            };
+            script.onerror = (e) => {
+                console.error(`Error loading script: ${jsPath}`, e);
+            };
         } catch (error) {
             console.warn(`Error loading JavaScript for section ${sectionId}: ${jsPath}`, error);
         }
@@ -556,29 +538,16 @@ async function initializeExtensionFeatures() {
 }
 
 // DOMが完全にロードされるのを待ってから要素を注入し、機能を初期化します。
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        // HTMLが既に読み込まれているため、createContentAreaは不要
-        createRightSideMenu(); // 右サイドメニューはHTMLに静的にあるため、イベントリスナーをセット
-        initializeExtensionFeatures(); // カードデータロード、スクリーンショット関連初期化
-        
-        // 初期表示セクションをロード
-        chrome.storage.local.get(['activeSection'], (result) => {
-            const activeSection = result.activeSection || 'home';
-            showSection(activeSection);
-        });
-    });
-} else {
-    // HTMLが既に読み込まれているため、createContentAreaは不要
-    createRightSideMenu(); // 右サイドメニューはHTMLに静的にあるため、イベントリスナーをセット
-    initializeExtensionFeatures(); // カードデータロード、スクリーンショット関連初期化
+// HTMLが既に読み込まれているため、createContentAreaは不要
+createRightSideMenu(); // 右サイドメニューはHTMLに静的にあるため、イベントリスナーをセット
+initializeExtensionFeatures(); // カードデータロード、スクリーンショット関連初期化
 
-    // 初期表示セクションをロード
-    chrome.storage.local.get(['activeSection'], (result) => {
-        const activeSection = result.activeSection || 'home';
-        showSection(activeSection);
-    });
-}
+// 初期表示セクションをロード
+chrome.storage.local.get(['activeSection'], (result) => {
+    const activeSection = result.activeSection || 'home';
+    showSection(activeSection);
+});
+
 
 // popup.jsからのメッセージを受け取るリスナー
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -596,24 +565,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
             isMenuIconsVisible = false; 
             updateMenuIconsVisibility(); 
-
-            if (gameCanvas) {
-                gameCanvas.style.display = 'block';
-            }
-            document.body.classList.remove('game-focused-mode');
-            isSidebarOpen = false;
-            rightMenuContainer.querySelectorAll('.tcg-menu-icon').forEach(btn => btn.classList.remove('active'));
         } else {
             contentArea.classList.add('active');
             contentArea.style.right = '0px';
             isMenuIconsVisible = true; 
             updateMenuIconsVisibility(); 
-
-            if (gameCanvas) {
-                gameCanvas.style.display = 'block';
-            }
-            document.body.classList.remove('game-focused-mode');
-            isSidebarOpen = true;
             
             chrome.storage.local.get(['activeSection'], (result) => {
                 const activeSection = result.activeSection || 'home';

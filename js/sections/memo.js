@@ -1,7 +1,9 @@
-// js/sections/memo/memo.js
+// js/sections/memo.js
 
-// グローバルな依存関係を受け取るための初期化関数
-window.initMemoSection = function(allCards, showCustomDialog) { // screenshotAreaなどのDOM要素の引数を削除
+// グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
+window.initMemoSection = function(allCards, showCustomDialog) {
+    console.log("Memo section initialized.");
+
     // === メモセクションのロジック ===
     // 各要素を関数内で取得
     const screenshotButton = document.getElementById('screenshot-button');
@@ -44,20 +46,20 @@ window.initMemoSection = function(allCards, showCustomDialog) { // screenshotAre
                 });
                 // 削除ボタンのイベントリスナーを設定
                 savedMemosList.querySelectorAll('.delete-memo-button').forEach(button => {
-                    button.addEventListener('click', async (event) => {
+                    button.onclick = async (event) => { // addEventListenerの代わりにonclickを使用
                         const originalIndexToDelete = parseInt(event.currentTarget.dataset.originalIndex);
                         const confirmed = await showCustomDialog('メモ削除', 'このメモを削除しますか？', true);
                         if (confirmed) {
                             deleteMemo(originalIndexToDelete);
                         }
-                    });
+                    };
                 });
                 // 編集ボタンのイベントリスナーを設定
                 savedMemosList.querySelectorAll('.edit-memo-button').forEach(button => {
-                    button.addEventListener('click', (event) => {
+                    button.onclick = (event) => { // addEventListenerの代わりにonclickを使用
                         const originalIndexToEdit = parseInt(event.currentTarget.dataset.originalIndex);
                         editMemo(originalIndexToEdit);
-                    });
+                    };
                 });
             }
         });
@@ -97,7 +99,7 @@ window.initMemoSection = function(allCards, showCustomDialog) { // screenshotAre
         });
     };
 
-    // main content.jsから発火されるカスタムイベントをリッスン
+    // main.jsから発火されるカスタムイベントをリッスン
     document.addEventListener('screenshotCropped', (event) => {
         if (screenshotArea) {
             screenshotArea.innerHTML = `<img src="${event.detail.imageUrl}" alt="Cropped Screenshot">`;
@@ -105,14 +107,14 @@ window.initMemoSection = function(allCards, showCustomDialog) { // screenshotAre
     });
 
     if (screenshotButton) {
-        screenshotButton.addEventListener('click', async () => {
-            // main content.jsのスクリーンショットキャプチャロジックをトリガー
+        screenshotButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
+            // main.jsのスクリーンショットキャプチャロジックをトリガー
             chrome.runtime.sendMessage({ action: "captureScreenshot" });
-        });
+        };
     }
 
     if (saveMemoButton) {
-        saveMemoButton.addEventListener('click', async () => {
+        saveMemoButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
             if (!memoTextArea || !screenshotArea) return;
             const memoContent = memoTextArea.value.trim();
             const currentScreenshot = screenshotArea.querySelector('img');
@@ -143,23 +145,23 @@ window.initMemoSection = function(allCards, showCustomDialog) { // screenshotAre
             } else {
                 showCustomDialog('エラー', 'メモ内容が空か、スクリーンショットがありません。');
             }
-        });
+        };
     }
 
     if (memoSearchButton) {
-        memoSearchButton.addEventListener('click', () => {
+        memoSearchButton.onclick = () => { // addEventListenerの代わりにonclickを使用
             if (memoSearchInput) {
                 const query = memoSearchInput.value.trim();
                 loadMemos(query);
             }
-        });
+        };
     }
     if (memoSearchInput) {
-        memoSearchInput.addEventListener('keypress', (e) => {
+        memoSearchInput.onkeypress = (e) => { // addEventListenerの代わりにonkeypressを使用
             if (e.key === 'Enter') {
                 if (memoSearchButton) memoSearchButton.click();
             }
-        });
+        };
     }
 
     loadMemos();

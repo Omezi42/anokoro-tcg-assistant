@@ -1,6 +1,6 @@
 // js/sections/battle-record/battle-record.js
 
-// グローバルな依存関係を受け取るための初期化関数
+// グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
 function initBattleRecordSection(allCards, showCustomDialog) {
     // === 戦いの記録セクションのロジック ===
     const myDeckSelect = document.getElementById('my-deck-select');

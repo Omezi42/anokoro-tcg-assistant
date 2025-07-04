@@ -1,6 +1,6 @@
 /* css/sections/memo/memo.css */
 
-#tcg-memo-section h2 {
+#tcg-memo-section .section-title {
     color: #5cb85c; /* メインカラーの緑 */
     margin-bottom: 25px;
     font-size: 2.2em;

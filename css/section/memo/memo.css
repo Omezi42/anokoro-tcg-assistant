@@ -1,0 +1,160 @@
+/* css/sections/memo/memo.css */
+
+#tcg-memo-section h2 {
+    color: #5cb85c; /* メインカラーの緑 */
+    margin-bottom: 25px;
+    font-size: 2.2em;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 10px;
+}
+
+#screenshot-button {
+    background-color: #17a2b8; /* 水色 */
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+    transition: background-color 0.2s ease;
+}
+#screenshot-button:hover {
+    background-color: #138496;
+}
+
+#screenshot-area {
+    border: 2px dashed #ccc;
+    padding: 20px;
+    text-align: center;
+    margin-top: 20px;
+    min-height: 150px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #fcfcfc;
+    border-radius: 10px;
+}
+
+#screenshot-area img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+#memo-text-area {
+    width: calc(100% - 20px);
+    padding: 10px;
+    margin-top: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 1em;
+    min-height: 120px;
+    resize: vertical; /* 垂直方向にリサイズ可能 */
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+#save-memo-button {
+    background-color: #5cb85c; /* 緑 */
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 16px;
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    transition: background-color 0.2s ease;
+}
+#save-memo-button:hover {
+    background-color: #449d44;
+}
+
+#saved-memos-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 30px;
+}
+
+.saved-memo-item {
+    background-color: #f0f8ff; /* 淡い青の背景 */
+    border: 1px solid #d0e0f0;
+    padding: 15px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    position: relative;
+    padding-right: 40px; /* 削除ボタンのスペース */
+    word-wrap: break-word; /* 長いテキストの折り返し */
+}
+
+.saved-memo-item strong {
+    color: #007bff;
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
+
+.delete-memo-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #dc3545;
+    font-size: 1.2em;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+.delete-memo-button:hover {
+    color: #a71d2a;
+}
+
+.edit-memo-button {
+    position: absolute;
+    top: 10px;
+    right: 40px; /* 削除ボタンの左隣 */
+    background: none;
+    border: none;
+    color: #17a2b8; /* 水色 */
+    font-size: 1.2em;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+.edit-memo-button:hover {
+    color: #138496;
+}
+
+/* メモ検索/フィルタリング */
+.memo-filter-area {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    margin-top: 20px;
+}
+.memo-filter-area input {
+    flex-grow: 1;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+.memo-filter-area button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.memo-filter-area button:hover {
+    background-color: #0056b3;
+}

@@ -1,0 +1,371 @@
+/* css/content.css */
+
+/* このCSSは、content.jsによって挿入されるオーバーレイ要素をスタイルするために使用できます。 */
+/* メインカラー: 緑 (#5cb85c), アクセントカラー: 青 (#007bff), オレンジ (#ffc107) */
+
+/* CSS変数定義 */
+:root {
+    --sidebar-width: 500px; /* デフォルトのサイドバー幅 */
+    --icon-button-size: 60px; /* 各アイコンボタンのサイズ */
+    --toggle-button-size: 50px; /* トグルボタンのサイズ */
+    /* アイコンメニュー展開時のアイコン部分の幅 (アイコンのサイズそのまま) */
+    --menu-expanded-width: var(--icon-button-size); 
+    /* アイコンメニュー格納時のアイコン部分の幅 (アイコンを非表示にするため0) */
+    --menu-collapsed-width: 0px; 
+    /* 展開時の全体のメニュー幅 (アイコン幅 + トグルボタン幅) */
+    --total-menu-width-when-expanded: calc(var(--icon-button-size)); 
+}
+
+/* PDFに合わせた右サイドメニューのコンテナ */
+#tcg-right-menu-container {
+    position: fixed;
+    top: 50%; /* 画面中央に配置 */
+    right: 0; /* 初期位置は画面右端 */
+    transform: translateY(-50%); /* 中央揃え */
+    z-index: 10000; /* コンテンツエリアより下 */
+    display: flex;
+    flex-direction: column; /* アイコンを縦に並べる */
+    align-items: center; /* アイコンを水平中央に揃える */
+    transition: width 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease, padding 0.3s ease, border-radius 0.3s ease;
+    
+    /* 常にトグルボタン分の下部スペースを確保 */
+    padding-bottom: calc(var(--toggle-button-size) + 10px); 
+    box-sizing: border-box; /* パディングを幅に含める */
+
+    /* 初期状態（collapsed時）のスタイル */
+    width: var(--toggle-button-size); /* トグルボタンの幅のみ */
+    background-color: transparent; /* 背景透明 */
+    box-shadow: none; /* 影なし */
+    border-radius: 0; /* 角丸なし */
+    padding-top: 0; /* collapsed時は上パディングもなし */
+}
+
+/* メニューコンテナが展開された時のスタイル */
+#tcg-right-menu-container.expanded {
+    width: calc(var(--icon-button-size) + 20px); /* アイコンの幅 + 左右のパディング */
+    background-color: #333;
+    padding-top: 10px; /* 上部のパディング */
+    box-shadow: -3px 0 8px rgba(0,0,0,0.6);
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+
+/* メニューアイコンのラッパー */
+.tcg-menu-icons-wrapper {
+    display: flex; /* デフォルトでflexにして、visible/hiddenで切り替える */
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    flex-grow: 1;
+    width: var(--menu-expanded-width); /* アイコン表示時の幅 */
+    overflow: hidden;
+    transition: opacity 0.3s ease; /* opacityのみアニメーション */
+    opacity: 1; /* デフォルトで表示 */
+    box-sizing: border-box;
+}
+
+/* メニューアイコンラッパーの表示/非表示を制御するクラス */
+.tcg-menu-icons-wrapper.hidden {
+    opacity: 0;
+    pointer-events: none; /* クリックイベントを無効にする */
+}
+.tcg-menu-icons-wrapper.visible {
+    opacity: 1;
+    pointer-events: auto; /* クリックイベントを有効にする */
+}
+
+/* 右サイドメニュー内のアイコンボタン */
+.tcg-menu-icon {
+    background: none;
+    border: none;
+    color: #f0f0f0;
+    font-size: 28px; /* アイコンサイズ */
+    padding: 10px;
+    cursor: pointer;
+    width: var(--icon-button-size); /* アイコンボタンの固定幅 */
+    height: var(--icon-button-size); /* アイコンボタンの固定高さ */
+    text-align: center;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+    border-radius: 5px; /* 角を丸く */
+    display: flex; /* アイコンを中央に配置するために必要 */
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0; /* 縮小させない */
+}
+
+.tcg-menu-icon:hover {
+    background-color: #444;
+    color: white;
+    transform: scale(1.05);
+}
+
+.tcg-menu-icon.active {
+    background-color: #007bff; /* アクティブなアイコンは青 */
+    color: white;
+    box-shadow: inset 0 0 8px rgba(0, 123, 255, 0.5); /* 内部シャドウで強調 */
+}
+
+/* サイドバーの開閉ボタン */
+.tcg-menu-toggle-button {
+    position: absolute; /* 絶対配置 */
+    bottom: 0; /* 下端に配置 */
+    right: 0; /* 右端に配置 */
+    background-color: #333; /* トグルボタン自体の背景色 */
+    border: none;
+    color: #f0f0f0; /* アイコン色 */
+    font-size: 28px; /* アイコンサイズ */
+    cursor: pointer;
+    padding: 10px;
+    width: var(--toggle-button-size); /* 固定幅 */
+    height: var(--toggle-button-size); /* 固定高さ */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    border-top-left-radius: 10px; /* 上左の角を丸く */
+    box-sizing: border-box;
+}
+
+.tcg-menu-toggle-button:hover {
+    background-color: #444;
+    color: white;
+    transform: scale(1.05);
+}
+
+
+/* コンテンツ表示エリア (ゲーム画面の上に重ねて表示される飛び出しメニュー) */
+#tcg-content-area {
+    position: fixed;
+    top: 0; /* 画面上端から */
+    right: calc(-1 * var(--sidebar-width)); /* 初期状態では完全に画面外に隠す */
+    width: var(--sidebar-width); /* 固定幅 */
+    height: 100%; /* 全画面の高さ */
+    background-color: #ffffff; /* 背景色を白に */
+    color: #222; /* より濃い黒に変更してコントラストを改善 */
+    z-index: 9990; /* ゲームより上 */
+    box-sizing: border-box; /* パディングを幅に含める */
+    font-family: 'Inter', sans-serif;
+    line-height: 1.6;
+    display: flex; /* flexboxでコンテンツを縦に配置 */
+    flex-direction: column;
+    transition: right 0.4s cubic-bezier(0.4, 0.0, 0.2, 1); /* 'right' プロパティをアニメーション */
+    overflow-y: hidden; /* メインはhidden、各セクションでスクロールを制御 */
+    border-left: 2px solid #e0e0e0; /* サイドメニューとの区切り */
+    box-shadow: -5px 0 15px rgba(0,0,0,0.3); /* サイドバーの影 */
+}
+
+#tcg-content-area.active {
+    right: 0; /* アクティブ時は画面右端に配置（ゲーム画面に重なる） */
+}
+
+/* サイドバーのヘッダー */
+.tcg-content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 25px;
+    background-color: #f0f2f5; /* 明るい背景 */
+    border-bottom: 1px solid #e0e0e0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.tcg-content-header h2 {
+    color: #28a745; /* 緑のアクセントカラー */
+    margin: 0;
+    font-size: 1.6em;
+    flex-grow: 1; /* タイトルがスペースを占める */
+}
+
+/* サイドバーを閉じるボタン (ハンバーガーメニューの代わり) */
+.tcg-close-sidebar-button {
+    background: none;
+    border: none;
+    color: #6c757d; /* グレー */
+    font-size: 28px; /* アイコンサイズ */
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%; /* 丸いボタン */
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.tcg-close-sidebar-button:hover {
+    background-color: #e0e0e0;
+    color: #333;
+    transform: rotate(90deg); /* ホバー時に回転 */
+}
+
+/* レスポンシブデザイン: 小さい画面での調整 */
+@media (max-width: 768px) {
+    :root {
+        --sidebar-width: 80vw; /* タブレットサイズではビューポート幅の80%を使用 */
+    }
+}
+
+@media (max-width: 480px) {
+    :root {
+        --sidebar-width: 100vw; /* スマートフォンでは全幅 */
+        --icon-button-size: 50px; /* アイコン幅を小さく */
+        --toggle-button-size: 40px; /* トグルボタン幅を小さく */
+        --menu-expanded-width: var(--icon-button-size);
+        --total-menu-width-when-expanded: calc(var(--icon-button-size));
+    }
+    .tcg-menu-icon {
+        font-size: 24px;
+        padding: 8px;
+    }
+    .tcg-menu-toggle-button {
+        font-size: 24px;
+        padding: 8px;
+    }
+    /* .rate-match-actions button { */ /* rate-match.cssに移動 */
+    /* font-size: 14px; */
+    /* padding: 10px 12px; */
+    /* } */
+    .tcg-content-header h2 {
+        font-size: 1.4em;
+    }
+    .tcg-close-sidebar-button {
+        font-size: 24px;
+    }
+}
+
+
+/* コンテンツエリア内のセクション表示部分 */
+#tcg-sections-wrapper {
+    flex-grow: 1; /* 残りのスペースを占める */
+    padding: 25px;
+    overflow-y: auto; /* 各セクションでスクロールを可能に */
+    position: relative; /* 子要素のposition:absoluteの基準 */
+}
+
+
+.tcg-section {
+    display: none;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    padding-top: 10px; /* 見出しとの調整 */
+}
+
+.tcg-section.active {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 全体の見出しスタイル */
+/* 各セクションのHTMLファイルに移動 */
+/* #tcg-home-section h2, */
+/* #tcg-rate-match-section h2, */
+/* #tcg-memo-section h2, */
+/* #tcg-minigames-section h2, */
+/* #tcg-search-section h2, */
+/* #tcg-battle-record-section h2, */
+/* #tcg-deck-section h2 { */
+/* color: #5cb85c; */
+/* margin-bottom: 25px; */
+/* font-size: 2.2em; */
+/* border-bottom: 2px solid #e0e0e0; */
+/* padding-bottom: 10px; */
+/* } */
+
+/* 小見出しスタイル */
+h3 {
+    color: #007bff; /* 青のアクセント */
+    margin-top: 30px;
+    margin-bottom: 15px;
+    font-size: 1.6em;
+}
+
+h4 {
+    color: #ffc107; /* オレンジのアクセント */
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-size: 1.3em;
+}
+
+/* ポップアップメッセージの共通スタイル */
+#tcg-custom-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10002;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+#tcg-custom-dialog-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.tcg-modal-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+#tcg-modal-content.show .tcg-modal-content {
+    transform: scale(1);
+}
+
+.tcg-modal-content h3 {
+    color: #5cb85c;
+    margin-bottom: 20px;
+}
+
+.tcg-modal-content p {
+    font-size: 1.1em;
+    margin-bottom: 25px;
+    color: #555;
+}
+
+.tcg-modal-content button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
+}
+
+.tcg-modal-content button:hover {
+    background-color: #0056b3;
+}
+
+/* スクリーンショットオーバーレイ内のボタン配置 */
+#screenshot-overlay .tcg-modal-content > div:last-child {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap; /* ボタンが複数行になる場合のために折り返し */
+    gap: 10px; /* ボタン間のスペース */
+}
+
+/* ローディングスピナー */
+.spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-left-color: #007bff;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

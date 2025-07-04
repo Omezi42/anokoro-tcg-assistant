@@ -1,0 +1,342 @@
+// js/sections/deck/deck.js
+
+// グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
+function initDeckSection(allCards, showCustomDialog) {
+    /**
+     * デッキ分析UIを初期化し、イベントリスナーを設定します。
+     */
+    const deckAnalysisImageUpload = document.getElementById('deck-analysis-image-upload');
+    const recognizeDeckAnalysisButton = document.getElementById('recognize-deck-analysis-button');
+    const recognizedDeckAnalysisList = document.getElementById('recognized-deck-analysis-list');
+    const deckAnalysisSummary = document.getElementById('deck-analysis-summary');
+    const suggestedCardsDiv = document.getElementById('suggested-cards');
+
+    if (!deckAnalysisImageUpload || !recognizeDeckAnalysisButton || !recognizedDeckAnalysisList || !deckAnalysisSummary || !suggestedCardsDiv) {
+        console.error("Deck analysis UI elements not found.");
+        return;
+    }
+
+    // 初期状態をリセット
+    recognizedDeckAnalysisList.innerHTML = '<p>認識されたデッキリストがここに表示されます。</p>';
+    deckAnalysisSummary.innerHTML = '<p>分析結果がここに表示されます。</p>';
+    suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
+    recognizeDeckAnalysisButton.disabled = true;
+
+    deckAnalysisImageUpload.addEventListener('change', () => {
+        if (deckAnalysisImageUpload.files.length > 0) {
+            recognizeDeckAnalysisButton.disabled = false;
+        } else {
+            recognizeDeckAnalysisButton.disabled = true;
+        }
+    });
+
+    const deckAnalysisSection = document.getElementById('tcg-deck-section');
+    if (deckAnalysisSection) {
+        deckAnalysisSection.addEventListener('paste', async (event) => {
+            const items = event.clipboardData.items;
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    const blob = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        const base64ImageData = e.target.result.split(',')[1];
+                        await processDeckImage(base64ImageData, blob.type);
+                    };
+                    reader.readAsDataURL(blob);
+                    return;
+                }
+            }
+            showCustomDialog('貼り付け失敗', 'クリップボードに画像がありませんでした。');
+        });
+    }
+
+    recognizeDeckAnalysisButton.addEventListener('click', async () => {
+        if (!deckAnalysisImageUpload.files || deckAnalysisImageUpload.files.length === 0) {
+            showCustomDialog('エラー', 'デッキ画像をアップロードしてください。');
+            return;
+        }
+
+        const file = deckAnalysisImageUpload.files[0];
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
+            const base64ImageData = e.target.result.split(',')[1];
+            await processDeckImage(base64ImageData, file.type);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    async function processDeckImage(base64ImageData, mimeType) {
+        recognizedDeckAnalysisList.innerHTML = '<p><div class="spinner"></div> 画像認識中...</p>';
+        deckAnalysisSummary.innerHTML = '<p>分析結果がここに表示されます。</p>';
+        suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
+
+        let chatHistory = [];
+        chatHistory.push({ role: "user", parts: [{ text: "この画像に写っているTCGカードのカード名を全てリストアップしてください。カード名のみをJSON配列形式で返してください。例: [\"カード名1\", \"カード名2\"]。もしカード名が複数行に分かれている場合は、結合して一つのカード名としてください。画像が不鮮明な場合でも、推測できる範囲でカード名を抽出してください。" },
+            {
+                inlineData: {
+                    mimeType: mimeType,
+                    data: base64ImageData
+                }
+            }
+        ]});
+
+        const payload = {
+            contents: chatHistory,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "ARRAY",
+                    items: { "type": "STRING" }
+                }
+            }
+        };
+
+        const apiKey = "";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+                const jsonText = result.candidates[0].content.parts[0].text;
+                const recognizedCardNames = JSON.parse(jsonText);
+
+                if (recognizedCardNames.length > 0) {
+                    let recognizedHtml = '<h4>認識されたカード:</h4><ul>';
+                    recognizedCardNames.forEach(cardName => {
+                        recognizedHtml += `<li>${cardName}</li>`;
+                    });
+                    recognizedHtml += '</ul>';
+                    recognizedDeckAnalysisList.innerHTML = recognizedHtml;
+
+                    analyzeDeck(recognizedCardNames);
+
+                } else {
+                    recognizedDeckAnalysisList.innerHTML = '<p>カードを認識できませんでした。</p>';
+                    deckAnalysisSummary.innerHTML = '<p>分析結果がここに表示されます。</p>';
+                    suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
+                }
+            } else {
+                recognizedDeckAnalysisList.innerHTML = '<p>画像認識に失敗しました。</p>';
+                deckAnalysisSummary.innerHTML = '<p>分析結果がここに表示されます。</p>';
+                suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
+            }
+        } catch (error) {
+            console.error("画像認識API呼び出しエラー:", error);
+            recognizedDeckAnalysisList.innerHTML = '<p>画像認識中にエラーが発生しました。</p>';
+            deckAnalysisSummary.innerHTML = '<p>分析結果がここに表示されます。</p>';
+            suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
+        }
+    }
+
+    /**
+     * 認識されたカードリストからデッキを分析し、結果を表示します。
+     * @param {string[]} cardNames - 認識されたカード名の配列。
+     */
+    function analyzeDeck(cardNames) {
+        const deckAnalysisSummary = document.getElementById('deck-analysis-summary');
+        const suggestedCardsDiv = document.getElementById('suggested-cards');
+
+        if (!deckAnalysisSummary || !suggestedCardsDiv) return;
+
+        const deckCards = cardNames.map(name => allCards.find(card => card.name === name)).filter(card => card !== undefined);
+
+        if (deckCards.length === 0) {
+            deckAnalysisSummary.innerHTML = '<p>認識されたカードに対応するデータが見つかりませんでした。</p>';
+            suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
+            return;
+        }
+
+        const costCurve = {};
+        for (let i = 0; i <= 10; i++) {
+            costCurve[i] = 0;
+        }
+        costCurve['11+'] = 0;
+
+        deckCards.forEach(card => {
+            const costInfo = card.info.find(info => info.startsWith('このカードのコストは'));
+            if (costInfo) {
+                const costMatch = costInfo.match(/コストは(\d+)/);
+                if (costMatch) {
+                    const cost = parseInt(costMatch[1]);
+                    if (cost <= 10) {
+                        costCurve[cost]++;
+                    } else {
+                        costCurve['11+']++;
+                    }
+                }
+            }
+        });
+
+        const typeDistribution = {};
+        const cardTypes = ['モンスター', '魔法', '罠', 'エネルギー', 'フィールド'];
+        const speciesTypes = new Set();
+
+        deckCards.forEach(card => {
+            const typeInfo = card.info.find(info => 
+                info.startsWith('このカードはモンスターです。') ||
+                info.startsWith('このカードは魔法です。') ||
+                info.startsWith('このカードは罠です。') ||
+                info.startsWith('このカードはエネルギーです。') ||
+                info.startsWith('このカードはフィールドです。')
+            );
+            if (typeInfo) {
+                let type = '';
+                if (typeInfo.includes('モンスター')) type = 'モンスター';
+                else if (typeInfo.includes('魔法')) type = '魔法';
+                else if (typeInfo.includes('罠')) type = '罠';
+                else if (typeInfo.includes('エネルギー')) type = 'エネルギー';
+                else if (typeInfo.includes('フィールド')) type = 'フィールド';
+                
+                typeDistribution[type] = (typeDistribution[type] || 0) + 1;
+            }
+
+            const speciesInfo = card.info.find(info => info.startsWith('このカードの種別は'));
+            if (speciesInfo) {
+                const speciesText = speciesInfo.replace('このカードの種別は', '').replace('です。', '');
+                speciesText.split(',').forEach(s => {
+                    const trimmedSpecies = s.trim();
+                    if (trimmedSpecies && trimmedSpecies !== '無い') {
+                        speciesTypes.add(trimmedSpecies);
+                    }
+                });
+            }
+        });
+
+        let summaryHtml = `<h4>デッキ枚数: ${deckCards.length}枚</h4>`;
+        summaryHtml += `<h5>コストカーブ:</h5><ul>`;
+        for (const cost in costCurve) {
+            summaryHtml += `<li>${cost}コスト: ${costCurve[cost]}枚</li>`;
+        }
+        summaryHtml += `</ul>`;
+
+        summaryHtml += `<h5>タイプ別枚数:</h5><ul>`;
+        cardTypes.forEach(type => {
+            summaryHtml += `<li>${type}: ${typeDistribution[type] || 0}枚</li>`;
+        });
+        summaryHtml += `</ul>`;
+
+        if (speciesTypes.size > 0) {
+            summaryHtml += `<h5>主要な種別:</h5><ul>`;
+            Array.from(speciesTypes).sort().forEach(species => {
+                summaryHtml += `<li>${species}</li>`;
+            });
+            summaryHtml += `</ul>`;
+        } else {
+            summaryHtml += `<p>主要な種別は見つかりませんでした。</p>`;
+        }
+
+        deckAnalysisSummary.innerHTML = summaryHtml;
+
+        suggestCards(deckCards, Array.from(speciesTypes));
+    }
+
+    /**
+     * デッキの分析結果に基づいておすすめカードをサジェストします。
+     * (簡易的なルールベースのサジェスト)
+     * @param {Object[]} deckCards - デッキ内のカードオブジェクトの配列。
+     * @param {string[]} deckSpeciesTypes - デッキ内の主要な種別（属性/カテゴリ）の配列。
+     */
+    async function suggestCards(deckCards, deckSpeciesTypes) {
+        const suggestedCardsDiv = document.getElementById('suggested-cards');
+        if (!suggestedCardsDiv) return;
+
+        let suggestions = [];
+        const totalCards = deckCards.length;
+        const monsterCount = deckCards.filter(card => card.info.some(info => info.includes('このカードはモンスターです。'))).length;
+        const magicCount = deckCards.filter(card => card.info.some(info => info.includes('このカードは魔法です。'))).length;
+        const trapCount = deckCards.filter(card => card.info.some(info => info.includes('このカードは罠です。'))).length;
+        const energyCount = deckCards.filter(card => card.info.some(info => info.includes('このカードはエネルギーです。'))).length;
+        const fieldCount = deckCards.filter(card => card.info.some(info => info.includes('このカードはフィールドです。'))).length;
+
+        if (totalCards < 40) {
+            suggestions.push("デッキ枚数を40枚以上にすることをおすすめします。");
+        }
+
+        if (monsterCount / totalCards < 0.4) {
+            suggestions.push("より多くのモンスターカードを追加して、盤面展開力を高めることを検討してください。");
+            const monsterSuggestions = allCards.filter(card => 
+                card.info.some(info => info.includes('このカードはモンスターです。')) &&
+                !deckCards.some(deckCard => deckCard.name === card.name)
+            ).slice(0, 3).map(card => card.name);
+            if (monsterSuggestions.length > 0) {
+                suggestions.push(`おすすめモンスター: ${monsterSuggestions.join(', ')}`);
+            }
+        }
+
+        const drawCards = deckCards.filter(card => card.info.some(info => info.includes('枚引く')));
+        if (drawCards.length < 3) {
+            suggestions.push("手札の補充を助けるドローソースカードの追加を検討してください。");
+            const drawSuggestions = allCards.filter(card => 
+                card.info.some(info => info.includes('枚引く')) &&
+                !deckCards.some(deckCard => deckCard.name === card.name)
+            ).slice(0, 2).map(card => card.name);
+            if (drawSuggestions.length > 0) {
+                suggestions.push(`おすすめドローソース: ${drawSuggestions.join(', ')}`);
+            }
+        }
+
+        if (deckSpeciesTypes.length > 0) {
+            deckSpeciesTypes.forEach(species => {
+                const speciesSupportCards = allCards.filter(card => 
+                    card.info.some(info => info.includes(`[${species}]`)) &&
+                    !deckCards.some(deckCard => deckCard.name === card.name) &&
+                    !card.info.some(info => info.includes('このカードはモンスターです。'))
+                ).slice(0, 2).map(card => card.name);
+                if (speciesSupportCards.length > 0) {
+                    suggestions.push(`「${species}」タイプのサポートとして、${speciesSupportCards.join(', ')} などのカードを検討してください。`);
+                }
+            });
+        }
+
+        const lowCostCards = deckCards.filter(card => {
+            const costInfo = card.info.find(info => info.startsWith('このカードのコストは'));
+            if (costInfo) {
+                const costMatch = costInfo.match(/コストは(\d+)/);
+                if (costMatch) {
+                    const cost = parseInt(costMatch[1]);
+                    return cost <= 2;
+                }
+            }
+            return false;
+        }).length;
+
+        const highCostCards = deckCards.filter(card => {
+            const costInfo = card.info.find(info => info.startsWith('このカードのコストは'));
+            if (costInfo) {
+                const costMatch = costInfo.match(/コストは(\d+)/);
+                if (costMatch) {
+                    const cost = parseInt(costMatch[1]);
+                    return cost >= 7;
+                }
+            }
+            return false;
+        }).length;
+
+        if (lowCostCards / totalCards < 0.2) {
+            suggestions.push("序盤の展開を安定させるために、低コストのカードを増やすことを検討してください。");
+        } else if (highCostCards / totalCards > 0.3 && energyCount < 5) {
+            suggestions.push("高コストカードが多いようです。エネルギーカードの枚数を増やすことを検討してください。");
+        }
+
+
+        if (suggestions.length > 0) {
+            let suggestionHtml = `<h4>以下の点を検討してみてください:</h4><ul>`;
+            suggestions.forEach(s => {
+                suggestionHtml += `<li>${s}</li>`;
+            });
+            suggestionHtml += `</ul>`;
+            suggestedCardsDiv.innerHTML = suggestionHtml;
+        } else {
+            suggestedCardsDiv.innerHTML = '<p>現在のデッキはバランスが良いようです！</p>';
+        }
+    }
+}

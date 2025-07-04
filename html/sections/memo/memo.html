@@ -1,0 +1,16 @@
+<!-- html/sections/memo/memo.html -->
+<h2>メモ</h2>
+<p>対戦中の気づきやアイデアを保存できます。</p>
+<button id="screenshot-button"><i class="fas fa-camera"></i> スクリーンショットを撮影</button>
+<div id="screenshot-area">
+    <p>スクリーンショットがここに表示されます。</p>
+</div>
+<textarea id="memo-text-area" placeholder="メモを入力してください..." rows="5"></textarea>
+<button id="save-memo-button"><i class="fas fa-save"></i> メモを保存</button>
+<h3>過去のメモ</h3>
+<div class="memo-filter-area">
+    <input type="text" id="memo-search-input" placeholder="メモを検索...">
+    <button id="memo-search-button"><i class="fas fa-filter"></i> フィルタ</button>
+</div>
+<ul id="saved-memos-list">
+</ul>

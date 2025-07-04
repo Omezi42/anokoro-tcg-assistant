@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8"> <!-- 文字化け対策として追加 -->
+    <title>TCGアシスタント</title>
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif; /* Font Interを使用 */
+            width: 280px; /* 幅を調整 */
+            padding: 15px;
+            background-color: #f0f2f5;
+            color: #333;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            border-radius: 10px; /* 角を丸く */
+        }
+        h2 {
+            color: #28a745; /* 緑のアクセントカラー */
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.6em;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        .section-button {
+            display: flex; /* Flexboxでアイコンとテキストを配置 */
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            background-color: #007bff; /* 青のアクセントカラー */
+            color: white;
+            border: none;
+            border-radius: 8px; /* 角を丸く */
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+            gap: 8px; /* アイコンとテキストの間隔 */
+        }
+        .section-button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .section-button.home { background-color: #5cb85c; }
+        .section-button.home:hover { background-color: #449d44; }
+        .section-button.rate-match { background-color: #ffc107; color: black; }
+        .section-button.rate-match:hover { background-color: #e0a800; }
+        .section-button.memo { background-color: #17a2b8; }
+        .section-button.memo:hover { background-color: #138496; }
+        .section-button.search { background-color: #6f42c1; }
+        .section-button.search:hover { background-color: #5f37a8; }
+        .section-button.minigames { background-color: #6c757d; }
+        .section-button.minigames:hover { background-color: #5a6268; }
+        .section-button.battle-record { background-color: #dc3545; }
+        .section-button.battle-record:hover { background-color: #c82333; }
+
+        .section-button i {
+            font-size: 1.2em; /* アイコンサイズ調整 */
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <h2>あの頃の自作TCGアシスタント</h2>
+    <button class="section-button home" data-section="home"><i class="fas fa-home"></i> ホーム</button>
+    <button class="section-button rate-match" data-section="rate-match"><i class="fas fa-fist-raised"></i> レート戦</button>
+    <button class="section-button memo" data-section="memo"><i class="fas fa-clipboard"></i> メモ</button>
+    <button class="section-button search" data-section="search"><i class="fas fa-search"></i> 検索</button>
+    <button class="section-button minigames" data-section="minigames"><i class="fas fa-gamepad"></i> ミニゲーム</button>
+    <button class="section-button battle-record" data-section="battle-record"><i class="fas fa-trophy"></i> 戦いの記録</button>
+    <p class="info-text">ゲーム画面で拡張機能のメニューが表示されます。</p>
+
+    <script src="popup.js"></script>
+</body>
+</html>

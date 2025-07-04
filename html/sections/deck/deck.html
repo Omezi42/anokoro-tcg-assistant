@@ -1,0 +1,22 @@
+<!-- html/sections/deck/deck.html -->
+<h2>デッキ分析</h2>
+<p>デッキのスクリーンショットをアップロードして分析できます。</p>
+<div class="deck-analysis-section">
+    <h4><i class="fas fa-camera"></i> デッキ画像からのカード認識</h4>
+    <p>デッキのスクリーンショットをアップロードするか、ここに画像を貼り付けてください (Ctrl+V / Cmd+V)。</p>
+    <input type="file" id="deck-analysis-image-upload" accept="image/png, image/jpeg" style="margin-bottom: 10px;">
+    <button id="recognize-deck-analysis-button" disabled><i class="fas fa-brain"></i> 画像認識を実行</button>
+    <div id="recognized-deck-analysis-list" style="margin-top: 15px; border: 1px dashed #ccc; padding: 10px; min-height: 50px; text-align: center;">
+        <p>認識されたデッキリストがここに表示されます。</p>
+    </div>
+    <hr style="margin-top: 30px; margin-bottom: 20px;">
+    <h4><i class="fas fa-chart-pie"></i> デッキ分析サマリー</h4>
+    <div id="deck-analysis-summary" style="margin-top: 15px; background-color: #f9f9f9; border: 1px solid #eee; border-radius: 8px; padding: 15px;">
+        <p>分析結果がここに表示されます。</p>
+    </div>
+    <hr style="margin-top: 30px; margin-bottom: 20px;">
+    <h4><i class="fas fa-lightbulb"></i> おすすめカードのサジェスト</h4>
+    <div id="suggested-cards" style="margin-top: 15px; background-color: #f9f9f9; border: 1px solid #eee; border-radius: 8px; padding: 15px;">
+        <p>分析後におすすめカードが表示されます。</p>
+    </div>
+</div>

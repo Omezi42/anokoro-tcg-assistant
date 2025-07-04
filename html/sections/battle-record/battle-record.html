@@ -1,0 +1,105 @@
+<!-- html/sections/battle-record/battle-record.html -->
+<h2>戦いの記録</h2>
+<p>対戦記録とデッキの勝率を管理できます。</p>
+
+<div class="battle-record-tabs">
+    <button class="battle-record-tab-button active" data-tab="new-record"><i class="fas fa-plus-circle"></i> 新しい対戦記録</button>
+    <button class="battle-record-tab-button" data-tab="deck-management"><i class="fas fa-layer-group"></i> デッキ管理</button>
+    <button class="battle-record-tab-button" data-tab="stats-summary"><i class="fas fa-chart-bar"></i> 集計結果</button>
+    <button class="battle-record-tab-button" data-tab="past-records"><i class="fas fa-history"></i> 過去の対戦記録</button>
+</div>
+
+<div id="battle-record-tab-new-record" class="battle-record-tab-content active">
+    <div class="battle-record-form">
+        <label for="my-deck-select">自分のデッキ名:</label>
+        <select id="my-deck-select">
+            <option value="">登録済みデッキから選択</option>
+        </select>
+
+        <label for="opponent-deck-select">相手のデッキ名:</label>
+        <select id="opponent-deck-select">
+            <option value="">登録済みデッキから選択</option>
+        </select>
+
+        <label for="win-loss-select">勝敗:</label>
+        <select id="win-loss-select">
+            <option value="win">勝利</option>
+            <option value="lose">敗北</option>
+        </select>
+
+        <label for="first-second-select">先攻/後攻:</label>
+        <select id="first-second-select">
+            <option value="">選択してください</option>
+            <option value="first">先攻</option>
+            <option value="second">後攻</option>
+        </select>
+
+        <label for="notes-textarea">特記事項 (任意):</label>
+        <textarea id="notes-textarea" placeholder="メモや反省点など" rows="3"></textarea>
+
+        <button id="save-battle-record-button"><i class="fas fa-save"></i> 記録を保存</button>
+    </div>
+</div>
+
+<div id="battle-record-tab-deck-management" class="battle-record-tab-content">
+    <div class="deck-management-section">
+        <div class="deck-register-form">
+            <label for="new-deck-name">デッキ名:</label>
+            <input type="text" id="new-deck-name" placeholder="新しいデッキ名">
+            <label for="new-deck-type">デッキタイプ:</label>
+            <select id="new-deck-type">
+                <option value="">選択してください</option>
+                <option value="アグロ">アグロ</option>
+                <option value="コントロール">コントロール</option>
+                <option value="ミッドレンジ">ミッドレンジ</option>
+                <option value="コンボ">コンボ</option>
+                <option value="その他">その他</option>
+            </select>
+            <button id="register-deck-button"><i class="fas fa-plus"></i> デッキを登録</button>
+        </div>
+        <h4>登録済みデッキリスト</h4>
+        <ul id="registered-decks-list">
+            <li>まだ登録されたデッキがありません。</li>
+        </ul>
+    </div>
+</div>
+
+<div id="battle-record-tab-stats-summary" class="battle-record-tab-content">
+    <div id="battle-stats">
+        <p>総対戦数: <span id="total-games">0</span></p>
+        <p>勝利数: <span id="total-wins">0</span></p>
+        <p>敗北数: <span id="total-losses">0</span></p>
+        <p>勝率: <span id="win-rate">0.00%</span></p>
+        <p>先攻勝率: <span id="first-win-rate">0.00%</span></p>
+        <p>後攻勝率: <span id="second-win-rate">0.00%</span></p>
+
+        <h4>自分のデッキタイプ別勝率</h4>
+        <div id="my-deck-type-win-rates">
+            <!-- 自分のデッキタイプ別勝率がここに表示されます -->
+        </div>
+        <h4>相手のデッキタイプ別勝率</h4>
+        <div id="opponent-deck-type-win-rates">
+            <!-- 相手のデッキタイプ別勝率がここに表示されます -->
+        </div>
+        
+        <h4><i class="fas fa-dice-d20"></i> デッキ別詳細分析</h4>
+        <label for="selected-deck-for-stats">デッキを選択:</label>
+        <select id="selected-deck-for-stats">
+            <option value="">全てのデッキ</option>
+        </select>
+        <div id="selected-deck-stats-detail">
+            <!-- 選択されたデッキの詳細な勝率がここに表示されます -->
+        </div>
+
+        <div class="chart-placeholder">
+            <img src="https://placehold.co/350x200/cccccc/333333?text=Win+Rate+Chart" alt="勝率グラフのプレースホルダー">
+        </div>
+    </div>
+</div>
+
+<div id="battle-record-tab-past-records" class="battle-record-tab-content">
+    <h3><i class="fas fa-history"></i> 過去の対戦記録リスト</h3>
+    <ul id="battle-records-list">
+        <li>まだ対戦記録がありません。</li>
+    </ul>
+</div>

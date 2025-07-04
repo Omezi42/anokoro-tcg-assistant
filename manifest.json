@@ -1,0 +1,86 @@
+{
+  "manifest_version": 3,
+  "name": "あの頃の自作TCGアシスタント",
+  "version": "1.3",
+  "description": "unityroomの『あの頃の自作TCG』の体験を向上させるための拡張機能です。",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "notifications",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://unityroom.com/games/anokorotcg*"
+  ],
+  "background": {
+    "service_worker": "js/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://unityroom.com/games/anokorotcg*"],
+      "css": ["css/content.css"],
+      "js": ["js/content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "html/popup.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "24": "images/icon24.png",
+      "32": "images/icon32.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "24": "images/icon24.png",
+    "32": "images/icon32.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "json/cards.json",
+        "images/cards/*.png",
+        "css/sections/**/*.css",
+        "html/sections/**/*.html",
+        "js/sections/**/*.js"
+      ],
+      "matches": ["https://unityroom.com/*"]
+    }
+  ],
+  "options_page": "html/options.html",
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac": "MacCtrl+Shift+F"
+      },
+      "description": "拡張機能のポップアップを開く"
+    },
+    "open-home-section": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+H",
+        "mac": "MacCtrl+Shift+H"
+      },
+      "description": "ホームセクションを開く"
+    },
+    "open-memo-section": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+M",
+        "mac": "MacCtrl+Shift+M"
+      },
+      "description": "メモセクションを開く"
+    },
+    "toggle-sidebar": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "MacCtrl+Shift+S"
+      },
+      "description": "サイドバーの表示/非表示を切り替える"
+    }
+  }
+}

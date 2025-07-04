@@ -1,12 +1,14 @@
 // js/sections/memo/memo.js
 
 // グローバルな依存関係を受け取るための初期化関数
-window.initMemoSection = function(allCards, showCustomDialog, screenshotArea, screenshotOverlay, screenshotCanvas, screenshotCtx, currentScreenshotImage, startX, startY, endX, endY, isDrawing) {
+window.initMemoSection = function(allCards, showCustomDialog) { // screenshotAreaなどのDOM要素の引数を削除
     // === メモセクションのロジック ===
+    // 各要素を関数内で取得
     const screenshotButton = document.getElementById('screenshot-button');
     const saveMemoButton = document.getElementById('save-memo-button');
     const memoTextArea = document.getElementById('memo-text-area');
     const savedMemosList = document.getElementById('saved-memos-list');
+    const screenshotArea = document.getElementById('screenshot-area'); // 関数内で取得
     const memoSearchInput = document.getElementById('memo-search-input');
     const memoSearchButton = document.getElementById('memo-search-button');
     let editingMemoIndex = -1; // 編集中のメモのインデックス

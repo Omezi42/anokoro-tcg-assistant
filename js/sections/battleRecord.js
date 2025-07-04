@@ -1,8 +1,11 @@
-// js/sections/battle-record/battle-record.js
+// js/sections/battleRecord.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
 window.initBattleRecordSection = function(allCards, showCustomDialog) {
+    console.log("BattleRecord section initialized.");
+
     // === 戦いの記録セクションのロジック ===
+    // 各要素を関数内で取得
     const myDeckSelect = document.getElementById('my-deck-select');
     const opponentDeckSelect = document.getElementById('opponent-deck-select');
     const winLossSelect = document.getElementById('win-loss-select');
@@ -145,13 +148,13 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
                 });
 
                 battleRecordsList.querySelectorAll('.delete-button').forEach(button => {
-                    button.addEventListener('click', async (event) => {
+                    button.onclick = async (event) => { // addEventListenerの代わりにonclickを使用
                         const indexToDelete = parseInt(event.currentTarget.dataset.index);
                         const confirmed = await showCustomDialog('記録削除', 'この対戦記録を削除しますか？', true);
                         if (confirmed) {
                             deleteBattleRecord(indexToDelete);
                         }
-                    });
+                    };
                 });
             }
             updateSelectedDeckStatsDropdown();
@@ -210,13 +213,13 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
                 });
 
                 registeredDecksList.querySelectorAll('.delete-registered-deck-button').forEach(button => {
-                    button.addEventListener('click', async (event) => {
+                    button.onclick = async (event) => { // addEventListenerの代わりにonclickを使用
                         const indexToDelete = parseInt(event.currentTarget.dataset.index);
                         const confirmed = await showCustomDialog('デッキ削除', 'このデッキを登録リストから削除しますか？', true);
                         if (confirmed) {
                             deleteRegisteredDeck(indexToDelete);
                         }
-                    });
+                    };
                 });
             }
             updateSelectedDeckStatsDropdown();
@@ -239,11 +242,11 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
 
     // デッキ別詳細分析のドロップダウンを更新
     const updateSelectedDeckStatsDropdown = () => {
+        const selectedDeckForStats = document.getElementById('selected-deck-for-stats');
+        if (!selectedDeckForStats) return;
+
         chrome.storage.local.get(['registeredDecks'], (result) => {
             const decks = result.registeredDecks || [];
-            const selectedDeckForStats = document.getElementById('selected-deck-for-stats');
-            if (!selectedDeckForStats) return;
-
             selectedDeckForStats.innerHTML = '<option value="">全てのデッキ</option>';
             decks.sort((a, b) => a.name.localeCompare(b.name)).forEach(deck => {
                 const option = document.createElement('option');
@@ -302,13 +305,15 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
             }
 
             let opponentDeckTotal = gamesAsOpponentDeck.length;
-            let opponentDeckWins = gamesAsOpponentDeck.filter(record => record.result === 'win').length;
+            let opponentDeckWins = gamesAsOpponentDeck.filter(record => record.result === 'win').length; // 相手が勝った数 (自分が負けた数)
+            let opponentDeckLosses = gamesAsOpponentDeck.filter(record => record.result === 'lose').length; // 相手が負けた数 (自分が勝った数)
             let opponentDeckWinRate = opponentDeckTotal > 0 ? ((opponentDeckWins / opponentDeckTotal) * 100).toFixed(2) : '0.00';
 
             html += `<h4>「${deckName}」の統計 (相手のデッキとして使用時)</h4>`;
             html += `<p>総対戦数: ${opponentDeckTotal}</p>`;
             html += `<p>相手勝利数: ${opponentDeckWins} (自分が負けた数)</p>`;
             html += `<p>相手勝率: ${opponentDeckWinRate}%</p>`;
+            // ここにさらに詳細な分析を追加することも可能
 
             selectedDeckStatsDetail.innerHTML = html;
         });
@@ -316,7 +321,7 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
 
     // タブ切り替え関数
     function showBattleRecordTab(tabId) {
-        if (!battleRecordTabButtons.length || !battleRecordTabContents.length) {
+        if (!battleRecordTabButtons || !battleRecordTabContents) {
             battleRecordTabButtons = document.querySelectorAll('.battle-record-tab-button');
             battleRecordTabContents = document.querySelectorAll('.battle-record-tab-content');
             if (!battleRecordTabButtons.length || !battleRecordTabContents.length) return;
@@ -349,16 +354,18 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
 
     // イベントリスナー
     battleRecordTabButtons.forEach(button => {
-        button.addEventListener('click', () => {
+        button.onclick = () => { // addEventListenerの代わりにonclickを使用
             showBattleRecordTab(button.dataset.tab);
-        });
+        };
     });
 
+
     if (saveBattleRecordButton) {
-        saveBattleRecordButton.addEventListener('click', async () => {
-            if (!myDeckSelect || !opponentDeckSelect || !winLossSelect || !firstSecondSelect || !notesTextarea) return;
-            const myDeck = myDeckSelect.value;
-            const opponentDeck = opponentDeckSelect.value;
+        saveBattleRecordButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
+            if (!myDeckSelect || !opponentDeckSelect || !winLossSelect || !firstSecondSelect || !notesTextarea) return; // 要素が存在しない場合は処理を中断
+            const myDeck = myDeckSelect.value; // selectから値を取得
+            const opponentDeck = opponentDeckSelect.value; // selectから値を取得
+            // myDeckSelect.options からテキストとタイプを取得
             const myDeckType = myDeckSelect.value ? myDeckSelect.options[myDeckSelect.selectedIndex].textContent.match(/\((.*?)\)/)?.[1] || '' : '';
             const opponentDeckType = opponentDeckSelect.value ? opponentDeckSelect.options[opponentDeckSelect.selectedIndex].textContent.match(/\((.*?)\)/)?.[1] || '' : '';
             
@@ -392,19 +399,19 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
                     if (winLossSelect) winLossSelect.value = 'win';
                     if (firstSecondSelect) firstSecondSelect.value = '';
                     if (notesTextarea) notesTextarea.value = '';
-                    loadBattleRecords();
+                    loadBattleRecords(); // 保存後に再読み込みして集計も更新
                 });
             });
-        });
+        };
     }
 
     if (registerDeckButton) {
-        registerDeckButton.addEventListener('click', registerDeck);
+        registerDeckButton.onclick = registerDeck; // addEventListenerの代わりにonclickを使用
     }
     
     // デッキを登録する関数
     const registerDeck = async () => {
-        if (!newDeckNameInput || !newDeckTypeSelect) return;
+        if (!newDeckNameInput || !newDeckTypeSelect) return; // 要素が存在することを確認
         const deckName = newDeckNameInput.value.trim();
         const deckType = newDeckTypeSelect.value;
 
@@ -415,6 +422,7 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
 
         chrome.storage.local.get(['registeredDecks'], async (result) => {
             const decks = result.registeredDecks || [];
+            // 重複チェック
             if (decks.some(deck => deck.name === deckName)) {
                 showCustomDialog('エラー', '同じ名前のデッキが既に登録されています。');
                 return;
@@ -425,24 +433,25 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
             showCustomDialog('登録完了', `デッキ「${deckName}」を登録しました！`);
             if (newDeckNameInput) newDeckNameInput.value = '';
             if (newDeckTypeSelect) newDeckTypeSelect.value = '';
-            loadRegisteredDecks();
+            loadRegisteredDecks(); // 登録後にリストを更新
         });
     };
 
     if (myDeckSelect) {
-        myDeckSelect.addEventListener('change', (event) => {
-            // No specific logic needed here as type is extracted on save
-        });
+        myDeckSelect.onchange = (event) => { // addEventListenerの代わりにonchangeを使用
+            // 選択されたデッキ名からデッキタイプを自動入力したい場合などのロジックをここに記述
+            // 現在はmyDeckType, opponentDeckTypeは保存時に取得しているので特に何もしない
+        };
     }
     if (opponentDeckSelect) {
-        opponentDeckSelect.addEventListener('change', (event) => {
-            // No specific logic needed here as type is extracted on save
-        });
+        opponentDeckSelect.onchange = (event) => { // addEventListenerの代わりにonchangeを使用
+            // 同上
+        };
     }
     if (selectedDeckForStats) {
-        selectedDeckForStats.addEventListener('change', (event) => {
+        selectedDeckForStats.onchange = (event) => { // addEventListenerの代わりにonchangeを使用
             displaySelectedDeckStats(event.target.value);
-        });
+        };
     }
 
     // 初回ロード時に各データをロード

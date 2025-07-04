@@ -16,6 +16,7 @@ window.initMinigamesSection = function(allCards, showCustomDialog) {
         originalImageData: null // モザイク化クイズ用 (これはフルカード画像から取得)
     };
 
+    // 各要素を関数内で取得
     const quizCardNameButton = document.getElementById('quiz-card-name');
     const quizIllustrationEnlargeButton = document.getElementById('quiz-illustration-enlarge');
     const quizIllustrationSilhouetteButton = document.getElementById('quiz-illustration-silhouette');

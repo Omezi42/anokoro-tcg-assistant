@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "あの頃の自作TCGアシスタント",
-  "version": "1.3",
+  "version": "1.4",
   "description": "unityroomの『あの頃の自作TCG』の体験を向上させるための拡張機能です。",
   "permissions": [
     "activeTab",
@@ -19,8 +19,8 @@
   "content_scripts": [
     {
       "matches": ["https://unityroom.com/games/anokorotcg*"],
-      "css": ["css/content.css"],
-      "js": ["js/content.js"]
+      "css": ["css/style.css"],
+      "js": ["js/main.js"]
     }
   ],
   "action": {
@@ -45,9 +45,10 @@
       "resources": [
         "json/cards.json",
         "images/cards/*.png",
-        "css/sections/**/*.css",
-        "html/sections/**/*.html",
-        "js/sections/**/*.js"
+        "css/style.css",
+        "html/index.html",
+        "js/main.js",
+        "js/sections/*.js"
       ],
       "matches": ["https://unityroom.com/*"]
     }

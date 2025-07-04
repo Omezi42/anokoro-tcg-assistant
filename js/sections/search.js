@@ -3,6 +3,7 @@
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
 window.initSearchSection = function(allCards, showCustomDialog) {
     // === 検索セクションのロジック ===
+    // 各要素を関数内で取得
     const searchInput = document.getElementById('search-input');
     const performSearchButton = document.getElementById('perform-search-button');
     const searchResults = document.getElementById('search-results');

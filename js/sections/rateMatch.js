@@ -1,8 +1,11 @@
-// js/sections/rate-match/rate-match.js
+// js/sections/rateMatch.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
 window.initRateMatchSection = function(allCards, showCustomDialog) {
+    console.log("RateMatch section initialized.");
+
     // === レート戦セクションのロジック ===
+    // 各要素を関数内で取得
     const matchingButton = document.getElementById('matching-button');
     const cancelMatchingButton = document.getElementById('cancel-matching-button');
     const matchingStatusDiv = document.getElementById('matching-status');
@@ -59,7 +62,7 @@ window.initRateMatchSection = function(allCards, showCustomDialog) {
     };
 
     if (matchingButton) {
-        matchingButton.addEventListener('click', async () => {
+        matchingButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
             // マッチング前UIを隠し、マッチングステータスを表示
             if (preMatchUiDiv) {
                 preMatchUiDiv.style.display = 'none';
@@ -90,11 +93,11 @@ window.initRateMatchSection = function(allCards, showCustomDialog) {
                 chrome.runtime.sendMessage({ action: "matchFoundNotification" });
 
             }, 3000);
-        });
+        };
     }
 
     if (cancelMatchingButton) {
-        cancelMatchingButton.addEventListener('click', async () => {
+        cancelMatchingButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
             const confirmed = await showCustomDialog('マッチングキャンセル', 'マッチングをキャンセルしますか？', true);
             if (confirmed) {
                 clearTimeout(matchingTimeout);
@@ -106,11 +109,11 @@ window.initRateMatchSection = function(allCards, showCustomDialog) {
                 }
                 await showCustomDialog('キャンセル完了', 'マッチングをキャンセルしました。');
             }
-        });
+        };
     }
 
     if (sendChatButton) {
-        sendChatButton.addEventListener('click', () => {
+        sendChatButton.onclick = () => { // addEventListenerの代わりにonclickを使用
             if (!chatInput || !chatMessagesDiv) return;
             const message = chatInput.value.trim();
             if (message) {
@@ -120,27 +123,27 @@ window.initRateMatchSection = function(allCards, showCustomDialog) {
                 chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
                 chatInput.value = '';
             }
-        });
+        };
         if (chatInput) {
-            chatInput.addEventListener('keypress', (e) => {
+            chatInput.onkeypress = (e) => { // addEventListenerの代わりにonkeypressを使用
                 if (e.key === 'Enter') {
                     sendChatButton.click();
                 }
-            });
+            };
         }
     }
 
     chatPhraseButtons.forEach(button => {
-        button.addEventListener('click', () => {
+        button.onclick = () => { // addEventListenerの代わりにonclickを使用
             if (chatInput && sendChatButton) {
                 chatInput.value = button.textContent;
                 sendChatButton.click();
             }
-        });
+        };
     });
 
     if (winButton) {
-        winButton.addEventListener('click', async () => {
+        winButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
             const confirmed = await showCustomDialog('勝利報告', 'BO3の対戦で勝利を報告しますか？', true);
             if (confirmed) {
                 saveMatchHistory(`${new Date().toLocaleString()} - BO3 勝利`);
@@ -152,11 +155,11 @@ window.initRateMatchSection = function(allCards, showCustomDialog) {
                     preMatchUiDiv.style.display = 'block';
                 }
             }
-        });
+        };
     }
 
     if (loseButton) {
-        loseButton.addEventListener('click', async () => {
+        loseButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
             const confirmed = await showCustomDialog('敗北報告', 'BO3の対戦で敗北を報告しますか？', true);
             if (confirmed) {
                 saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北`);
@@ -168,11 +171,11 @@ window.initRateMatchSection = function(allCards, showCustomDialog) {
                     preMatchUiDiv.style.display = 'block';
                 }
             }
-        });
+        };
     }
 
     if (cancelButton) {
-        cancelButton.addEventListener('click', async () => {
+        cancelButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
             const confirmed = await showCustomDialog('対戦中止', '対戦を中止しますか？', true);
             if (confirmed) {
                 showCustomDialog('完了', '対戦を中止しました。');
@@ -183,7 +186,7 @@ window.initRateMatchSection = function(allCards, showCustomDialog) {
                     preMatchUiDiv.style.display = 'block';
                 }
             }
-        });
+        };
     }
 
     loadMatchHistory();

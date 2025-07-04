@@ -1,4 +1,4 @@
-// js/content.js
+// js/main.js
 
 // Font AwesomeのCSSを注入してアイコンを使用できるようにします。
 const link = document.createElement('link');
@@ -20,24 +20,7 @@ const MENU_ICON_SIZE = 60; // px (各アイコンボタンのサイズ)
 const TOGGLE_BUTTON_SIZE = 50; // px (メニュー開閉ボタンのサイズ)
 
 // スクリーンショットオーバーレイ関連の要素をグローバルで定義
-const screenshotOverlay = document.createElement('div');
-screenshotOverlay.id = 'screenshot-overlay';
-screenshotOverlay.className = 'tcg-modal-overlay'; // tcg-modal-overlay クラスを適用
-screenshotOverlay.style.display = 'none'; // 初期状態は非表示
-screenshotOverlay.innerHTML = `
-    <div class="tcg-modal-content screenshot-modal-content">
-        <h3>スクリーンショットをトリミング</h3>
-        <p>ドラッグで範囲を選択してください。</p>
-        <canvas id="screenshot-canvas"></canvas>
-        <div style="margin-top:15px; display:flex; justify-content:center; gap:10px;">
-            <button id="crop-screenshot-button" class="tcg-button-primary">トリミングして貼り付け</button>
-            <button id="paste-full-screenshot-button" class="tcg-button-secondary">トリミングせずに貼り付け</button>
-            <button id="cancel-crop-button" class="tcg-button-danger">キャンセル</button>
-        </div>
-    </div>
-`;
-document.body.appendChild(screenshotOverlay); // bodyに直接追加
-
+const screenshotOverlay = document.getElementById('screenshot-overlay');
 const screenshotCanvas = document.getElementById('screenshot-canvas');
 const cropScreenshotButton = document.getElementById('crop-screenshot-button');
 const pasteFullScreenshotButton = document.getElementById('paste-full-screenshot-button');
@@ -58,42 +41,43 @@ let isDrawing = false;
  */
 function showCustomDialog(title, message, isConfirm = false) {
     return new Promise((resolve) => {
-        const existingOverlay = document.getElementById('tcg-custom-dialog-overlay');
-        if (existingOverlay) {
-            existingOverlay.remove(); // 既存のダイアログがあれば削除
+        const overlay = document.getElementById('tcg-custom-dialog-overlay');
+        const dialogTitle = document.getElementById('tcg-dialog-title');
+        const dialogMessage = document.getElementById('tcg-dialog-message');
+        const okButton = document.getElementById('tcg-dialog-ok-button');
+        const cancelButton = document.getElementById('tcg-dialog-cancel-button');
+
+        if (!overlay || !dialogTitle || !dialogMessage || !okButton || !cancelButton) {
+            console.error("Custom dialog elements not found.");
+            return resolve(false); // エラー時はfalseを返す
         }
 
-        const overlay = document.createElement('div');
-        overlay.id = 'tcg-custom-dialog-overlay';
-        overlay.className = 'tcg-modal-overlay';
-        overlay.innerHTML = `
-            <div class="tcg-modal-content">
-                <h3>${title}</h3>
-                <p>${message}</p>
-                <button id="tcg-dialog-ok-button">OK</button>
-                ${isConfirm ? '<button id="tcg-dialog-cancel-button" style="margin-left: 10px; background-color: #6c757d;">キャンセル</button>' : ''}
-            </div>
-        `;
-        document.body.appendChild(overlay);
+        dialogTitle.textContent = title;
+        dialogMessage.innerHTML = message; // HTMLを許可するためにinnerHTMLを使用
+        cancelButton.style.display = isConfirm ? 'inline-block' : 'none';
 
-        // ダイアログを表示するアニメーションクラスを追加
-        setTimeout(() => overlay.classList.add('show'), 10);
+        // 既存のイベントリスナーを削除
+        const newOkButton = okButton.cloneNode(true);
+        okButton.parentNode.replaceChild(newOkButton, okButton);
+        const newCancelButton = cancelButton.cloneNode(true);
+        cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
 
-        const okButton = document.getElementById('tcg-dialog-ok-button');
-        okButton.addEventListener('click', () => {
+        newOkButton.addEventListener('click', () => {
             overlay.classList.remove('show');
-            overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+            overlay.addEventListener('transitionend', () => overlay.style.display = 'none', { once: true });
             resolve(true);
         });
 
         if (isConfirm) {
-            const cancelButton = document.getElementById('tcg-dialog-cancel-button');
-            cancelButton.addEventListener('click', () => {
+            newCancelButton.addEventListener('click', () => {
                 overlay.classList.remove('show');
-                overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+                overlay.addEventListener('transitionend', () => overlay.style.display = 'none', { once: true });
                 resolve(false);
             });
         }
+
+        overlay.style.display = 'flex';
+        setTimeout(() => overlay.classList.add('show'), 10);
     });
 }
 
@@ -128,30 +112,14 @@ function updateMenuIconsVisibility() {
 
 /**
  * 右サイドメニュー（アイコン群）を作成・挿入します。
- * トグルボタンはコンテンツエリア内に移動します。
  */
 function createRightSideMenu() {
-    const menuContainer = document.createElement('div');
-    menuContainer.id = 'tcg-right-menu-container';
-    // 各メニューアイコンをHTMLに追加
-    menuContainer.innerHTML = `
-        <div class="tcg-menu-icons-wrapper">
-            <button class="tcg-menu-icon" data-section="home" title="ホーム"><i class="fas fa-home"></i></button>
-            <button class="tcg-menu-icon" data-section="rate-match" title="レート戦"><i class="fas fa-fist-raised"></i></button>
-            <button class="tcg-menu-icon" data-section="memo" title="メモ"><i class="fas fa-clipboard"></i></button>
-            <button class="tcg-menu-icon" data-section="search" title="検索"><i class="fas fa-search"></i></button>
-            <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
-            <button class="tcg-menu-icon" data-section="battle-record" title="戦いの記録"><i class="fas fa-trophy"></i></button>
-            <button class="tcg-menu-icon" data-section="deck" title="デッキ"><i class="fas fa-cube"></i></button>
-        </div>
-        <button class="tcg-menu-toggle-button" id="tcg-menu-toggle-button" title="メニューを隠す/表示">
-            <i class="fas fa-chevron-right"></i>
-        </button>
-    `;
+    const menuContainer = document.getElementById('tcg-right-menu-container');
+    if (!menuContainer) {
+        console.error("tcg-right-menu-container not found in HTML.");
+        return;
+    }
 
-    document.body.appendChild(menuContainer); // メニューコンテナをbodyに追加
-
-    // DOMに追加された後に要素を取得
     const menuIconsWrapper = menuContainer.querySelector('.tcg-menu-icons-wrapper');
     const menuIcons = menuIconsWrapper.querySelectorAll('.tcg-menu-icon');
     const toggleButton = document.getElementById('tcg-menu-toggle-button');
@@ -249,10 +217,9 @@ function toggleContentArea(sectionId) {
     const contentArea = document.getElementById('tcg-content-area');
     const rightMenuContainer = document.getElementById('tcg-right-menu-container');
     const gameCanvas = document.querySelector('canvas#unity-canvas');
-    const sectionTitleElement = document.getElementById('tcg-section-title');
     const menuIcons = rightMenuContainer.querySelectorAll('.tcg-menu-icon'); // アイコンリストを再取得
 
-    if (!contentArea || !rightMenuContainer || !sectionTitleElement) return;
+    if (!contentArea || !rightMenuContainer) return;
 
     const currentActiveIcon = rightMenuContainer.querySelector('.tcg-menu-icon.active');
     const clickedIcon = rightMenuContainer.querySelector(`.tcg-menu-icon[data-section="${sectionId}"]`);
@@ -315,91 +282,75 @@ function toggleContentArea(sectionId) {
     }
 }
 
-// 現在ロードされているセクションのスクリプトとCSSを追跡
+// 現在ロードされているセクションのスクリプトを追跡
 const loadedSectionScripts = {};
-const loadedSectionStyles = {};
 
 /**
  * 指定されたセクションを表示し、他のセクションを非表示にします。
- * この関数は、右サイドのメニューアイコンがクリックされたときに呼び出されます。
- * @param {string} sectionId - 表示するセクションのID (例: "home", "rate-match")。
+ * @param {string} sectionId - 表示するセクションのID (例: "home", "rateMatch")。
  */
 async function showSection(sectionId) {
     console.log(`Attempting to show section: ${sectionId}`);
-    // セクションタイトルを更新
-    const sectionTitleElement = document.getElementById('tcg-section-title');
-    if (sectionTitleElement) {
-        sectionTitleElement.textContent = getSectionTitle(sectionId);
-    }
-
+    
     // すべてのセクションを非アクティブにする
     document.querySelectorAll('.tcg-section').forEach(section => {
         section.classList.remove('active');
     });
 
     // ターゲットセクションのコンテナ
-    let targetSection = document.getElementById(`tcg-${sectionId}-section`);
+    const targetSection = document.getElementById(`tcg-${sectionId}-section`);
     if (!targetSection) {
-        // セクションコンテナがまだ存在しない場合、作成して追加
-        targetSection = document.createElement('div');
-        targetSection.id = `tcg-${sectionId}-section`;
-        targetSection.className = 'tcg-section';
-        document.getElementById('tcg-sections-wrapper').appendChild(targetSection);
-        console.log(`Created new section container: tcg-${sectionId}-section`);
+        console.error(`Target section container tcg-${sectionId}-section not found in index.html.`);
+        return;
     }
 
-    // セクションのHTMLをロード
-    try {
-        const htmlPath = chrome.runtime.getURL(`html/sections/${sectionId}/${sectionId}.html`);
-        console.log(`Fetching HTML from: ${htmlPath}`);
-        const response = await fetch(htmlPath);
-        if (!response.ok) {
-            throw new Error(`Failed to load HTML for ${sectionId}: ${response.statusText} (${response.status})`);
-        }
-        const htmlContent = await response.text();
-        targetSection.innerHTML = htmlContent;
-        console.log(`HTML loaded and injected for section: ${sectionId}`);
-    } catch (error) {
-        console.error(`Error loading HTML for section ${sectionId}:`, error);
-        targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました: ${sectionId}<br>エラー: ${error.message}</p>`;
-        return; // HTMLロード失敗時は後続処理を中断
-    }
-
-    // セクションのCSSをロード
-    const cssPath = chrome.runtime.getURL(`css/sections/${sectionId}/${sectionId}.css`);
-    if (!loadedSectionStyles[cssPath]) {
+    // セクションのHTMLをロード (index.htmlに直接記述されているため、ここでは表示を切り替えるのみ)
+    // ただし、homeセクションはHTMLに直接埋め込まれているため、innerHTMLは更新しない
+    if (sectionId !== 'home') {
         try {
-            console.log(`Checking CSS existence: ${cssPath}`);
-            const response = await fetch(cssPath, { method: 'HEAD' }); // HEADリクエストで存在確認
-            if (response.ok) {
-                const link = document.createElement('link');
-                link.rel = 'stylesheet';
-                link.href = cssPath;
-                document.head.appendChild(link);
-                loadedSectionStyles[cssPath] = true;
-                console.log(`CSS loaded and injected for section: ${sectionId}`);
-            } else {
-                console.warn(`CSS file not found or accessible: ${cssPath}`);
+            // 各セクションのHTMLスニペットを動的にロードする場合のパス（今回はindex.htmlに統合されているため、この部分は不要）
+            // const htmlPath = chrome.runtime.getURL(`html/sections/${sectionId}.html`);
+            // console.log(`Fetching HTML from: ${htmlPath}`);
+            // const response = await fetch(htmlPath);
+            // if (!response.ok) {
+            //     throw new Error(`Failed to load HTML for ${sectionId}: ${response.statusText} (${response.status})`);
+            // }
+            // const htmlContent = await response.text();
+            // targetSection.innerHTML = htmlContent;
+            // console.log(`HTML loaded and injected for section: ${sectionId}`);
+
+            // index.html に直接記述されている各セクションのコンテンツを切り替えるため、
+            // ここではinnerHTMLの更新は不要。
+            // ただし、もしセクションが空の場合に備えて、コンテンツを埋めるロジックは残す。
+            if (targetSection.innerHTML.trim() === '') {
+                 // これは、もし将来的にセクションのHTMLを外部ファイルからロードする方針に戻した場合のためのプレースホルダー
+                 // 現状ではindex.htmlに全セクションが記述されているため、通常は空ではない
+                 targetSection.innerHTML = `<h2 class="section-title">${getSectionTitle(sectionId)}</h2><p>コンテンツをロード中...</p>`;
             }
+
         } catch (error) {
-            console.warn(`Error loading CSS for section ${sectionId}: ${cssPath}`, error);
+            console.error(`Error loading HTML for section ${sectionId}:`, error);
+            targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました: ${sectionId}<br>エラー: ${error.message}</p>`;
+            return; // HTMLロード失敗時は後続処理を中断
         }
     } else {
-        console.log(`CSS already loaded for section: ${sectionId}`);
+        // homeセクションの場合、innerHTMLは変更しない（index.htmlに直接記述されているため）
+        console.log("Home section is directly in index.html, skipping HTML injection.");
     }
 
+
     // セクションのJavaScriptをロード
-    const jsPath = chrome.runtime.getURL(`js/sections/${sectionId}/${sectionId}.js`);
+    const jsPath = chrome.runtime.getURL(`js/sections/${sectionId}.js`); // 例: js/sections/home.js
     const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}Section`;
 
     if (!loadedSectionScripts[jsPath]) {
         try {
             console.log(`Checking JS existence: ${jsPath}`);
-            const response = await fetch(jsPath, { method: 'HEAD' }); // HEADリクエストで存在確認
+            const response = await fetch(jsPath, { method: 'HEAD' });
             if (response.ok) {
                 const script = document.createElement('script');
                 script.src = jsPath;
-                script.type = 'module'; // ESモジュールとしてロード
+                // script.type = 'module'; // ESモジュールとしてロード (windowに公開するためtype='module'は削除)
                 document.body.appendChild(script);
                 loadedSectionScripts[jsPath] = true;
                 console.log(`JS script element appended for section: ${sectionId}`);
@@ -407,14 +358,16 @@ async function showSection(sectionId) {
                 // スクリプトがロードされてから初期化関数を呼び出す
                 script.onload = () => {
                     console.log(`Script loaded: ${jsPath}`);
-                    // グローバルスコープに公開された関数を呼び出す
-                    if (typeof window[initFunctionName] === 'function') {
-                        console.log(`Calling initialization function: ${initFunctionName}`);
-                        // 必要な依存関係を渡す
-                        window[initFunctionName](allCards, showCustomDialog, document.getElementById('screenshot-area'), screenshotOverlay, screenshotCanvas, screenshotCtx, currentScreenshotImage, startX, startY, endX, endY, isDrawing);
-                    } else {
-                        console.warn(`Initialization function ${initFunctionName} not found on window object after script load for section ${sectionId}. This might indicate a scoping issue in the section's JS file.`);
-                    }
+                    // DOMが完全に更新されるのを待つためにsetTimeout(0)を使用
+                    setTimeout(() => {
+                        if (typeof window[initFunctionName] === 'function') {
+                            console.log(`Calling initialization function: ${initFunctionName}`);
+                            // 各セクションのJSはDOM要素を自身で取得するため、引数はallCardsとshowCustomDialogのみ
+                            window[initFunctionName](allCards, showCustomDialog);
+                        } else {
+                            console.warn(`Initialization function ${initFunctionName} not found on window object after script load for section ${sectionId}. This might indicate a scoping issue in the section's JS file.`);
+                        }
+                    }, 0); // 0ms delay to allow DOM to settle
                 };
                 script.onerror = (e) => {
                     console.error(`Error loading script: ${jsPath}`, e);
@@ -428,12 +381,14 @@ async function showSection(sectionId) {
     } else {
         console.log(`JS already loaded for section: ${sectionId}. Attempting to re-call init function.`);
         // 既にロード済みの場合は、初期化関数を再実行
-        if (typeof window[initFunctionName] === 'function') {
-            console.log(`Re-calling initialization function: ${initFunctionName}`);
-            window[initFunctionName](allCards, showCustomDialog, document.getElementById('screenshot-area'), screenshotOverlay, screenshotCanvas, screenshotCtx, currentScreenshotImage, startX, startY, endX, endY, isDrawing);
-        } else {
-            console.warn(`Initialization function ${initFunctionName} not found on window object for already loaded script for section ${sectionId}.`);
-        }
+        setTimeout(() => {
+            if (typeof window[initFunctionName] === 'function') {
+                console.log(`Re-calling initialization function: ${initFunctionName}`);
+                window[initFunctionName](allCards, showCustomDialog);
+            } else {
+                console.warn(`Initialization function ${initFunctionName} not found on window object for already loaded script for section ${sectionId}.`);
+            }
+        }, 0); // 0ms delay to allow DOM to settle
     }
 
     // 指定されたセクションをアクティブにする
@@ -452,66 +407,16 @@ async function showSection(sectionId) {
 function getSectionTitle(sectionId) {
     switch (sectionId) {
         case 'home': return 'ホーム';
-        case 'rate-match': return 'レート戦';
+        case 'rateMatch': return 'レート戦';
         case 'memo': return 'メモ';
         case 'search': return '検索';
         case 'minigames': return 'ミニゲーム';
-        case 'battle-record': return '戦いの記録';
-        case 'deck': return 'デッキ分析';
+        case 'battleRecord': return '戦いの記録';
+        case 'deckAnalysis': return 'デッキ分析';
         default: return 'あの頃の自作TCGアシスタント';
     }
 }
 
-
-/**
- * 各コンテンツセクションを含むメインコンテンツエリアを作成・挿入します。
- */
-function createContentArea() {
-    const contentArea = document.createElement('div');
-    contentArea.id = 'tcg-content-area';
-
-    contentArea.innerHTML = `
-        <div class="tcg-content-header">
-            <h2 id="tcg-section-title"></h2>
-            <button class="tcg-close-sidebar-button" title="サイドバーを閉じる"><i class="fas fa-times"></i></button>
-        </div>
-        <div id="tcg-sections-wrapper">
-            <!-- 各セクションのHTMLがここに動的にロードされます -->
-        </div>
-    `;
-    document.body.appendChild(contentArea);
-
-    // サイドバーを閉じるボタンのイベントリスナー
-    const closeSidebarButton = document.querySelector('.tcg-close-sidebar-button');
-    if (closeSidebarButton) {
-        closeSidebarButton.addEventListener('click', () => {
-            const contentArea = document.getElementById('tcg-content-area');
-            const rightMenuContainer = document.getElementById('tcg-right-menu-container');
-            const gameCanvas = document.querySelector('canvas#unity-canvas');
-
-            if (contentArea) {
-                contentArea.classList.remove('active');
-                contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
-            }
-            // メニューアイコンと背景を非表示にする
-            if (rightMenuContainer) {
-                isMenuIconsVisible = false;
-                updateMenuIconsVisibility();
-            }
-            if (gameCanvas) {
-                gameCanvas.style.display = 'block';
-            }
-            document.body.classList.remove('game-focused-mode');
-            isSidebarOpen = false;
-            chrome.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
-
-            // 全てのアイコンからactiveクラスを削除
-            if (rightMenuContainer) {
-                rightMenuContainer.querySelectorAll('.tcg-menu-icon').forEach(btn => btn.classList.remove('active'));
-            }
-        });
-    }
-}
 
 /**
  * 拡張機能の各種機能を初期化し、イベントリスナーを設定します。
@@ -519,7 +424,7 @@ function createContentArea() {
 async function initializeExtensionFeatures() {
     // cards.jsonを読み込む
     try {
-        const response = await fetch(chrome.runtime.getURL('json/cards.json'));
+        const response = await fetch(chrome.runtime.getURL('json/cards.json')); // パスを修正
         allCards = await response.json();
         if (!Array.isArray(allCards) || allCards.length === 0) {
             console.warn("カードデータが空または無効です。一部機能が制限される可能性があります。");
@@ -581,8 +486,8 @@ async function initializeExtensionFeatures() {
 
     if (cropScreenshotButton) {
         cropScreenshotButton.addEventListener('click', () => {
-            const screenshotAreaElement = document.getElementById('screenshot-area'); // メモセクションのscreenshot-areaを取得
-            if (!screenshotAreaElement || !currentScreenshotImage || !screenshotOverlay || !screenshotCanvas || !screenshotCtx) {
+            // メモセクションのscreenshot-areaは各セクションのJSで取得するため、ここでは直接参照しない
+            if (!currentScreenshotImage || !screenshotOverlay || !screenshotCanvas || !screenshotCtx) {
                 return;
             }
             let croppedImageUrl;
@@ -626,8 +531,8 @@ async function initializeExtensionFeatures() {
 
     if (pasteFullScreenshotButton) {
         pasteFullScreenshotButton.addEventListener('click', () => {
-            const screenshotAreaElement = document.getElementById('screenshot-area'); // メモセクションのscreenshot-areaを取得
-            if (!screenshotAreaElement || !currentScreenshotImage || !screenshotOverlay) return;
+            // メモセクションのscreenshot-areaは各セクションのJSで取得するため、ここでは直接参照しない
+            if (!currentScreenshotImage || !screenshotOverlay) return;
             
             // メモセクションのJSに画像を渡すためのカスタムイベントを発火させる
             const event = new CustomEvent('screenshotCropped', {
@@ -653,9 +558,10 @@ async function initializeExtensionFeatures() {
 // DOMが完全にロードされるのを待ってから要素を注入し、機能を初期化します。
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        createRightSideMenu();
-        createContentArea();
-        initializeExtensionFeatures();
+        // HTMLが既に読み込まれているため、createContentAreaは不要
+        createRightSideMenu(); // 右サイドメニューはHTMLに静的にあるため、イベントリスナーをセット
+        initializeExtensionFeatures(); // カードデータロード、スクリーンショット関連初期化
+        
         // 初期表示セクションをロード
         chrome.storage.local.get(['activeSection'], (result) => {
             const activeSection = result.activeSection || 'home';
@@ -663,9 +569,10 @@ if (document.readyState === 'loading') {
         });
     });
 } else {
-    createRightSideMenu();
-    createContentArea();
-    initializeExtensionFeatures();
+    // HTMLが既に読み込まれているため、createContentAreaは不要
+    createRightSideMenu(); // 右サイドメニューはHTMLに静的にあるため、イベントリスナーをセット
+    initializeExtensionFeatures(); // カードデータロード、スクリーンショット関連初期化
+
     // 初期表示セクションをロード
     chrome.storage.local.get(['activeSection'], (result) => {
         const activeSection = result.activeSection || 'home';
@@ -732,8 +639,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
         // メニューアイコンを隠す (矢印ボタンだけ表示)
         if (rightMenuContainer) {
-            isMenuIconsVisible = false; // メニューアイコンは非表示状態
-            updateMenuIconsVisibility(); // これでメニューアイコンラッパーが非表示になる
+            isMenuIconsVisible = false; 
+            updateMenuIconsVisibility(); 
         }
         if (gameCanvas) {
             gameCanvas.style.display = 'block';

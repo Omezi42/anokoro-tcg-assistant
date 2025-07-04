@@ -1,0 +1,1149 @@
+/* css/style.css */
+
+/* CSS変数定義 */
+:root {
+    --sidebar-width: 500px; /* デフォルトのサイドバー幅 */
+    --icon-button-size: 60px; /* 各アイコンボタンのサイズ */
+    --toggle-button-size: 50px; /* トグルボタンのサイズ */
+    /* アイコンメニュー展開時のアイコン部分の幅 (アイコンのサイズそのまま) */
+    --menu-expanded-width: var(--icon-button-size); 
+    /* アイコンメニュー格納時のアイコン部分の幅 (アイコンを非表示にするため0) */
+    --menu-collapsed-width: 0px; 
+    /* 展開時の全体のメニュー幅 (アイコン幅 + トグルボタン幅) */
+    --total-menu-width-when-expanded: calc(var(--icon-button-size)); 
+}
+
+/* PDFに合わせた右サイドメニューのコンテナ */
+#tcg-right-menu-container {
+    position: fixed;
+    top: 50%; /* 画面中央に配置 */
+    right: 0; /* 初期位置は画面右端 */
+    transform: translateY(-50%); /* 中央揃え */
+    z-index: 10000; /* コンテンツエリアより下 */
+    display: flex;
+    flex-direction: column; /* アイコンを縦に並べる */
+    align-items: center; /* アイコンを水平中央に揃える */
+    transition: width 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease, padding 0.3s ease, border-radius 0.3s ease;
+    
+    /* 常にトグルボタン分の下部スペースを確保 */
+    padding-bottom: calc(var(--toggle-button-size) + 10px); 
+    box-sizing: border-box; /* パディングを幅に含める */
+
+    /* 初期状態（collapsed時）のスタイル */
+    width: var(--toggle-button-size); /* トグルボタンの幅のみ */
+    background-color: transparent; /* 背景透明 */
+    box-shadow: none; /* 影なし */
+    border-radius: 0; /* 角丸なし */
+    padding-top: 0; /* collapsed時は上パディングもなし */
+}
+
+/* メニューコンテナが展開された時のスタイル */
+#tcg-right-menu-container.expanded {
+    width: calc(var(--icon-button-size) + 20px); /* アイコンの幅 + 左右のパディング */
+    background-color: #333;
+    padding-top: 10px; /* 上部のパディング */
+    box-shadow: -3px 0 8px rgba(0,0,0,0.6);
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+
+/* メニューアイコンのラッパー */
+.tcg-menu-icons-wrapper {
+    display: flex; /* デフォルトでflexにして、visible/hiddenで切り替える */
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    flex-grow: 1;
+    width: var(--menu-expanded-width); /* アイコン表示時の幅 */
+    overflow: hidden;
+    transition: opacity 0.3s ease; /* opacityのみアニメーション */
+    opacity: 1; /* デフォルトで表示 */
+    box-sizing: border-box;
+}
+
+/* メニューアイコンラッパーの表示/非表示を制御するクラス */
+.tcg-menu-icons-wrapper.hidden {
+    opacity: 0;
+    pointer-events: none; /* クリックイベントを無効にする */
+}
+.tcg-menu-icons-wrapper.visible {
+    opacity: 1;
+    pointer-events: auto; /* クリックイベントを有効にする */
+}
+
+/* 右サイドメニュー内のアイコンボタン */
+.tcg-menu-icon {
+    background: none;
+    border: none;
+    color: #f0f0f0;
+    font-size: 28px; /* アイコンサイズ */
+    padding: 10px;
+    cursor: pointer;
+    width: var(--icon-button-size); /* アイコンボタンの固定幅 */
+    height: var(--icon-button-size); /* アイコンボタンの固定高さ */
+    text-align: center;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+    border-radius: 5px; /* 角を丸く */
+    display: flex; /* アイコンを中央に配置するために必要 */
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0; /* 縮小させない */
+}
+
+.tcg-menu-icon:hover {
+    background-color: #444;
+    color: white;
+    transform: scale(1.05);
+}
+
+.tcg-menu-icon.active {
+    background-color: #007bff; /* アクティブなアイコンは青 */
+    color: white;
+    box-shadow: inset 0 0 8px rgba(0, 123, 255, 0.5); /* 内部シャドウで強調 */
+}
+
+/* サイドバーの開閉ボタン */
+.tcg-menu-toggle-button {
+    position: absolute; /* 絶対配置 */
+    bottom: 0; /* 下端に配置 */
+    right: 0; /* 右端に配置 */
+    background-color: #333; /* トグルボタン自体の背景色 */
+    border: none;
+    color: #f0f0f0; /* アイコン色 */
+    font-size: 28px; /* アイコンサイズ */
+    cursor: pointer;
+    padding: 10px;
+    width: var(--toggle-button-size); /* 固定幅 */
+    height: var(--toggle-button-size); /* 固定高さ */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    border-top-left-radius: 10px; /* 上左の角を丸く */
+    box-sizing: border-box;
+}
+
+.tcg-menu-toggle-button:hover {
+    background-color: #444;
+    color: white;
+    transform: scale(1.05);
+}
+
+
+/* コンテンツ表示エリア (ゲーム画面の上に重ねて表示される飛び出しメニュー) */
+#tcg-content-area {
+    position: fixed;
+    top: 0; /* 画面上端から */
+    right: calc(-1 * var(--sidebar-width)); /* 初期状態では完全に画面外に隠す */
+    width: var(--sidebar-width); /* 固定幅 */
+    height: 100%; /* 全画面の高さ */
+    background-color: #ffffff; /* 背景色を白に */
+    color: #222; /* より濃い黒に変更してコントラストを改善 */
+    z-index: 9990; /* ゲームより上 */
+    box-sizing: border-box; /* パディングを幅に含める */
+    font-family: 'Inter', sans-serif;
+    line-height: 1.6;
+    display: flex; /* flexboxでコンテンツを縦に配置 */
+    flex-direction: column;
+    transition: right 0.4s cubic-bezier(0.4, 0.0, 0.2, 1); /* 'right' プロパティをアニメーション */
+    overflow-y: hidden; /* メインはhidden、各セクションでスクロールを制御 */
+    border-left: 2px solid #e0e0e0; /* サイドメニューとの区切り */
+    box-shadow: -5px 0 15px rgba(0,0,0,0.3); /* サイドバーの影 */
+}
+
+#tcg-content-area.active {
+    right: 0; /* アクティブ時は画面右端に配置（ゲーム画面に重なる） */
+}
+
+/* レスポンシブデザイン: 小さい画面での調整 */
+@media (max-width: 768px) {
+    :root {
+        --sidebar-width: 80vw; /* タブレットサイズではビューポート幅の80%を使用 */
+    }
+}
+
+@media (max-width: 480px) {
+    :root {
+        --sidebar-width: 100vw; /* スマートフォンでは全幅 */
+        --icon-button-size: 50px; /* アイコン幅を小さく */
+        --toggle-button-size: 40px; /* トグルボタン幅を小さく */
+        --menu-expanded-width: var(--icon-button-size);
+        --total-menu-width-when-expanded: calc(var(--icon-button-size));
+    }
+    .tcg-menu-icon {
+        font-size: 24px;
+        padding: 8px;
+    }
+    .tcg-menu-toggle-button {
+        font-size: 24px;
+        padding: 8px;
+    }
+    .rate-match-actions button {
+        font-size: 14px;
+        padding: 10px 12px;
+    }
+    .section-title { /* content.cssに移動したため修正 */
+        font-size: 1.4em;
+    }
+}
+
+
+/* コンテンツエリア内のセクション表示部分 */
+#tcg-sections-wrapper {
+    flex-grow: 1; /* 残りのスペースを占める */
+    padding: 25px;
+    overflow-y: auto; /* 各セクションでスクロールを可能に */
+    position: relative; /* 子要素のposition:absoluteの基準 */
+}
+
+
+.tcg-section {
+    display: none;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    padding-top: 10px; /* 見出しとの調整 */
+}
+
+.tcg-section.active {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 各セクションのタイトルに適用される共通スタイル */
+.section-title {
+    color: #5cb85c; /* メインカラーの緑 */
+    margin-bottom: 25px;
+    font-size: 2.2em;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 10px;
+}
+
+/* 小見出しスタイル */
+h3 {
+    color: #007bff; /* 青のアクセント */
+    margin-top: 30px;
+    margin-bottom: 15px;
+    font-size: 1.6em;
+}
+
+h4 {
+    color: #ffc107; /* オレンジのアクセント */
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-size: 1.3em;
+}
+
+/* ポップアップメッセージの共通スタイル */
+#tcg-custom-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10002;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+#tcg-custom-dialog-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.tcg-modal-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+#tcg-modal-content.show .tcg-modal-content {
+    transform: scale(1);
+}
+
+.tcg-modal-content h3 {
+    color: #5cb85c;
+    margin-bottom: 20px;
+}
+
+.tcg-modal-content p {
+    font-size: 1.1em;
+    margin-bottom: 25px;
+    color: #555;
+}
+
+.tcg-modal-content button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
+}
+
+.tcg-modal-content button:hover {
+    background-color: #0056b3;
+}
+
+
+/* レート戦セクションのスタイル */
+.rate-match-info {
+    display: grid;
+    grid-template-columns: 1fr; /* 縦並びに変更 */
+    gap: 15px; /* 要素間の隙間 */
+    margin-top: 20px;
+}
+
+.rate-match-info .info-box { /* ボックスのスタイルを統一 */
+    background-color: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 15px 20px;
+    text-align: left; /* 左寄せ */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.rate-match-info .info-box h3 {
+    color: #007bff;
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.3em; /* 小さめ */
+}
+
+.rate-match-info .info-box p {
+    font-size: 1.2em; /* 文字を少し大きく */
+    font-weight: bold;
+    color: #333;
+    margin-top: 0;
+    margin-bottom: 5px;
+}
+
+/* マッチングボタン */
+#matching-button {
+    display: block;
+    width: calc(100% - 40px); /* 親のパディング分を引く */
+    margin: 20px auto; /* 中央寄せ */
+    padding: 15px 25px;
+    background-color: #5cb85c; /* 緑色 */
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.5em;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+#matching-button:hover {
+    background-color: #449d44;
+    transform: translateY(-3px);
+}
+
+/* マッチングステータス表示 */
+#matching-status {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 1.2em;
+    color: #555;
+    font-weight: bold;
+    display: flex; /* スピナーを中央に */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+/* ローディングスピナー */
+.spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-left-color: #007bff;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+
+/* 対戦履歴・ランキングのスタイル */
+.rate-match-section-content {
+    margin-top: 30px;
+}
+
+.rate-match-section-content h3 {
+    margin-top: 20px;
+    font-size: 1.5em;
+}
+
+
+/* 対戦操作ボタン群 */
+.rate-match-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px; /* ボタン間の隙間を小さく */
+    margin-top: 25px;
+    border-top: 1px solid #eee; /* 区切り線 */
+    padding-top: 20px;
+}
+
+.rate-match-actions button {
+    flex: 1; /* 横幅を均等に */
+    min-width: 120px; /* 最小幅 */
+    background-color: #ffc107; /* オレンジ */
+    color: black;
+    border: none;
+    padding: 12px 15px; /* パディングを調整 */
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 15px; /* フォントサイズを調整 */
+    font-weight: bold;
+    box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+    transition: background-color 0.2s ease, transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center; /* アイコンとテキストを中央寄せ */
+    gap: 8px;
+}
+
+.rate-match-actions button:hover {
+    transform: translateY(-2px);
+    opacity: 0.9;
+}
+
+.rate-match-actions button.win {
+    background-color: #28a745; /* 緑 */
+    color: white;
+}
+
+.rate-match-actions button.lose {
+    background-color: #dc3545; /* 赤 */
+    color: white;
+}
+
+/* チャット定型文ボタン */
+.chat-fixed-phrases {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+.chat-fixed-phrases button {
+    background-color: #e9ecef;
+    color: #495057;
+    border: 1px solid #ced4da;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s ease;
+}
+.chat-fixed-phrases button:hover {
+    background-color: #dee2e6;
+}
+
+
+/* メモ固有のスタイル */
+#screenshot-button {
+    background-color: #17a2b8; /* 水色 */
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+    transition: background-color 0.2s ease;
+}
+#screenshot-button:hover {
+    background-color: #138496;
+}
+
+#screenshot-area {
+    border: 2px dashed #ccc;
+    padding: 20px;
+    text-align: center;
+    margin-top: 20px;
+    min-height: 150px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #fcfcfc;
+    border-radius: 10px;
+}
+
+#screenshot-area img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+#memo-text-area {
+    width: calc(100% - 20px);
+    padding: 10px;
+    margin-top: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 1em;
+    min-height: 120px;
+    resize: vertical; /* 垂直方向にリサイズ可能 */
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+#save-memo-button {
+    background-color: #5cb85c; /* 緑 */
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 16px;
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    transition: background-color 0.2s ease;
+}
+#save-memo-button:hover {
+    background-color: #449d44;
+}
+
+#saved-memos-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 30px;
+}
+
+.saved-memo-item {
+    background-color: #f0f8ff; /* 淡い青の背景 */
+    border: 1px solid #d0e0f0;
+    padding: 15px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    position: relative;
+    padding-right: 40px; /* 削除ボタンのスペース */
+    word-wrap: break-word; /* 長いテキストの折り返し */
+}
+
+.saved-memo-item strong {
+    color: #007bff;
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
+
+.delete-memo-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #dc3545;
+    font-size: 1.2em;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+.delete-memo-button:hover {
+    color: #a71d2a;
+}
+
+.edit-memo-button {
+    position: absolute;
+    top: 10px;
+    right: 40px; /* 削除ボタンの左隣 */
+    background: none;
+    border: none;
+    color: #17a2b8; /* 水色 */
+    font-size: 1.2em;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+.edit-memo-button:hover {
+    color: #138496;
+}
+
+/* メモ検索/フィルタリング */
+.memo-filter-area {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    margin-top: 20px;
+}
+.memo-filter-area input {
+    flex-grow: 1;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+.memo-filter-area button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.memo-filter-area button:hover {
+    background-color: #0056b3;
+}
+
+/* スクリーンショットオーバーレイ内のボタン配置 */
+#screenshot-overlay .tcg-modal-content > div:last-child {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap; /* ボタンが複数行になる場合のために折り返し */
+    gap: 10px; /* ボタン間のスペース */
+}
+
+
+/* 検索固有のスタイル */
+.search-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* 複数カラムでレスポンシブに */
+    gap: 10px;
+    margin-bottom: 15px;
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f8f8;
+    border: 1px solid #eee;
+    border-radius: 10px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.filter-group label {
+    font-weight: bold;
+    color: #555;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.filter-group input[type="text"],
+.filter-group input[type="number"],
+.filter-group select {
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    font-size: 0.9em;
+    width: 100%; /* 親要素の幅に合わせる */
+    box-sizing: border-box;
+}
+
+.filter-group span {
+    align-self: center; /* 中央に配置 */
+    font-weight: bold;
+    color: #777;
+}
+
+#search-input {
+    width: calc(100% - 22px);
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 1.1em;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+#perform-search-button {
+    background-color: #6f42c1; /* 紫 */
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    transition: background-color 0.2s ease;
+}
+#perform-search-button:hover {
+    background-color: #5f37a8;
+}
+
+#search-results {
+    background-color: #f9f9f9;
+    border: 1px solid #eee;
+    padding: 20px;
+    min-height: 150px;
+    margin-top: 30px;
+    border-radius: 10px;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+}
+#search-results ul {
+    list-style: disc;
+    padding-left: 25px;
+}
+#search-results li {
+    margin-bottom: 8px;
+}
+
+/* 検索フィルターとオートコンプリート */
+.autocomplete-suggestions {
+    border: 1px solid #ddd;
+    max-height: 150px;
+    overflow-y: auto;
+    background-color: white;
+    position: absolute; /* 相対位置の親要素が必要 */
+    width: calc(100% - 50px); /* search-inputの幅に合わせる */
+    z-index: 100;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-radius: 5px;
+}
+.autocomplete-suggestions div {
+    padding: 8px 10px;
+    cursor: pointer;
+}
+.autocomplete-suggestions div:hover {
+    background-color: #f0f0f0;
+}
+.card-detail-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    padding: 25px;
+    z-index: 10003;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80%;
+    overflow-y: auto;
+}
+.card-detail-popup h3 {
+    color: #007bff;
+    margin-top: 0;
+}
+.card-detail-popup button {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 20px;
+}
+.card-detail-popup button:hover {
+    background-color: #5a6268;
+}
+
+
+/* ミニゲーム固有のスタイル */
+.minigame-list {
+    display: grid; /* グリッドレイアウト */
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* レスポンシブなカラム */
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.minigame-list button {
+    background-color: #6c757d; /* グレー */
+    color: white;
+    border: none;
+    padding: 15px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.minigame-list button:hover {
+    background-color: #5a6268;
+    transform: translateY(-3px);
+}
+
+/* ミニゲームのクイズUI */
+.quiz-container {
+    background-color: #f8f8f8;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-top: 20px;
+    text-align: center;
+}
+
+.quiz-container h3 {
+    color: #5cb85c;
+    margin-bottom: 20px;
+}
+
+.quiz-hint-area {
+    background-color: #e9ecef;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    min-height: 80px;
+    text-align: left;
+    font-size: 1.1em;
+    color: #495057;
+    white-space: pre-wrap; /* 改行を反映 */
+}
+
+.quiz-image-area {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    overflow: hidden; /* Canvasの角丸を適用するため */
+    /* Canvasが親要素のサイズに依存するように、明示的な高さを設定 */
+    height: 250px; /* 例: 適切な高さを設定 */
+}
+
+.quiz-image-area canvas {
+    border-radius: 8px; /* Canvasにも角丸を適用 */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    display: block; /* 余分なスペースを削除 */
+    max-width: 100%;
+    max-height: 100%; /* 親要素の高さに収まるように */
+    object-fit: contain; /* アスペクト比を維持してフィット */
+}
+
+.quiz-input-area {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    justify-content: center;
+}
+
+.quiz-input-area input[type="text"] {
+    flex-grow: 1;
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    font-size: 1em;
+    max-width: 300px;
+}
+
+.quiz-input-area button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
+}
+
+.quiz-input-area button:hover {
+    background-color: #0056b3;
+}
+
+.quiz-result-area {
+    margin-top: 20px;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #333;
+}
+
+.quiz-result-area.correct {
+    color: #28a745; /* 緑色 */
+}
+
+.quiz-result-area.incorrect {
+    color: #dc3545; /* 赤色 */
+}
+
+.quiz-answer-display {
+    margin-top: 15px;
+    font-size: 1.1em;
+    color: #555;
+}
+
+.quiz-controls {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.quiz-controls button {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
+}
+
+.quiz-controls button:hover {
+    background-color: #5a6268;
+}
+
+/* 戦いの記録セクションのスタイル */
+.battle-record-tabs {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 5px;
+    flex-wrap: wrap; /* 小さい画面で折り返す */
+}
+
+.battle-record-tab-button {
+    background-color: #f0f2f5;
+    color: #555;
+    border: 1px solid #e0e0e0;
+    border-bottom: none;
+    padding: 10px 15px;
+    cursor: pointer;
+    font-weight: bold;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    flex-grow: 1; /* 幅を均等に */
+    text-align: center;
+    min-width: 120px; /* 最小幅を設定 */
+}
+
+.battle-record-tab-button:hover {
+    background-color: #e0e0e0;
+}
+
+.battle-record-tab-button.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+    box-shadow: 0 -2px 5px rgba(0,123,255,0.2);
+}
+
+.battle-record-tab-content {
+    display: none;
+    padding: 15px 0; /* タブコンテンツ内のパディングはセクションラッパーで制御 */
+}
+
+.battle-record-tab-content.active {
+    display: block;
+}
+
+
+.battle-record-form, .deck-management-section {
+    background-color: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 0; /* タブコンテンツ内なのでmargin-topを0に */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.battle-record-form label, .deck-management-section label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #555;
+}
+
+.battle-record-form input[type="text"],
+.battle-record-form input[type="number"],
+.battle-record-form select,
+.battle-record-form textarea,
+.deck-management-section input[type="text"],
+.deck-management-section select,
+.deck-management-section input[type="file"] { /* ファイル入力も追加 */
+    width: calc(100% - 20px);
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    font-size: 1em;
+    box-sizing: border-box;
+}
+
+.battle-record-form button, .deck-management-section button {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+}
+.battle-record-form button:hover, .deck-management-section button:hover {
+    background-color: #218838;
+}
+
+.deck-management-section h4 {
+    margin-top: 25px;
+    color: #007bff;
+}
+
+#registered-decks-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 15px;
+}
+
+#registered-decks-list li {
+    background-color: #e9f7ef;
+    border: 1px solid #c9e6d3;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#registered-decks-list .delete-registered-deck-button {
+    background: none;
+    border: none;
+    color: #dc3545;
+    font-size: 1.1em;
+    cursor: pointer;
+    padding: 5px;
+}
+#registered-decks-list .delete-registered-deck-button:hover {
+    color: #a71d2a;
+}
+
+
+#battle-stats {
+    background-color: #f0f8ff;
+    border: 1px solid #d0e0f0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 0; /* タブコンテンツ内なのでmargin-topを0に */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+#battle-stats p {
+    font-size: 1.1em;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+#battle-stats h4 {
+    color: #007bff;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+#battle-stats ul {
+    list-style: none;
+    padding: 0;
+    margin-left: 10px;
+}
+#battle-stats li {
+    margin-bottom: 3px;
+    color: #444;
+}
+
+.chart-placeholder {
+    text-align: center;
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #e9ecef;
+    border-radius: 8px;
+}
+.chart-placeholder img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 5px;
+}
+
+#battle-records-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 0; /* タブコンテンツ内なのでmargin-topを0に */
+}
+
+.battle-record-item {
+    background-color: #e6f7ff; /* 淡い水色の背景 */
+    border: 1px solid #b3e0ff;
+    padding: 15px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    position: relative;
+    padding-right: 40px;
+    word-wrap: break-word;
+}
+.battle-record-item strong {
+    color: #0056b3;
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
+.battle-record-item .delete-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #dc3545;
+    font-size: 1.2em;
+    cursor: pointer;
+}
+.battle-record-item .delete-button:hover {
+    color: #a71d2a;
+}
+
+/* デッキ分析セクションのスタイル */
+.deck-analysis-section button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.deck-analysis-section button:hover {
+    background-color: #0056b3;
+}

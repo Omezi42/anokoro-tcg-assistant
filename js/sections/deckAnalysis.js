@@ -5,6 +5,7 @@ window.initDeckSection = function(allCards, showCustomDialog) {
     /**
      * デッキ分析UIを初期化し、イベントリスナーを設定します。
      */
+    // 各要素を関数内で取得
     const deckAnalysisImageUpload = document.getElementById('deck-analysis-image-upload');
     const recognizeDeckAnalysisButton = document.getElementById('recognize-deck-analysis-button');
     const recognizedDeckAnalysisList = document.getElementById('recognized-deck-analysis-list');

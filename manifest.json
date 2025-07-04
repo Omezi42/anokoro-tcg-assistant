@@ -21,7 +21,7 @@
       "matches": ["https://unityroom.com/games/anokorotcg*"],
       "css": ["css/style.css"],
       "js": ["js/main.js"],
-      "run_at": "document_idle" 
+      "run_at": "document_idle"
     }
   ],
   "action": {
@@ -47,9 +47,9 @@
         "json/cards.json",
         "images/cards/*.png",
         "css/style.css",
-        "html/index.html",  
+        "html/index.html",
         "js/main.js",
-        "js/sections/*.js" 
+        "js/sections/*.js"
       ],
       "matches": ["https://unityroom.com/*"]
     }

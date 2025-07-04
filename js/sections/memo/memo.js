@@ -1,7 +1,7 @@
 // js/sections/memo/memo.js
 
 // グローバルな依存関係を受け取るための初期化関数
-function initMemoSection(allCards, showCustomDialog, screenshotArea, screenshotOverlay, screenshotCanvas, screenshotCtx, currentScreenshotImage, startX, startY, endX, endY, isDrawing) {
+window.initMemoSection = function(allCards, showCustomDialog, screenshotArea, screenshotOverlay, screenshotCanvas, screenshotCtx, currentScreenshotImage, startX, startY, endX, endY, isDrawing) {
     // === メモセクションのロジック ===
     const screenshotButton = document.getElementById('screenshot-button');
     const saveMemoButton = document.getElementById('save-memo-button');
@@ -161,4 +161,4 @@ function initMemoSection(allCards, showCustomDialog, screenshotArea, screenshotO
     }
 
     loadMemos();
-}
+}; // End of initMemoSection

@@ -1,7 +1,7 @@
 // js/sections/search/search.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-function initSearchSection(allCards, showCustomDialog) {
+window.initSearchSection = function(allCards, showCustomDialog) {
     // === 検索セクションのロジック ===
     const searchInput = document.getElementById('search-input');
     const performSearchButton = document.getElementById('perform-search-button');
@@ -293,4 +293,4 @@ function initSearchSection(allCards, showCustomDialog) {
 
     // 検索フィルターを初期化
     populateSearchFilters();
-}
+}; // End of initSearchSection

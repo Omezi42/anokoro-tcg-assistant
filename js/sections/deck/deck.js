@@ -1,7 +1,7 @@
 // js/sections/deck/deck.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-function initDeckSection(allCards, showCustomDialog) {
+window.initDeckSection = function(allCards, showCustomDialog) {
     /**
      * デッキ分析UIを初期化し、イベントリスナーを設定します。
      */
@@ -231,7 +231,7 @@ function initDeckSection(allCards, showCustomDialog) {
             });
             summaryHtml += `</ul>`;
         } else {
-            summaryHtml += `<p>主要な種別は見つかりませんでした。</p>`;
+            suggestedCardsDiv.innerHTML += `<p>主要な種別は見つかりませんでした。</p>`;
         }
 
         deckAnalysisSummary.innerHTML = summaryHtml;
@@ -339,4 +339,4 @@ function initDeckSection(allCards, showCustomDialog) {
             suggestedCardsDiv.innerHTML = '<p>現在のデッキはバランスが良いようです！</p>';
         }
     }
-}
+}; // End of initDeckSection

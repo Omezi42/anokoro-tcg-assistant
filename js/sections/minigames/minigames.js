@@ -1,7 +1,7 @@
 // js/sections/minigames/minigames.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-function initMinigamesSection(allCards, showCustomDialog) {
+window.initMinigamesSection = function(allCards, showCustomDialog) {
     // 現在のクイズの状態を管理する変数
     let currentQuiz = {
         type: null, // 'cardName', 'enlarge', 'silhouette', 'mosaic'
@@ -365,7 +365,7 @@ function initMinigamesSection(allCards, showCustomDialog) {
             ctx.font = '20px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('画像エラー', canvasWidth / 2, canvasHeight / 2);
-            ctx.fillText('(_transparent.pngが見つからないか無効です)', canvasWidth / 2, canvasCanvas.height / 2 + 30);
+            ctx.fillText('(_transparent.pngが見つからないか無効です)', canvasWidth / 2, canvasHeight / 2 + 30);
         }
     }
 
@@ -564,4 +564,4 @@ function initMinigamesSection(allCards, showCustomDialog) {
     }
 
     resetQuiz();
-}
+}; // End of initMinigamesSection

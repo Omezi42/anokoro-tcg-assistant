@@ -1,7 +1,7 @@
 // js/sections/battle-record/battle-record.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-function initBattleRecordSection(allCards, showCustomDialog) {
+window.initBattleRecordSection = function(allCards, showCustomDialog) {
     // === 戦いの記録セクションのロジック ===
     const myDeckSelect = document.getElementById('my-deck-select');
     const opponentDeckSelect = document.getElementById('opponent-deck-select');
@@ -451,4 +451,4 @@ function initBattleRecordSection(allCards, showCustomDialog) {
 
     // デフォルトで「新しい対戦記録」タブを表示
     showBattleRecordTab('new-record');
-}
+}; // End of initBattleRecordSection

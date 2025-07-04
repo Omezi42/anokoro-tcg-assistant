@@ -1,7 +1,7 @@
 // js/sections/rate-match/rate-match.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-function initRateMatchSection(allCards, showCustomDialog) {
+window.initRateMatchSection = function(allCards, showCustomDialog) {
     // === レート戦セクションのロジック ===
     const matchingButton = document.getElementById('matching-button');
     const cancelMatchingButton = document.getElementById('cancel-matching-button');
@@ -187,4 +187,4 @@ function initRateMatchSection(allCards, showCustomDialog) {
     }
 
     loadMatchHistory();
-}
+}; // End of initRateMatchSection

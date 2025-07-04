@@ -325,6 +325,7 @@ const loadedSectionStyles = {};
  * @param {string} sectionId - 表示するセクションのID (例: "home", "rate-match")。
  */
 async function showSection(sectionId) {
+    console.log(`Attempting to show section: ${sectionId}`);
     // セクションタイトルを更新
     const sectionTitleElement = document.getElementById('tcg-section-title');
     if (sectionTitleElement) {
@@ -344,26 +345,31 @@ async function showSection(sectionId) {
         targetSection.id = `tcg-${sectionId}-section`;
         targetSection.className = 'tcg-section';
         document.getElementById('tcg-sections-wrapper').appendChild(targetSection);
+        console.log(`Created new section container: tcg-${sectionId}-section`);
     }
 
     // セクションのHTMLをロード
     try {
         const htmlPath = chrome.runtime.getURL(`html/sections/${sectionId}/${sectionId}.html`);
+        console.log(`Fetching HTML from: ${htmlPath}`);
         const response = await fetch(htmlPath);
         if (!response.ok) {
-            throw new Error(`Failed to load HTML for ${sectionId}: ${response.statusText}`);
+            throw new Error(`Failed to load HTML for ${sectionId}: ${response.statusText} (${response.status})`);
         }
         const htmlContent = await response.text();
         targetSection.innerHTML = htmlContent;
+        console.log(`HTML loaded and injected for section: ${sectionId}`);
     } catch (error) {
         console.error(`Error loading HTML for section ${sectionId}:`, error);
-        targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました: ${sectionId}</p>`;
+        targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました: ${sectionId}<br>エラー: ${error.message}</p>`;
+        return; // HTMLロード失敗時は後続処理を中断
     }
 
     // セクションのCSSをロード
     const cssPath = chrome.runtime.getURL(`css/sections/${sectionId}/${sectionId}.css`);
     if (!loadedSectionStyles[cssPath]) {
         try {
+            console.log(`Checking CSS existence: ${cssPath}`);
             const response = await fetch(cssPath, { method: 'HEAD' }); // HEADリクエストで存在確認
             if (response.ok) {
                 const link = document.createElement('link');
@@ -371,21 +377,24 @@ async function showSection(sectionId) {
                 link.href = cssPath;
                 document.head.appendChild(link);
                 loadedSectionStyles[cssPath] = true;
+                console.log(`CSS loaded and injected for section: ${sectionId}`);
             } else {
-                console.warn(`CSSファイルが見つかりません: ${cssPath}`);
+                console.warn(`CSS file not found or accessible: ${cssPath}`);
             }
         } catch (error) {
-            console.warn(`CSSファイルのロード中にエラーが発生しました: ${cssPath}`, error);
+            console.warn(`Error loading CSS for section ${sectionId}: ${cssPath}`, error);
         }
+    } else {
+        console.log(`CSS already loaded for section: ${sectionId}`);
     }
 
     // セクションのJavaScriptをロード
     const jsPath = chrome.runtime.getURL(`js/sections/${sectionId}/${sectionId}.js`);
-    // 既にロード済みの場合は、初期化関数を再実行
     const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}Section`;
 
     if (!loadedSectionScripts[jsPath]) {
         try {
+            console.log(`Checking JS existence: ${jsPath}`);
             const response = await fetch(jsPath, { method: 'HEAD' }); // HEADリクエストで存在確認
             if (response.ok) {
                 const script = document.createElement('script');
@@ -393,30 +402,43 @@ async function showSection(sectionId) {
                 script.type = 'module'; // ESモジュールとしてロード
                 document.body.appendChild(script);
                 loadedSectionScripts[jsPath] = true;
+                console.log(`JS script element appended for section: ${sectionId}`);
 
+                // スクリプトがロードされてから初期化関数を呼び出す
                 script.onload = () => {
+                    console.log(`Script loaded: ${jsPath}`);
+                    // グローバルスコープに公開された関数を呼び出す
                     if (typeof window[initFunctionName] === 'function') {
+                        console.log(`Calling initialization function: ${initFunctionName}`);
                         // 必要な依存関係を渡す
-                        window[initFunctionName](allCards, showCustomDialog, screenshotArea, screenshotOverlay, screenshotCanvas, screenshotCtx, currentScreenshotImage, startX, startY, endX, endY, isDrawing);
+                        window[initFunctionName](allCards, showCustomDialog, document.getElementById('screenshot-area'), screenshotOverlay, screenshotCanvas, screenshotCtx, currentScreenshotImage, startX, startY, endX, endY, isDrawing);
                     } else {
-                        console.warn(`Initialization function ${initFunctionName} not found for section ${sectionId}.`);
+                        console.warn(`Initialization function ${initFunctionName} not found on window object after script load for section ${sectionId}. This might indicate a scoping issue in the section's JS file.`);
                     }
                 };
+                script.onerror = (e) => {
+                    console.error(`Error loading script: ${jsPath}`, e);
+                };
             } else {
-                console.warn(`JavaScriptファイルが見つかりません: ${jsPath}`);
+                console.warn(`JavaScript file not found or accessible: ${jsPath}`);
             }
         } catch (error) {
-            console.warn(`JavaScriptファイルのロード中にエラーが発生しました: ${jsPath}`, error);
+            console.warn(`Error loading JavaScript for section ${sectionId}: ${jsPath}`, error);
         }
     } else {
+        console.log(`JS already loaded for section: ${sectionId}. Attempting to re-call init function.`);
         // 既にロード済みの場合は、初期化関数を再実行
         if (typeof window[initFunctionName] === 'function') {
-            window[initFunctionName](allCards, showCustomDialog, screenshotArea, screenshotOverlay, screenshotCanvas, screenshotCtx, currentScreenshotImage, startX, startY, endX, endY, isDrawing);
+            console.log(`Re-calling initialization function: ${initFunctionName}`);
+            window[initFunctionName](allCards, showCustomDialog, document.getElementById('screenshot-area'), screenshotOverlay, screenshotCanvas, screenshotCtx, currentScreenshotImage, startX, startY, endX, endY, isDrawing);
+        } else {
+            console.warn(`Initialization function ${initFunctionName} not found on window object for already loaded script for section ${sectionId}.`);
         }
     }
 
     // 指定されたセクションをアクティブにする
     targetSection.classList.add('active');
+    console.log(`Section tcg-${sectionId}-section is now active.`);
 
     // アクティブなセクションを保存
     chrome.storage.local.set({ activeSection: sectionId });
@@ -559,7 +581,8 @@ async function initializeExtensionFeatures() {
 
     if (cropScreenshotButton) {
         cropScreenshotButton.addEventListener('click', () => {
-            if (!screenshotArea || !currentScreenshotImage || !screenshotOverlay || !screenshotCanvas || !screenshotCtx) {
+            const screenshotAreaElement = document.getElementById('screenshot-area'); // メモセクションのscreenshot-areaを取得
+            if (!screenshotAreaElement || !currentScreenshotImage || !screenshotOverlay || !screenshotCanvas || !screenshotCtx) {
                 return;
             }
             let croppedImageUrl;
@@ -603,7 +626,8 @@ async function initializeExtensionFeatures() {
 
     if (pasteFullScreenshotButton) {
         pasteFullScreenshotButton.addEventListener('click', () => {
-            if (!screenshotArea || !currentScreenshotImage || !screenshotOverlay) return;
+            const screenshotAreaElement = document.getElementById('screenshot-area'); // メモセクションのscreenshot-areaを取得
+            if (!screenshotAreaElement || !currentScreenshotImage || !screenshotOverlay) return;
             
             // メモセクションのJSに画像を渡すためのカスタムイベントを発火させる
             const event = new CustomEvent('screenshotCropped', {

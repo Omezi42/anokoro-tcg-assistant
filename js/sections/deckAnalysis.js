@@ -165,7 +165,7 @@ export function initDeckAnalysisSection(allCards, showCustomDialog) {
 
         if (!deckAnalysisSummary || !suggestedCardsDiv) return;
 
-        const deckCards = cardNames.map(name => allCards.find(card => card.name === name)).filter(card => card !== undefined);
+        const deckCards = allCards.filter(card => cardNames.includes(card.name));
 
         if (deckCards.length === 0) {
             deckAnalysisSummary.innerHTML = '<p>認識されたカードに対応するデータが見つかりませんでした。</p>';

@@ -52,7 +52,7 @@
         "js/main.js",
         "js/sections/*.js"
       ],
-      "matches": ["https://unityroom.com/games/anokorotcg*"]
+      "matches": ["https://unityroom.com/*"]
     }
   ],
   "options_page": "html/options.html",

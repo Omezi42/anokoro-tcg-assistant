@@ -48,6 +48,7 @@
         "images/cards/*.png",
         "css/style.css",
         "html/index.html",
+        "html/sections/*.html",
         "js/main.js",
         "js/sections/*.js"
       ],

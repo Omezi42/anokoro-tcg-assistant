@@ -1,7 +1,7 @@
 // js/sections/search.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initSearchSection = function(allCards, showCustomDialog) {
+export function initSearchSection(allCards, showCustomDialog) {
     console.log("Search section initialized.");
 
     // === 検索セクションのロジック ===

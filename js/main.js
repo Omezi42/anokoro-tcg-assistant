@@ -257,7 +257,29 @@ function toggleContentArea(sectionId) {
 }
 
 // 現在ロードされているセクションのスクリプトを追跡
-const loadedSectionScripts = {};
+// const loadedSectionScripts = {}; // この行は不要になるため削除またはコメントアウト
+
+// 各セクションの初期化関数を直接参照
+// これにより、動的なスクリプト読み込みとwindowオブジェクトへの依存を避ける
+import { initHomeSection } from './sections/home.js';
+import { initRateMatchSection } from './sections/rateMatch.js';
+import { initMemoSection } from './sections/memo.js';
+import { initSearchSection } from './sections/search.js';
+import { initMinigamesSection } from './sections/minigames.js';
+import { initBattleRecordSection } from './sections/battleRecord.js';
+import { initDeckAnalysisSection } from './sections/deckAnalysis.js';
+
+// 初期化関数のマッピング
+const sectionInitializers = {
+    home: initHomeSection,
+    rateMatch: initRateMatchSection,
+    memo: initMemoSection,
+    search: initSearchSection,
+    minigames: initMinigamesSection,
+    battleRecord: initBattleRecordSection,
+    deckAnalysis: initDeckAnalysisSection
+};
+
 
 /**
  * 指定されたセクションを表示し、他のセクションを非表示にします。
@@ -301,47 +323,18 @@ async function showSection(sectionId) {
         return;
     }
 
-
-    // セクションのJavaScriptをロード
-    const jsPath = chrome.runtime.getURL(`js/sections/${sectionId}.js`);
-    // セクションIDをキャメルケースに変換して初期化関数名を生成
-    const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace(/-([a-z])/g, (g) => g[1].toUpperCase())}Section`;
-
-    // スクリプトがまだロードされていない場合のみ追加
-    if (!loadedSectionScripts[jsPath]) {
-        try {
-            const script = document.createElement('script');
-            script.src = jsPath;
-            document.body.appendChild(script);
-            loadedSectionScripts[jsPath] = true;
-
-            // スクリプトがロードされてから初期化関数を呼び出す
-            script.onload = () => {
-                // DOMが完全に更新されるのを待つためにsetTimeout(0)を使用
-                setTimeout(() => {
-                    if (typeof window[initFunctionName] === 'function') {
-                        window[initFunctionName](allCards, showCustomDialog);
-                    } else {
-                        console.warn(`Initialization function ${initFunctionName} not found on window object after script load for section ${sectionId}. This might indicate a scoping issue in the section's JS file.`);
-                    }
-                }, 0);
-            };
-            script.onerror = (e) => {
-                console.error(`Error loading script: ${jsPath}`, e);
-            };
-        } catch (error) {
-            console.warn(`Error loading JavaScript for section ${sectionId}: ${jsPath}`, error);
+    // 各セクションの初期化関数を直接呼び出す
+    // HTMLコンテンツがDOMに挿入されてから実行されるようにsetTimeoutで遅延
+    setTimeout(() => {
+        const initializer = sectionInitializers[sectionId];
+        if (typeof initializer === 'function') {
+            console.log(`Calling initializer for section: ${sectionId}`);
+            initializer(allCards, showCustomDialog);
+        } else {
+            console.error(`No initializer function found for section: ${sectionId}. This indicates a mismatch between sectionId and the imported function, or a missing import.`);
         }
-    } else {
-        // 既にロード済みの場合は、初期化関数を再実行
-        setTimeout(() => {
-            if (typeof window[initFunctionName] === 'function') {
-                window[initFunctionName](allCards, showCustomDialog);
-            } else {
-                console.warn(`Initialization function ${initFunctionName} not found on window object for already loaded script for section ${sectionId}.`);
-            }
-        }, 0);
-    }
+    }, 0);
+
 
     // 指定されたセクションをアクティブにする
     targetSection.classList.add('active');

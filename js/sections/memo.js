@@ -1,7 +1,7 @@
 // js/sections/memo.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initMemoSection = function(allCards, showCustomDialog) {
+export function initMemoSection(allCards, showCustomDialog) {
     console.log("Memo section initialized.");
 
     // === メモセクションのロジック ===

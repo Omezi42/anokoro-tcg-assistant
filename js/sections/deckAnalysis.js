@@ -1,7 +1,7 @@
 // js/sections/deckAnalysis.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
+export function initDeckAnalysisSection(allCards, showCustomDialog) {
     console.log("DeckAnalysis section initialized.");
 
     /**

@@ -16,6 +16,8 @@ let isMenuIconsVisible = true; // デフォルトで表示
 
 // サイドバーとメニューの幅を定義
 const SIDEBAR_WIDTH = 500; // px (コンテンツエリアの幅)
+const MENU_ICON_SIZE = 60; // px (各アイコンボタンのサイズ)
+const TOGGLE_BUTTON_SIZE = 50; // px (メニュー開閉ボタンのサイズ)
 
 // スクリーンショットオーバーレイ関連の要素は、UI注入後に取得するように変更
 let screenshotOverlay;
@@ -130,10 +132,14 @@ function createRightSideMenuAndAttachListeners() {
 
     // 各メニューアイコンにクリックイベントリスナーを設定
     menuIcons.forEach(iconButton => {
+        // 既存のリスナーを削除してから追加することで、重複登録を防ぐ
+        // ただし、今回はこの関数が一度しか呼ばれない想定なので、厳密には不要だが安全のため
+        iconButton.removeEventListener('click', handleMenuIconClick); // 以前のリスナーを削除
         iconButton.addEventListener('click', handleMenuIconClick);
     });
 
     // トグルボタンのイベントリスナーを設定
+    toggleButton.removeEventListener('click', handleMenuToggleButtonClick); // 以前のリスナーを削除
     toggleButton.addEventListener('click', handleMenuToggleButtonClick);
 
     // メニューアイコンの表示状態をロードし、初期状態を適用
@@ -331,7 +337,7 @@ async function showSection(sectionId) {
     } else {
         // 既にロード済みの場合は、初期化関数を再実行
         setTimeout(() => {
-            if (typeof window[initFunctionName] === 'function') {
+            if (typeof window[initFunctionName] === 'function') { // 修正済み
                 window[initFunctionName](allCards, showCustomDialog);
             } else {
                 console.warn(`Initialization function ${initFunctionName} not found on window object for already loaded script for section ${sectionId}.`);
@@ -382,25 +388,23 @@ async function initializeExtensionFeatures() {
     }
 
     // screenshotCanvasのコンテキストを初期化
-    // これらの要素はUI注入後に取得されるため、ここで直接参照しない
-    // screenshotOverlay, screenshotCanvas, cropScreenshotButton, pasteFullScreenshotButton, cancelCropButton
-    // がnullでないことを確認してからイベントリスナーを設定する
-    const currentScreenshotOverlay = document.getElementById('screenshot-overlay');
-    const currentScreenshotCanvas = document.getElementById('screenshot-canvas');
-    const currentCropScreenshotButton = document.getElementById('crop-screenshot-button');
-    const currentPasteFullScreenshotButton = document.getElementById('paste-full-screenshot-button');
-    const currentCancelCropButton = document.getElementById('cancel-cancel-button'); // ID修正
+    // これらの要素はUI注入後に取得されるため、ここで直接参照する
+    screenshotOverlay = document.getElementById('screenshot-overlay');
+    screenshotCanvas = document.getElementById('screenshot-canvas');
+    cropScreenshotButton = document.getElementById('crop-screenshot-button');
+    pasteFullScreenshotButton = document.getElementById('paste-full-screenshot-button');
+    cancelCropButton = document.getElementById('cancel-crop-button'); // ID修正
 
-    if (currentScreenshotCanvas) {
-        screenshotCtx = currentScreenshotCanvas.getContext('2d');
+    if (screenshotCanvas) {
+        screenshotCtx = screenshotCanvas.getContext('2d');
 
-        currentScreenshotCanvas.addEventListener('mousedown', (e) => {
-            const rect = currentScreenshotCanvas.getBoundingClientRect();
+        screenshotCanvas.addEventListener('mousedown', (e) => {
+            const rect = screenshotCanvas.getBoundingClientRect();
             const xInCanvas = e.clientX - rect.left;
             const yInCanvas = e.clientY - rect.top;
 
-            if (xInCanvas >= 0 && xInCanvas <= currentScreenshotCanvas.width &&
-                yInCanvas >= 0 && yInCanvas <= currentScreenshotCanvas.height) {
+            if (xInCanvas >= 0 && xInCanvas <= screenshotCanvas.width &&
+                yInCanvas >= 0 && yInCanvas <= screenshotCanvas.height) {
                 startX = xInCanvas;
                 startY = yInCanvas;
                 endX = xInCanvas; // 初期化
@@ -409,18 +413,18 @@ async function initializeExtensionFeatures() {
             }
         });
 
-        currentScreenshotCanvas.addEventListener('mousemove', (e) => {
+        screenshotCanvas.addEventListener('mousemove', (e) => {
             if (!isDrawing || !screenshotCtx || !currentScreenshotImage) return;
             
-            const rect = currentScreenshotCanvas.getBoundingClientRect();
+            const rect = screenshotCanvas.getBoundingClientRect();
             const xInCanvas = e.clientX - rect.left;
             const yInCanvas = e.clientY - rect.top;
 
-            endX = Math.max(0, Math.min(currentScreenshotCanvas.width, xInCanvas));
-            endY = Math.max(0, Math.min(currentScreenshotCanvas.height, yInCanvas));
+            endX = Math.max(0, Math.min(screenshotCanvas.width, xInCanvas));
+            endY = Math.max(0, Math.min(screenshotCanvas.height, yInCanvas));
 
-            screenshotCtx.clearRect(0, 0, currentScreenshotCanvas.width, currentScreenshotCanvas.height);
-            screenshotCtx.drawImage(currentScreenshotImage, 0, 0, currentScreenshotCanvas.width, currentScreenshotCanvas.height);
+            screenshotCtx.clearRect(0, 0, screenshotCanvas.width, screenshotCanvas.height);
+            screenshotCtx.drawImage(currentScreenshotImage, 0, 0, screenshotCanvas.width, screenshotCanvas.height);
             
             const width = endX - startX;
             const height = endY - startY;
@@ -429,19 +433,19 @@ async function initializeExtensionFeatures() {
             screenshotCtx.strokeRect(startX, startY, width, height);
         });
 
-        currentScreenshotCanvas.addEventListener('mouseup', () => {
+        screenshotCanvas.addEventListener('mouseup', () => {
             isDrawing = false;
         });
-        currentScreenshotCanvas.addEventListener('mouseleave', () => {
+        screenshotCanvas.addEventListener('mouseleave', () => {
             if (isDrawing) {
                 isDrawing = false;
             }
         });
     }
 
-    if (currentCropScreenshotButton) {
-        currentCropScreenshotButton.addEventListener('click', () => {
-            if (!currentScreenshotImage || !currentScreenshotOverlay || !currentScreenshotCanvas || !screenshotCtx) {
+    if (cropScreenshotButton) {
+        cropScreenshotButton.addEventListener('click', () => {
+            if (!currentScreenshotImage || !screenshotOverlay || !screenshotCanvas || !screenshotCtx) {
                 return;
             }
             let croppedImageUrl;
@@ -454,8 +458,8 @@ async function initializeExtensionFeatures() {
                 const width = selectionWidth;
                 const height = selectionHeight;
 
-                const scaleX = currentScreenshotImage.naturalWidth / currentScreenshotCanvas.width;
-                const scaleY = currentScreenshotImage.naturalHeight / currentScreenshotCanvas.height;
+                const scaleX = currentScreenshotImage.naturalWidth / screenshotCanvas.width;
+                const scaleY = currentScreenshotImage.naturalHeight / screenshotCanvas.height;
 
                 const croppedCanvas = document.createElement('canvas');
                 croppedCanvas.width = width * scaleX;
@@ -477,15 +481,15 @@ async function initializeExtensionFeatures() {
             });
             document.dispatchEvent(event);
 
-            currentScreenshotOverlay.style.display = 'none';
+            screenshotOverlay.style.display = 'none';
             startX = startY = endX = endY = undefined;
             showCustomDialog('貼り付け完了', 'スクリーンショットがメモエリアに貼り付けられました。');
         });
     }
 
-    if (currentPasteFullScreenshotButton) {
-        currentPasteFullScreenshotButton.addEventListener('click', () => {
-            if (!currentScreenshotImage || !currentScreenshotOverlay) return;
+    if (pasteFullScreenshotButton) {
+        pasteFullScreenshotButton.addEventListener('click', () => {
+            if (!currentScreenshotImage || !screenshotOverlay) return;
             
             // メモセクションのJSに画像を渡すためのカスタムイベントを発火させる
             const event = new CustomEvent('screenshotCropped', {
@@ -493,15 +497,15 @@ async function initializeExtensionFeatures() {
             });
             document.dispatchEvent(event);
 
-            currentScreenshotOverlay.style.display = 'none';
+            screenshotOverlay.style.display = 'none';
             startX = startY = endX = endY = undefined;
             showCustomDialog('貼り付け完了', 'スクリーンショットがメモエリアに貼り付けられました。');
         });
     }
 
-    if (currentCancelCropButton) {
-        currentCancelCropButton.addEventListener('click', () => {
-            if (currentScreenshotOverlay) currentScreenshotOverlay.style.display = 'none';
+    if (cancelCropButton) {
+        cancelCropButton.addEventListener('click', () => {
+            if (screenshotOverlay) screenshotOverlay.style.display = 'none';
             startX = startY = endX = endY = undefined;
             showCustomDialog('キャンセル', 'スクリーンショットのトリミングをキャンセルしました。');
         });
@@ -520,7 +524,6 @@ async function injectUIIntoPage() {
     try {
         // UIのHTML構造を文字列として定義
         const uiHtml = `
-            <!-- 右サイドメニューのコンテナ -->
             <div id="tcg-right-menu-container">
                 <div class="tcg-menu-icons-wrapper">
                     <button class="tcg-menu-icon" data-section="home" title="ホーム"><i class="fas fa-home"></i></button>
@@ -536,11 +539,8 @@ async function injectUIIntoPage() {
                 </button>
             </div>
 
-            <!-- コンテンツ表示エリア -->
             <div id="tcg-content-area">
                 <div id="tcg-sections-wrapper">
-                    <!-- 各セクションのHTMLコンテンツがここに動的にロードされます -->
-                    <!-- 初期表示のホームセクションのコンテンツを直接記述 -->
                     <div id="tcg-home-section" class="tcg-section active">
                         <h2 class="section-title">ホーム</h2>
                         <p>あの頃の自作TCGアシスタントへようこそ！</p>
@@ -591,7 +591,6 @@ async function injectUIIntoPage() {
                         </ul>
                     </div>
 
-                    <!-- その他のセクションは動的にロードされる -->
                     <div id="tcg-rateMatch-section" class="tcg-section"></div>
                     <div id="tcg-memo-section" class="tcg-section"></div>
                     <div id="tcg-search-section" class="tcg-section"></div>
@@ -601,7 +600,6 @@ async function injectUIIntoPage() {
                 </div>
             </div>
 
-            <!-- カスタムダイアログのオーバーレイ -->
             <div id="tcg-custom-dialog-overlay" class="tcg-modal-overlay" style="display: none;">
                 <div class="tcg-modal-content">
                     <h3 id="tcg-dialog-title"></h3>
@@ -611,7 +609,6 @@ async function injectUIIntoPage() {
                 </div>
             </div>
 
-            <!-- スクリーンショットトリミング用のオーバーレイ -->
             <div id="screenshot-overlay" class="tcg-modal-overlay" style="display: none;">
                 <div class="tcg-modal-content screenshot-modal-content">
                     <h3>スクリーンショットをトリミング</h3>
@@ -630,21 +627,27 @@ async function injectUIIntoPage() {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = uiHtml;
 
-        // bodyの既存コンテンツを保持しつつ、UIを挿入
-        const bodyContent = document.body.innerHTML;
-        document.body.innerHTML = ''; // bodyを一度クリア
+        // bodyの既存コンテンツを保持しつつ、UIを挿入する
+        // bodyを一度クリアし、tempDivの子要素をbodyに移動し、元のbodyコンテンツを再追加
+        const bodyOriginalContent = Array.from(document.body.childNodes); // 元の子ノードを配列にコピー
+        document.body.innerHTML = ''; // bodyをクリア
+
         while (tempDiv.firstChild) {
             document.body.appendChild(tempDiv.firstChild); // tempDivの子要素をbodyに移動
         }
-        document.body.innerHTML += bodyContent; // 元のbodyコンテンツを再追加
 
-        // グローバル変数にDOM要素を再割り当て
+        // 元のbodyコンテンツを再追加
+        bodyOriginalContent.forEach(node => {
+            document.body.appendChild(node);
+        });
+        
+        // UI要素がDOMに挿入された後に、グローバル変数に参照を割り当てる
         // この時点で要素はDOMに存在しているはず
         screenshotOverlay = document.getElementById('screenshot-overlay');
         screenshotCanvas = document.getElementById('screenshot-canvas');
         cropScreenshotButton = document.getElementById('crop-screenshot-button');
         pasteFullScreenshotButton = document.getElementById('paste-full-screenshot-button');
-        cancelCropButton = document.getElementById('cancel-crop-button');
+        cancelCropButton = document.getElementById('cancel-crop-button'); // ID修正
 
         uiInjected = true; // 挿入フラグを設定
 

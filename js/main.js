@@ -569,55 +569,113 @@ async function initializeExtensionFeatures() {
  * 拡張機能のUIをウェブページに挿入します。
  */
 async function injectUIIntoPage() {
-    try {
-        const response = await fetch(chrome.runtime.getURL('html/index.html'));
-        if (!response.ok) {
-            throw new Error(`Failed to load index.html: ${response.statusText}`);
-        }
-        const htmlContent = await response.text();
-        
-        // 一時的なコンテナを作成し、HTMLコンテンツを解析
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = htmlContent;
+    // UIのHTML構造を文字列として定義
+    const uiHtml = `
+        <!-- 右サイドメニューのコンテナ -->
+        <div id="tcg-right-menu-container">
+            <div class="tcg-menu-icons-wrapper">
+                <button class="tcg-menu-icon" data-section="home" title="ホーム"><i class="fas fa-home"></i></button>
+                <button class="tcg-menu-icon" data-section="rateMatch" title="レート戦"><i class="fas fa-fist-raised"></i></button>
+                <button class="tcg-menu-icon" data-section="memo" title="メモ"><i class="fas fa-clipboard"></i></button>
+                <button class="tcg-menu-icon" data-section="search" title="検索"><i class="fas fa-search"></i></button>
+                <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
+                <button class="tcg-menu-icon" data-section="battleRecord" title="戦いの記録"><i class="fas fa-trophy"></i></button>
+                <button class="tcg-menu-icon" data-section="deckAnalysis" title="デッキ分析"><i class="fas fa-cube"></i></button>
+            </div>
+            <button class="tcg-menu-toggle-button" id="tcg-menu-toggle-button" title="メニューを隠す/表示">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
 
-        // 必要なUIコンテナをbodyに直接追加
-        const rightMenuContainer = tempDiv.querySelector('#tcg-right-menu-container');
-        const contentArea = tempDiv.querySelector('#tcg-content-area');
-        // カスタムダイアログとスクリーンショットオーバーレイはindex.htmlに直接記述されているため、
-        // ここで再取得してグローバル変数に割り当て直す
-        const customDialogOverlay = document.getElementById('tcg-custom-dialog-overlay');
-        const screenshotOverlayElement = document.getElementById('screenshot-overlay'); // index.htmlに静的に存在
+        <!-- コンテンツ表示エリア -->
+        <div id="tcg-content-area">
+            <div id="tcg-sections-wrapper">
+                <!-- 各セクションのHTMLコンテンツがここに動的にロードされます -->
+                <!-- 初期表示のホームセクションのコンテンツを直接記述 -->
+                <div id="tcg-home-section" class="tcg-section active">
+                    <h2 class="section-title">ホーム</h2>
+                    <p>あの頃の自作TCGアシスタントへようこそ！</p>
+                    <p>この拡張機能は、unityroomの『あの頃の自作TCG』をより深く、より楽しくプレイするための様々な機能を提供します。</p>
+                    <p>ゲーム体験を拡張し、あなたの戦略をサポートします！</p>
 
-        // 動的に生成した要素を追加
-        if (rightMenuContainer) document.body.appendChild(rightMenuContainer);
-        if (contentArea) document.body.appendChild(contentArea);
-        // customDialogOverlayとscreenshotOverlayElementは既にbodyに存在するため、追加は不要
+                    <h3>拡張機能でできること</h3>
 
-        console.log("UI elements injected into the page.");
+                    <div class="feature-section">
+                        <h4><i class="fas fa-fist-raised"></i> レート戦のサポート</h4>
+                        <p>現在のレートやマッチング状況をリアルタイムで確認できます。対戦相手とのチャット機能や、勝利・敗北の報告もスムーズに行えます。</p>
+                    </div>
 
-        // グローバル変数にDOM要素を再割り当て
-        // main.jsのトップレベルで宣言された変数に、ここでDOM要素を割り当てる
-        Object.assign(window, {
-            screenshotOverlay: screenshotOverlayElement,
-            screenshotCanvas: document.getElementById('screenshot-canvas'),
-            cropScreenshotButton: document.getElementById('crop-screenshot-button'),
-            pasteFullScreenshotButton: document.getElementById('paste-full-screenshot-button'),
-            cancelCropButton: document.getElementById('cancel-crop-button')
-        });
+                    <div class="feature-section">
+                        <h4><i class="fas fa-clipboard"></i> 戦略メモ機能</h4>
+                        <p>対戦中の気づきやアイデアをすぐにメモできます。スクリーンショット機能で、盤面状況を記録することも可能です。</p>
+                    </div>
 
-        // UI要素がDOMに挿入され、グローバル変数が割り当てられた後に初期化関数を呼び出す
-        createRightSideMenu(); // 右サイドメニューのイベントリスナー設定
-        initializeExtensionFeatures(); // カードデータロード、スクリーンショット関連初期化
+                    <div class="feature-section">
+                        <h4><i class="fas fa-search"></i> カード検索機能</h4>
+                        <p>あいまい検索や、カードタイプ・収録セットによる絞り込み検索で、目的のカード情報を素早く見つけられます。カードの詳細情報も一目で確認できます。</p>
+                    </div>
 
-        // 初期表示セクションをロード
-        chrome.storage.local.get(['activeSection'], (result) => {
-            const activeSection = result.activeSection || 'home';
-            showSection(activeSection);
-        });
+                    <div class="feature-section">
+                        <h4><i class="fas fa-gamepad"></i> ミニゲームで息抜き</h4>
+                        <p>カード名当てクイズやイラストクイズなど、ちょっとした時間に楽しめるミニゲームで気分転換しましょう。</p>
+                    </div>
 
-    } catch (error) {
-        console.error("Failed to inject UI into page:", error);
-    }
+                    <div class="feature-section">
+                        <h4><i class="fas fa-trophy"></i> 戦いの記録</h4>
+                        <p>自分のデッキと相手のデッキ、そして勝敗を記録し、戦績を管理できます。あなたの成長を可視化し、次の戦略に活かしましょう。</p>
+                    </div>
+
+                    <div class="feature-section">
+                        <h4><i class="fas fa-cube"></i> デッキ分析</h4>
+                        <p>デッキのスクリーンショットをアップロードして、デッキの構成を分析し、おすすめカードのサジェストを受け取ることができます。</p>
+                    </div>
+
+                    <p style="margin-top: 30px; text-align: center; font-style: italic; color: #666;">
+                        この拡張機能は、あなたの『あの頃の自作TCG』ライフをより豊かにするために開発されています。
+                    </p>
+
+                    <h3>役立つリンク集</h3>
+                    <ul>
+                        <li><a href="https://unityroom.com/games/anokorotcg" target="_blank">『あの頃の自作TCG』ゲーム本体</a></li>
+                        <li><a href="https://example.com/tcg-wiki" target="_blank">非公式Wiki (例)</a></li>
+                        <li><a href="https://example.com/tcg-community" target="_blank">コミュニティフォーラム (例)</a></li>
+                    </ul>
+                </div>
+
+                <!-- その他のセクションは動的にロードされる -->
+                <div id="tcg-rateMatch-section" class="tcg-section"></div>
+                <div id="tcg-memo-section" class="tcg-section"></div>
+                <div id="tcg-search-section" class="tcg-section"></div>
+                <div id="tcg-minigames-section" class="tcg-section"></div>
+                <div id="tcg-battleRecord-section" class="tcg-section"></div>
+                <div id="tcg-deckAnalysis-section" class="tcg-section"></div>
+            </div>
+        </div>
+    `;
+
+    // 既存のbodyの内容を保持しつつ、UIを挿入する
+    const bodyContent = document.body.innerHTML;
+    document.body.innerHTML = uiHtml + bodyContent; // UIをbodyの先頭に追加
+
+    // UI要素がDOMに挿入された後に、グローバル変数に参照を割り当てる
+    // index.htmlに静的に存在していた要素も、ここで改めて取得する
+    screenshotOverlay = document.getElementById('screenshot-overlay');
+    screenshotCanvas = document.getElementById('screenshot-canvas');
+    cropScreenshotButton = document.getElementById('crop-screenshot-button');
+    pasteFullScreenshotButton = document.getElementById('paste-full-screenshot-button');
+    cancelCropButton = document.getElementById('cancel-crop-button');
+
+    console.log("UI elements injected into the page.");
+
+    // UI要素がDOMに挿入され、グローバル変数が割り当てられた後に初期化関数を呼び出す
+    createRightSideMenu(); // 右サイドメニューのイベントリスナー設定
+    initializeExtensionFeatures(); // カードデータロード、スクリーンショット関連初期化
+
+    // 初期表示セクションをロード
+    chrome.storage.local.get(['activeSection'], (result) => {
+        const activeSection = result.activeSection || 'home';
+        showSection(activeSection);
+    });
 }
 
 // ページが完全にロードされ、アイドル状態になった後にUIを挿入

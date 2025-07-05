@@ -8,34 +8,6 @@
 </head>
 <body>
     <!-- 拡張機能のUIはmain.jsによって動的に挿入されます -->
-    <!-- ここに直接HTML要素を記述する代わりに、main.jsがこれらの要素を生成します -->
-    <!-- ただし、カスタムダイアログとスクリーンショットオーバーレイはbody直下に静的に配置しておくことで、
-         main.jsが実行される前に確実に存在するようにします。 -->
-
-    <!-- カスタムダイアログのオーバーレイ -->
-    <div id="tcg-custom-dialog-overlay" class="tcg-modal-overlay" style="display: none;">
-        <div class="tcg-modal-content">
-            <h3 id="tcg-dialog-title"></h3>
-            <p id="tcg-dialog-message"></p>
-            <button id="tcg-dialog-ok-button">OK</button>
-            <button id="tcg-dialog-cancel-button" style="margin-left: 10px; background-color: #6c757d; display: none;">キャンセル</button>
-        </div>
-    </div>
-
-    <!-- スクリーンショットトリミング用のオーバーレイ -->
-    <div id="screenshot-overlay" class="tcg-modal-overlay" style="display: none;">
-        <div class="tcg-modal-content screenshot-modal-content">
-            <h3>スクリーンショットをトリミング</h3>
-            <p>ドラッグで範囲を選択してください。</p>
-            <canvas id="screenshot-canvas"></canvas>
-            <div style="margin-top:15px; display:flex; justify-content:center; gap:10px;">
-                <button id="crop-screenshot-button" class="tcg-button-primary">トリミングして貼り付け</button>
-                <button id="paste-full-screenshot-button" class="tcg-button-secondary">トリミングせずに貼り付け</button>
-                <button id="cancel-crop-button" class="tcg-button-danger">キャンセル</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- main.js は manifest.json で content_scripts として注入されるため、ここでは不要 -->
+    <!-- bodyは空のままにしておきます。 -->
 </body>
 </html>

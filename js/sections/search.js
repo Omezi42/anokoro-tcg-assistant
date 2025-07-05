@@ -156,11 +156,8 @@ window.initSearchSection = function(allCards, showCustomDialog) {
 
             // カード名リンクにイベントリスナーを追加
             searchResults.querySelectorAll('.card-name-link').forEach(link => {
-                link.onclick = (e) => { // addEventListenerの代わりにonclickを使用
-                    e.preventDefault();
-                    const cardName = e.target.dataset.cardName;
-                    displayCardDetails(cardName);
-                };
+                link.removeEventListener('click', handleCardNameLinkClick); // 既存のリスナーを削除
+                link.addEventListener('click', handleCardNameLinkClick);
             });
 
         } else {
@@ -248,64 +245,84 @@ window.initSearchSection = function(allCards, showCustomDialog) {
         popup.innerHTML = detailHtml;
         document.body.appendChild(popup);
 
-        popup.querySelector('#close-card-detail-popup').onclick = () => { // addEventListenerの代わりにonclickを使用
-            popup.remove();
-        };
+        popup.querySelector('#close-card-detail-popup').removeEventListener('click', handleCloseCardDetailPopupClick); // 既存のリスナーを削除
+        popup.querySelector('#close-card-detail-popup').addEventListener('click', handleCloseCardDetailPopupClick);
     }
 
-    if (performSearchButton) {
-        performSearchButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
-            if (!searchInput || !searchTextTarget || !searchFilterType || !searchFilterSet) return;
-            const query = searchInput.value.trim();
-            const textTarget = searchTextTarget.value;
-            const typeFilter = searchFilterType.value;
-            const setFilter = searchFilterSet.value;
-
-            if (query || typeFilter || setFilter) {
-                await performCardSearch(query, textTarget, typeFilter, setFilter);
-            } else {
-                if (searchResults) searchResults.innerHTML = '<p>検索キーワードまたはフィルターを入力してください。</p>';
-            }
-        };
+    // イベントハンドラ関数
+    function handleCardNameLinkClick(e) {
+        e.preventDefault();
+        const cardName = e.target.dataset.cardName;
+        displayCardDetails(cardName);
     }
 
-    // オートコンプリート機能
-    if (searchInput && autocompleteSuggestions && performSearchButton) {
-        searchInput.oninput = () => { // addEventListenerの代わりにoninputを使用
-            const query = searchInput.value.trim().toLowerCase();
-            autocompleteSuggestions.innerHTML = '';
+    function handleCloseCardDetailPopupClick(e) {
+        e.target.closest('.card-detail-popup').remove();
+    }
 
-            if (query.length > 0) {
-                const suggestions = allCards.filter(card =>
-                    card.name.toLowerCase().includes(query)
-                ).map(card => card.name);
+    function handlePerformSearchButtonClick() {
+        if (!searchInput || !searchTextTarget || !searchFilterType || !searchFilterSet) return;
+        const query = searchInput.value.trim();
+        const textTarget = searchTextTarget.value;
+        const typeFilter = searchFilterType.value;
+        const setFilter = searchFilterSet.value;
 
-                if (suggestions.length > 0) {
-                    autocompleteSuggestions.style.display = 'block';
-                    suggestions.slice(0, 5).forEach(suggestion => {
-                        const div = document.createElement('div');
-                        div.textContent = suggestion;
-                        div.onclick = () => { // addEventListenerの代わりにonclickを使用
-                            searchInput.value = suggestion;
-                            autocompleteSuggestions.style.display = 'none';
-                            performSearchButton.click(); // オートコンプリート選択後、検索を実行
-                        };
-                        autocompleteSuggestions.appendChild(div);
-                    });
-                } else {
-                    autocompleteSuggestions.style.display = 'none';
-                }
+        if (query || typeFilter || setFilter) {
+            performCardSearch(query, textTarget, typeFilter, setFilter);
+        } else {
+            if (searchResults) searchResults.innerHTML = '<p>検索キーワードまたはフィルターを入力してください。</p>';
+        }
+    }
+
+    function handleSearchInputInput() {
+        const query = searchInput.value.trim().toLowerCase();
+        autocompleteSuggestions.innerHTML = '';
+
+        if (query.length > 0) {
+            const suggestions = allCards.filter(card =>
+                card.name.toLowerCase().includes(query)
+            ).map(card => card.name);
+
+            if (suggestions.length > 0) {
+                autocompleteSuggestions.style.display = 'block';
+                suggestions.slice(0, 5).forEach(suggestion => {
+                    const div = document.createElement('div');
+                    div.textContent = suggestion;
+                    div.removeEventListener('click', handleAutocompleteSuggestionClick); // 既存のリスナーを削除
+                    div.addEventListener('click', handleAutocompleteSuggestionClick);
+                    autocompleteSuggestions.appendChild(div);
+                });
             } else {
                 autocompleteSuggestions.style.display = 'none';
             }
-        };
+        } else {
+            autocompleteSuggestions.style.display = 'none';
+        }
+    }
 
-        // 検索インプットからフォーカスが外れたらサジェストを隠す
-        searchInput.onblur = () => { // addEventListenerの代わりにonblurを使用
-            setTimeout(() => {
-                if (autocompleteSuggestions) autocompleteSuggestions.style.display = 'none';
-            }, 100); // クリックイベントが発火するのを待つ
-        };
+    function handleAutocompleteSuggestionClick(event) {
+        searchInput.value = event.currentTarget.textContent;
+        autocompleteSuggestions.style.display = 'none';
+        performSearchButton.click(); // オートコンプリート選択後、検索を実行
+    }
+
+    function handleSearchInputBlur() {
+        setTimeout(() => {
+            if (autocompleteSuggestions) autocompleteSuggestions.style.display = 'none';
+        }, 100); // クリックイベントが発火するのを待つ
+    }
+
+    // イベントリスナーを再アタッチ
+    if (performSearchButton) {
+        performSearchButton.removeEventListener('click', handlePerformSearchButtonClick);
+        performSearchButton.addEventListener('click', handlePerformSearchButtonClick);
+    }
+
+    if (searchInput) {
+        searchInput.removeEventListener('input', handleSearchInputInput);
+        searchInput.addEventListener('input', handleSearchInputInput);
+        searchInput.removeEventListener('blur', handleSearchInputBlur);
+        searchInput.addEventListener('blur', handleSearchInputBlur);
     }
 
     // 検索フィルターを初期化

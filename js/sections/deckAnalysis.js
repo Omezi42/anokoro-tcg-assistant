@@ -25,43 +25,50 @@ window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
     suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
     recognizeDeckAnalysisButton.disabled = true;
 
-    // イベントリスナーを再登録する前に、以前のリスナーを削除する（重複登録を防ぐため）
-    // ただし、今回は addEventListener を使うため、通常は重複登録を気にする必要はないが、
-    // 念のため、既存の onclick プロパティを null に設定してクリーンアップする
-    if (deckAnalysisImageUpload) deckAnalysisImageUpload.onchange = null;
-    if (recognizeDeckAnalysisButton) recognizeDeckAnalysisButton.onclick = null;
+    // イベントリスナーを再アタッチ
+    if (deckAnalysisImageUpload) {
+        deckAnalysisImageUpload.removeEventListener('change', handleDeckAnalysisImageUploadChange); // 既存のリスナーを削除
+        deckAnalysisImageUpload.addEventListener('change', handleDeckAnalysisImageUploadChange);
+    }
+
     const deckAnalysisSection = document.getElementById('tcg-deckAnalysis-section');
-    if (deckAnalysisSection) deckAnalysisSection.onpaste = null;
+    if (deckAnalysisSection) {
+        deckAnalysisSection.removeEventListener('paste', handleDeckAnalysisSectionPaste); // 既存のリスナーを削除
+        deckAnalysisSection.addEventListener('paste', handleDeckAnalysisSectionPaste);
+    }
 
+    if (recognizeDeckAnalysisButton) {
+        recognizeDeckAnalysisButton.removeEventListener('click', handleRecognizeDeckAnalysisButtonClick); // 既存のリスナーを削除
+        recognizeDeckAnalysisButton.addEventListener('click', handleRecognizeDeckAnalysisButtonClick);
+    }
 
-    deckAnalysisImageUpload.addEventListener('change', () => { // addEventListenerを使用
+    // イベントハンドラ関数
+    function handleDeckAnalysisImageUploadChange() {
         if (deckAnalysisImageUpload.files.length > 0) {
             recognizeDeckAnalysisButton.disabled = false;
         } else {
             recognizeDeckAnalysisButton.disabled = true;
         }
-    });
-
-    if (deckAnalysisSection) {
-        deckAnalysisSection.addEventListener('paste', async (event) => { // addEventListenerを使用
-            const items = event.clipboardData.items;
-            for (const item of items) {
-                if (item.type.startsWith('image/')) {
-                    const blob = item.getAsFile();
-                    const reader = new FileReader();
-                    reader.onload = async (e) => {
-                        const base64ImageData = e.target.result.split(',')[1];
-                        await processDeckImage(base64ImageData, blob.type);
-                    };
-                    reader.readAsDataURL(blob);
-                    return;
-                }
-            }
-            showCustomDialog('貼り付け失敗', 'クリップボードに画像がありませんでした。');
-        });
     }
 
-    recognizeDeckAnalysisButton.addEventListener('click', async () => { // addEventListenerを使用
+    async function handleDeckAnalysisSectionPaste(event) {
+        const items = event.clipboardData.items;
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                const blob = item.getAsFile();
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const base64ImageData = e.target.result.split(',')[1];
+                    await processDeckImage(base64ImageData, blob.type);
+                };
+                reader.readAsDataURL(blob);
+                return;
+            }
+        }
+        showCustomDialog('貼り付け失敗', 'クリップボードに画像がありませんでした。');
+    }
+
+    async function handleRecognizeDeckAnalysisButtonClick() {
         if (!deckAnalysisImageUpload.files || deckAnalysisImageUpload.files.length === 0) {
             showCustomDialog('エラー', 'デッキ画像をアップロードしてください。');
             return;
@@ -75,7 +82,7 @@ window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
             await processDeckImage(base64ImageData, file.type);
         };
         reader.readAsDataURL(file);
-    });
+    }
 
     async function processDeckImage(base64ImageData, mimeType) {
         recognizedDeckAnalysisList.innerHTML = '<p><div class="spinner"></div> 画像認識中...</p>';

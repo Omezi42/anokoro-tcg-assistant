@@ -524,47 +524,60 @@ window.initMinigamesSection = function(allCards, showCustomDialog) {
         quizResetButton.style.display = 'inline-block';
     }
 
-    // イベントリスナーの設定
+    // イベントリスナーを再アタッチ
     if (quizCardNameButton) {
-        quizCardNameButton.onclick = () => startQuiz('cardName'); // addEventListenerの代わりにonclickを使用
+        quizCardNameButton.removeEventListener('click', handleQuizCardNameClick);
+        quizCardNameButton.addEventListener('click', handleQuizCardNameClick);
     }
     if (quizIllustrationEnlargeButton) {
-        quizIllustrationEnlargeButton.onclick = () => startQuiz('enlarge'); // addEventListenerの代わりにonclickを使用
+        quizIllustrationEnlargeButton.removeEventListener('click', handleQuizIllustrationEnlargeClick);
+        quizIllustrationEnlargeButton.addEventListener('click', handleQuizIllustrationEnlargeClick);
     }
     if (quizIllustrationSilhouetteButton) {
-        quizIllustrationSilhouetteButton.onclick = () => startQuiz('silhouette'); // addEventListenerの代わりにonclickを使用
+        quizIllustrationSilhouetteButton.removeEventListener('click', handleQuizIllustrationSilhouetteClick);
+        quizIllustrationSilhouetteButton.addEventListener('click', handleQuizIllustrationSilhouetteClick);
     }
     if (quizIllustrationMosaicButton) {
-        quizIllustrationMosaicButton.onclick = () => startQuiz('mosaic'); // addEventListenerの代わりにonclickを使用
+        quizIllustrationMosaicButton.removeEventListener('click', handleQuizIllustrationMosaicClick);
+        quizIllustrationMosaicButton.addEventListener('click', handleQuizIllustrationMosaicClick);
     }
 
     if (quizSubmitButton) {
-        quizSubmitButton.onclick = checkAnswer; // addEventListenerの代わりにonclickを使用
+        quizSubmitButton.removeEventListener('click', checkAnswer);
+        quizSubmitButton.addEventListener('click', checkAnswer);
         if (quizAnswerInput) {
-            quizAnswerInput.onkeypress = (e) => { // addEventListenerの代わりにonkeypressを使用
-                if (e.key === 'Enter') {
-                    checkAnswer();
-                }
-            };
+            quizAnswerInput.removeEventListener('keypress', handleQuizAnswerInputKeypress);
+            quizAnswerInput.addEventListener('keypress', handleQuizAnswerInputKeypress);
         }
     }
     if (quizNextButton) {
-        quizNextButton.onclick = () => { // addEventListenerの代わりにonclickを使用
-            if (currentQuiz.type === 'cardName') {
-                displayCardNameQuizHint();
-            } else {
-                drawQuizImage();
-                if (quizNextButton) quizNextButton.style.display = 'none';
-            }
-            if (quizResultArea) {
-                quizResultArea.textContent = '';
-                quizResultArea.className = 'quiz-result-area';
-            }
-        };
+        quizNextButton.removeEventListener('click', handleQuizNextClick);
+        quizNextButton.addEventListener('click', handleQuizNextClick);
     }
     if (quizResetButton) {
-        quizResetButton.onclick = resetQuiz; // addEventListenerの代わりにonclickを使用
+        quizResetButton.removeEventListener('click', resetQuiz);
+        quizResetButton.addEventListener('click', resetQuiz);
     }
+
+    // イベントハンドラ関数
+    function handleQuizCardNameClick() { startQuiz('cardName'); }
+    function handleQuizIllustrationEnlargeClick() { startQuiz('enlarge'); }
+    function handleQuizIllustrationSilhouetteClick() { startQuiz('silhouette'); }
+    function handleQuizIllustrationMosaicClick() { startQuiz('mosaic'); }
+    function handleQuizAnswerInputKeypress(e) { if (e.key === 'Enter') checkAnswer(); }
+    function handleQuizNextClick() {
+        if (currentQuiz.type === 'cardName') {
+            displayCardNameQuizHint();
+        } else {
+            drawQuizImage();
+            if (quizNextButton) quizNextButton.style.display = 'none';
+        }
+        if (quizResultArea) {
+            quizResultArea.textContent = '';
+            quizResultArea.className = 'quiz-result-area';
+        }
+    }
+
 
     resetQuiz(); // 初期状態ではクイズUIを非表示に
 }; // End of initMinigamesSection

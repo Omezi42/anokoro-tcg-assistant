@@ -46,20 +46,13 @@ window.initMemoSection = function(allCards, showCustomDialog) {
                 });
                 // 削除ボタンのイベントリスナーを設定
                 savedMemosList.querySelectorAll('.delete-memo-button').forEach(button => {
-                    button.onclick = async (event) => { // addEventListenerの代わりにonclickを使用
-                        const originalIndexToDelete = parseInt(event.currentTarget.dataset.originalIndex);
-                        const confirmed = await showCustomDialog('メモ削除', 'このメモを削除しますか？', true);
-                        if (confirmed) {
-                            deleteMemo(originalIndexToDelete);
-                        }
-                    };
+                    button.removeEventListener('click', handleDeleteMemoClick); // 既存のリスナーを削除
+                    button.addEventListener('click', handleDeleteMemoClick);
                 });
                 // 編集ボタンのイベントリスナーを設定
                 savedMemosList.querySelectorAll('.edit-memo-button').forEach(button => {
-                    button.onclick = (event) => { // addEventListenerの代わりにonclickを使用
-                        const originalIndexToEdit = parseInt(event.currentTarget.dataset.originalIndex);
-                        editMemo(originalIndexToEdit);
-                    };
+                    button.removeEventListener('click', handleEditMemoClick); // 既存のリスナーを削除
+                    button.addEventListener('click', handleEditMemoClick);
                 });
             }
         });
@@ -99,69 +92,99 @@ window.initMemoSection = function(allCards, showCustomDialog) {
         });
     };
 
+    // イベントハンドラ関数
+    async function handleDeleteMemoClick(event) {
+        const originalIndexToDelete = parseInt(event.currentTarget.dataset.originalIndex);
+        const confirmed = await showCustomDialog('メモ削除', 'このメモを削除しますか？', true);
+        if (confirmed) {
+            deleteMemo(originalIndexToDelete);
+        }
+    }
+
+    function handleEditMemoClick(event) {
+        const originalIndexToEdit = parseInt(event.currentTarget.dataset.originalIndex);
+        editMemo(originalIndexToEdit);
+    }
+
+    async function handleScreenshotButtonClick() {
+        // main.jsのスクリーンショットキャプチャロジックをトリガー
+        chrome.runtime.sendMessage({ action: "captureScreenshot" });
+    }
+
+    async function handleSaveMemoButtonClick() {
+        if (!memoTextArea || !screenshotArea) return;
+        const memoContent = memoTextArea.value.trim();
+        const currentScreenshot = screenshotArea.querySelector('img');
+        const screenshotUrl = currentScreenshot ? currentScreenshot.src : null;
+
+        if (memoContent || screenshotUrl) {
+            chrome.storage.local.get(['savedMemos'], (result) => {
+                let memos = result.savedMemos || [];
+                const timestamp = new Date().toLocaleString();
+
+                if (editingMemoIndex !== -1) {
+                    memos[editingMemoIndex].content = memoContent;
+                    memos[editingMemoIndex].timestamp = timestamp;
+                    memos[editingMemoIndex].screenshotUrl = screenshotUrl;
+                    editingMemoIndex = -1;
+                    showCustomDialog('保存完了', 'メモを更新しました！');
+                } else {
+                    memos.push({ timestamp, content: memoContent, screenshotUrl });
+                    showCustomDialog('保存完了', 'メモを保存しました！');
+                }
+
+                chrome.storage.local.set({ savedMemos: memos }, () => {
+                    if (memoTextArea) memoTextArea.value = '';
+                    if (screenshotArea) screenshotArea.innerHTML = '<p>スクリーンショットがここに表示されます。</p>';
+                    if (memoSearchInput) loadMemos(memoSearchInput.value.trim());
+                });
+            });
+        } else {
+            showCustomDialog('エラー', 'メモ内容が空か、スクリーンショットがありません。');
+        }
+    }
+
+    function handleMemoSearchButtonClick() {
+        if (memoSearchInput) {
+            const query = memoSearchInput.value.trim();
+            loadMemos(query);
+        }
+    }
+
+    function handleMemoSearchInputKeypress(e) {
+        if (e.key === 'Enter') {
+            if (memoSearchButton) memoSearchButton.click();
+        }
+    }
+
     // main.jsから発火されるカスタムイベントをリッスン
-    document.addEventListener('screenshotCropped', (event) => {
+    document.removeEventListener('screenshotCropped', handleScreenshotCropped); // 既存のリスナーを削除
+    document.addEventListener('screenshotCropped', handleScreenshotCropped);
+
+    function handleScreenshotCropped(event) {
         if (screenshotArea) {
             screenshotArea.innerHTML = `<img src="${event.detail.imageUrl}" alt="Cropped Screenshot">`;
         }
-    });
+    }
 
+    // イベントリスナーを再アタッチ
     if (screenshotButton) {
-        screenshotButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
-            // main.jsのスクリーンショットキャプチャロジックをトリガー
-            chrome.runtime.sendMessage({ action: "captureScreenshot" });
-        };
+        screenshotButton.removeEventListener('click', handleScreenshotButtonClick);
+        screenshotButton.addEventListener('click', handleScreenshotButtonClick);
     }
 
     if (saveMemoButton) {
-        saveMemoButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
-            if (!memoTextArea || !screenshotArea) return;
-            const memoContent = memoTextArea.value.trim();
-            const currentScreenshot = screenshotArea.querySelector('img');
-            const screenshotUrl = currentScreenshot ? currentScreenshot.src : null;
-
-            if (memoContent || screenshotUrl) {
-                chrome.storage.local.get(['savedMemos'], (result) => {
-                    let memos = result.savedMemos || [];
-                    const timestamp = new Date().toLocaleString();
-
-                    if (editingMemoIndex !== -1) {
-                        memos[editingMemoIndex].content = memoContent;
-                        memos[editingMemoIndex].timestamp = timestamp;
-                        memos[editingMemoIndex].screenshotUrl = screenshotUrl;
-                        editingMemoIndex = -1;
-                        showCustomDialog('保存完了', 'メモを更新しました！');
-                    } else {
-                        memos.push({ timestamp, content: memoContent, screenshotUrl });
-                        showCustomDialog('保存完了', 'メモを保存しました！');
-                    }
-
-                    chrome.storage.local.set({ savedMemos: memos }, () => {
-                        if (memoTextArea) memoTextArea.value = '';
-                        if (screenshotArea) screenshotArea.innerHTML = '<p>スクリーンショットがここに表示されます。</p>';
-                        if (memoSearchInput) loadMemos(memoSearchInput.value.trim());
-                    });
-                });
-            } else {
-                showCustomDialog('エラー', 'メモ内容が空か、スクリーンショットがありません。');
-            }
-        };
+        saveMemoButton.removeEventListener('click', handleSaveMemoButtonClick);
+        saveMemoButton.addEventListener('click', handleSaveMemoButtonClick);
     }
 
     if (memoSearchButton) {
-        memoSearchButton.onclick = () => { // addEventListenerの代わりにonclickを使用
-            if (memoSearchInput) {
-                const query = memoSearchInput.value.trim();
-                loadMemos(query);
-            }
-        };
+        memoSearchButton.removeEventListener('click', handleMemoSearchButtonClick);
+        memoSearchButton.addEventListener('click', handleMemoSearchButtonClick);
     }
     if (memoSearchInput) {
-        memoSearchInput.onkeypress = (e) => { // addEventListenerの代わりにonkeypressを使用
-            if (e.key === 'Enter') {
-                if (memoSearchButton) memoSearchButton.click();
-            }
-        };
+        memoSearchInput.removeEventListener('keypress', handleMemoSearchInputKeypress);
+        memoSearchInput.addEventListener('keypress', handleMemoSearchInputKeypress);
     }
 
     loadMemos();

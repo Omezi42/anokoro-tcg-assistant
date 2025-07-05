@@ -61,132 +61,132 @@ window.initRateMatchSection = function(allCards, showCustomDialog) {
         });
     };
 
+    // イベントリスナーを再アタッチ
     if (matchingButton) {
-        matchingButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
-            // マッチング前UIを隠し、マッチングステータスを表示
-            if (preMatchUiDiv) {
-                preMatchUiDiv.style.display = 'none';
-            }
-            if (matchingStatusDiv) {
-                matchingStatusDiv.style.display = 'flex';
-            }
-            if (postMatchUiDiv) {
-                postMatchUiDiv.style.display = 'none';
-            }
-
-            await showCustomDialog('マッチング開始', '対戦相手を検索中です...');
-
-            matchingTimeout = setTimeout(async () => {
-                if (matchingStatusDiv) {
-                    matchingStatusDiv.style.display = 'none';
-                }
-                if (postMatchUiDiv) {
-                    postMatchUiDiv.style.display = 'block';
-                    if (chatMessagesDiv) {
-                        chatMessagesDiv.innerHTML = `
-                            <p><strong>[システム]:</strong> 対戦が始まりました！</p>
-                            <p><strong>[相手プレイヤー]:</strong> ルームID: ABC123DEF, 先攻お願いします！</p>
-                        `;
-                        chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-                    }
-                }
-                chrome.runtime.sendMessage({ action: "matchFoundNotification" });
-
-            }, 3000);
-        };
+        matchingButton.removeEventListener('click', handleMatchingButtonClick); // 既存のリスナーを削除
+        matchingButton.addEventListener('click', handleMatchingButtonClick);
     }
 
     if (cancelMatchingButton) {
-        cancelMatchingButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
-            const confirmed = await showCustomDialog('マッチングキャンセル', 'マッチングをキャンセルしますか？', true);
-            if (confirmed) {
-                clearTimeout(matchingTimeout);
-                if (matchingStatusDiv) {
-                    matchingStatusDiv.style.display = 'none';
-                }
-                if (preMatchUiDiv) {
-                    preMatchUiDiv.style.display = 'block';
-                }
-                await showCustomDialog('キャンセル完了', 'マッチングをキャンセルしました。');
-            }
-        };
+        cancelMatchingButton.removeEventListener('click', handleCancelMatchingButtonClick);
+        cancelMatchingButton.addEventListener('click', handleCancelMatchingButtonClick);
     }
 
     if (sendChatButton) {
-        sendChatButton.onclick = () => { // addEventListenerの代わりにonclickを使用
-            if (!chatInput || !chatMessagesDiv) return;
-            const message = chatInput.value.trim();
-            if (message) {
-                const newMessage = document.createElement('p');
-                newMessage.innerHTML = `<strong>[あなた]:</strong> ${message}`;
-                chatMessagesDiv.appendChild(newMessage);
-                chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-                chatInput.value = '';
-            }
-        };
+        sendChatButton.removeEventListener('click', handleSendChatButtonClick);
+        sendChatButton.addEventListener('click', handleSendChatButtonClick);
         if (chatInput) {
-            chatInput.onkeypress = (e) => { // addEventListenerの代わりにonkeypressを使用
-                if (e.key === 'Enter') {
-                    sendChatButton.click();
-                }
-            };
+            chatInput.removeEventListener('keypress', handleChatInputKeypress);
+            chatInput.addEventListener('keypress', handleChatInputKeypress);
         }
     }
 
     chatPhraseButtons.forEach(button => {
-        button.onclick = () => { // addEventListenerの代わりにonclickを使用
-            if (chatInput && sendChatButton) {
-                chatInput.value = button.textContent;
-                sendChatButton.click();
-            }
-        };
+        button.removeEventListener('click', handleChatPhraseButtonClick);
+        button.addEventListener('click', handleChatPhraseButtonClick);
     });
 
     if (winButton) {
-        winButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
-            const confirmed = await showCustomDialog('勝利報告', 'BO3の対戦で勝利を報告しますか？', true);
-            if (confirmed) {
-                saveMatchHistory(`${new Date().toLocaleString()} - BO3 勝利`);
-                showCustomDialog('報告完了', '勝利を報告しました！');
-                if (postMatchUiDiv) {
-                    postMatchUiDiv.style.display = 'none';
-                }
-                if (preMatchUiDiv) {
-                    preMatchUiDiv.style.display = 'block';
-                }
-            }
-        };
+        winButton.removeEventListener('click', handleWinButtonClick);
+        winButton.addEventListener('click', handleWinButtonClick);
     }
 
     if (loseButton) {
-        loseButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
-            const confirmed = await showCustomDialog('敗北報告', 'BO3の対戦で敗北を報告しますか？', true);
-            if (confirmed) {
-                saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北`);
-                showCustomDialog('報告完了', '敗北を報告しました。');
-                if (postMatchUiDiv) {
-                    postMatchUiDiv.style.display = 'none';
-                }
-                if (preMatchUiDiv) {
-                    preMatchUiDiv.style.display = 'block';
-                }
-            }
-        };
+        loseButton.removeEventListener('click', handleLoseButtonClick);
+        loseButton.addEventListener('click', handleLoseButtonClick);
     }
 
     if (cancelButton) {
-        cancelButton.onclick = async () => { // addEventListenerの代わりにonclickを使用
-            const confirmed = await showCustomDialog('対戦中止', '対戦を中止しますか？', true);
-            if (confirmed) {
-                showCustomDialog('完了', '対戦を中止しました。');
-                if (postMatchUiDiv) {
-                    postMatchUiDiv.style.display = 'none';
-                }
-                if (preMatchUiDiv) {
-                    preMatchUiDiv.style.display = 'block';
+        cancelButton.removeEventListener('click', handleCancelBattleButtonClick);
+        cancelButton.addEventListener('click', handleCancelBattleButtonClick);
+    }
+
+    // イベントハンドラ関数
+    async function handleMatchingButtonClick() {
+        if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
+        if (matchingStatusDiv) matchingStatusDiv.style.display = 'flex';
+        if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
+
+        await showCustomDialog('マッチング開始', '対戦相手を検索中です...');
+
+        matchingTimeout = setTimeout(async () => {
+            if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
+            if (postMatchUiDiv) {
+                postMatchUiDiv.style.display = 'block';
+                if (chatMessagesDiv) {
+                    chatMessagesDiv.innerHTML = `
+                        <p><strong>[システム]:</strong> 対戦が始まりました！</p>
+                        <p><strong>[相手プレイヤー]:</strong> ルームID: ABC123DEF, 先攻お願いします！</p>
+                    `;
+                    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
                 }
             }
-        };
+            chrome.runtime.sendMessage({ action: "matchFoundNotification" });
+        }, 3000);
+    }
+
+    async function handleCancelMatchingButtonClick() {
+        const confirmed = await showCustomDialog('マッチングキャンセル', 'マッチングをキャンセルしますか？', true);
+        if (confirmed) {
+            clearTimeout(matchingTimeout);
+            if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
+            if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
+            await showCustomDialog('キャンセル完了', 'マッチングをキャンセルしました。');
+        }
+    }
+
+    function handleSendChatButtonClick() {
+        if (!chatInput || !chatMessagesDiv) return;
+        const message = chatInput.value.trim();
+        if (message) {
+            const newMessage = document.createElement('p');
+            newMessage.innerHTML = `<strong>[あなた]:</strong> ${message}`;
+            chatMessagesDiv.appendChild(newMessage);
+            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+            chatInput.value = '';
+        }
+    }
+
+    function handleChatInputKeypress(e) {
+        if (e.key === 'Enter') {
+            sendChatButton.click();
+        }
+    }
+
+    function handleChatPhraseButtonClick(event) {
+        if (chatInput && sendChatButton) {
+            chatInput.value = event.currentTarget.textContent;
+            sendChatButton.click();
+        }
+    }
+
+    async function handleWinButtonClick() {
+        const confirmed = await showCustomDialog('勝利報告', 'BO3の対戦で勝利を報告しますか？', true);
+        if (confirmed) {
+            saveMatchHistory(`${new Date().toLocaleString()} - BO3 勝利`);
+            showCustomDialog('報告完了', '勝利を報告しました！');
+            if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
+            if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
+        }
+    }
+
+    async function handleLoseButtonClick() {
+        const confirmed = await showCustomDialog('敗北報告', 'BO3の対戦で敗北を報告しますか？', true);
+        if (confirmed) {
+            saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北`);
+            showCustomDialog('報告完了', '敗北を報告しました。');
+            if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
+            if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
+        }
+    }
+
+    async function handleCancelBattleButtonClick() {
+        const confirmed = await showCustomDialog('対戦中止', '対戦を中止しますか？', true);
+        if (confirmed) {
+            showCustomDialog('完了', '対戦を中止しました。');
+            if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
+            if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
+        }
     }
 
     loadMatchHistory();

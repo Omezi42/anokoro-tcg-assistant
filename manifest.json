@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "あの頃の自作TCGアシスタント",
-  "version": "1.5",
+  "version": "1.6",
   "description": "unityroomの『あの頃の自作TCG』の体験を向上させるための拡張機能です。",
   "permissions": [
     "activeTab",

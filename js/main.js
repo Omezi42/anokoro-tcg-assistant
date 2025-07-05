@@ -16,8 +16,6 @@ let isMenuIconsVisible = true; // デフォルトで表示
 
 // サイドバーとメニューの幅を定義
 const SIDEBAR_WIDTH = 500; // px (コンテンツエリアの幅)
-const MENU_ICON_SIZE = 60; // px (各アイコンボタンのサイズ)
-const TOGGLE_BUTTON_SIZE = 50; // px (メニュー開閉ボタンのサイズ)
 
 // スクリーンショットオーバーレイ関連の要素は、UI注入後に取得するように変更
 let screenshotOverlay;
@@ -30,6 +28,9 @@ let screenshotCtx = null; // Canvasコンテキストは後で初期化
 let currentScreenshotImage = null;
 let startX, startY, endX, endY;
 let isDrawing = false;
+
+// UIが既に挿入されたかどうかを追跡するフラグ
+let uiInjected = false;
 
 
 /**
@@ -48,7 +49,7 @@ function showCustomDialog(title, message, isConfirm = false) {
         const cancelButton = document.getElementById('tcg-dialog-cancel-button');
 
         if (!overlay || !dialogTitle || !dialogMessage || !okButton || !cancelButton) {
-            console.error("Custom dialog elements not found.");
+            console.error("Custom dialog elements not found. Cannot show dialog.");
             return resolve(false); // エラー時はfalseを返す
         }
 
@@ -56,7 +57,7 @@ function showCustomDialog(title, message, isConfirm = false) {
         dialogMessage.innerHTML = message; // HTMLを許可するためにinnerHTMLを使用
         cancelButton.style.display = isConfirm ? 'inline-block' : 'none';
 
-        // 既存のイベントリスナーを削除
+        // 既存のイベントリスナーを削除し、新しいものを追加
         const newOkButton = okButton.cloneNode(true);
         okButton.parentNode.replaceChild(newOkButton, okButton);
         const newCancelButton = cancelButton.cloneNode(true);
@@ -85,7 +86,6 @@ function showCustomDialog(title, message, isConfirm = false) {
 /**
  * メニューアイコンの表示状態を更新する関数
  * isMenuIconsVisibleの状態に基づいて、メニューコンテナの幅とアイコンラッパーの表示を制御します。
- * この関数はcontent.jsのグローバルスコープに配置されます。
  */
 function updateMenuIconsVisibility() {
     const menuContainer = document.getElementById('tcg-right-menu-container');
@@ -93,45 +93,36 @@ function updateMenuIconsVisibility() {
     const toggleButton = document.getElementById('tcg-menu-toggle-button');
     const toggleIcon = toggleButton ? toggleButton.querySelector('i') : null;
 
-    if (!menuContainer || !menuIconsWrapper || !toggleIcon) return;
+    if (!menuContainer || !menuIconsWrapper || !toggleIcon) {
+        console.warn("Menu visibility elements not found for update. UI might not be fully loaded yet.");
+        return;
+    }
 
-    if (isMenuIconsVisible) { // Icons should be visible and container expanded
+    if (isMenuIconsVisible) { // アイコンを表示し、コンテナを展開
         menuContainer.classList.remove('collapsed');
         menuContainer.classList.add('expanded');
         menuIconsWrapper.classList.remove('hidden');
         menuIconsWrapper.classList.add('visible');
-        toggleIcon.classList.replace('fa-chevron-left', 'fa-chevron-right'); // Right arrow
-    } else { // Icons should be hidden and container collapsed
+        toggleIcon.classList.replace('fa-chevron-left', 'fa-chevron-right'); // 右矢印
+    } else { // アイコンを隠し、コンテナを格納
         menuContainer.classList.remove('expanded');
         menuContainer.classList.add('collapsed');
         menuIconsWrapper.classList.remove('visible');
         menuIconsWrapper.classList.add('hidden');
-        toggleIcon.classList.replace('fa-chevron-right', 'fa-chevron-left'); // Left arrow
+        toggleIcon.classList.replace('fa-chevron-right', 'fa-chevron-left'); // 左矢印
     }
 }
 
 /**
- * 右サイドメニュー（アイコン群）を作成・挿入します。
+ * 右サイドメニュー（アイコン群）を作成・挿入し、イベントリスナーを設定します。
+ * この関数はUIがDOMに挿入された後に一度だけ呼び出されます。
  */
-function createRightSideMenu() {
-    // HTMLから要素を取得するのではなく、動的に生成する
-    const menuContainer = document.createElement('div');
-    menuContainer.id = 'tcg-right-menu-container';
-    menuContainer.innerHTML = `
-        <div class="tcg-menu-icons-wrapper">
-            <button class="tcg-menu-icon" data-section="home" title="ホーム"><i class="fas fa-home"></i></button>
-            <button class="tcg-menu-icon" data-section="rateMatch" title="レート戦"><i class="fas fa-fist-raised"></i></button>
-            <button class="tcg-menu-icon" data-section="memo" title="メモ"><i class="fas fa-clipboard"></i></button>
-            <button class="tcg-menu-icon" data-section="search" title="検索"><i class="fas fa-search"></i></button>
-            <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
-            <button class="tcg-menu-icon" data-section="battleRecord" title="戦いの記録"><i class="fas fa-trophy"></i></button>
-            <button class="tcg-menu-icon" data-section="deckAnalysis" title="デッキ分析"><i class="fas fa-cube"></i></button>
-        </div>
-        <button class="tcg-menu-toggle-button" id="tcg-menu-toggle-button" title="メニューを隠す/表示">
-            <i class="fas fa-chevron-right"></i>
-        </button>
-    `;
-    document.body.appendChild(menuContainer);
+function createRightSideMenuAndAttachListeners() {
+    const menuContainer = document.getElementById('tcg-right-menu-container');
+    if (!menuContainer) {
+        console.error("tcg-right-menu-container not found after UI injection. Cannot attach menu listeners.");
+        return;
+    }
 
     const menuIconsWrapper = menuContainer.querySelector('.tcg-menu-icons-wrapper');
     const menuIcons = menuIconsWrapper.querySelectorAll('.tcg-menu-icon');
@@ -139,88 +130,77 @@ function createRightSideMenu() {
 
     // 各メニューアイコンにクリックイベントリスナーを設定
     menuIcons.forEach(iconButton => {
-        iconButton.addEventListener('click', (event) => {
-            const sectionId = event.currentTarget.dataset.section;
-            toggleContentArea(sectionId); // 全てのアイコンクリックでtoggleContentAreaを呼び出す
-        });
+        iconButton.addEventListener('click', handleMenuIconClick);
     });
 
-    // メニューアイコンの表示状態をロード
+    // トグルボタンのイベントリスナーを設定
+    toggleButton.addEventListener('click', handleMenuToggleButtonClick);
+
+    // メニューアイコンの表示状態をロードし、初期状態を適用
     chrome.storage.local.get(['isMenuIconsVisible'], (result) => {
         isMenuIconsVisible = result.isMenuIconsVisible !== undefined ? result.isMenuIconsVisible : true;
-        updateMenuIconsVisibility(); // 初期状態を適用
-    });
-
-    // トグルボタンのクリックイベントリスナー
-    toggleButton.addEventListener('click', () => {
-        isMenuIconsVisible = !isMenuIconsVisible;
         updateMenuIconsVisibility();
-        chrome.storage.local.set({ isMenuIconsVisible: isMenuIconsVisible });
     });
-
 
     // サイドバーの開閉状態とアクティブなセクションをロードし、UIを初期化
     chrome.storage.local.get(['isSidebarOpen', 'activeSection', 'isMenuIconsVisible'], (result) => {
         isSidebarOpen = result.isSidebarOpen !== undefined ? result.isSidebarOpen : false;
         const activeSection = result.activeSection || 'home'; // デフォルトはホーム
-        // isMenuIconsVisibleの初期値をisSidebarOpenに連動させる
         isMenuIconsVisible = result.isMenuIconsVisible !== undefined ? result.isMenuIconsVisible : isSidebarOpen;
 
         const contentArea = document.getElementById('tcg-content-area');
-        const gameCanvas = document.querySelector('canvas#unity-canvas');
-        const rightMenuContainer = document.getElementById('tcg-right-menu-container');
+        const gameCanvas = document.querySelector('canvas#unity-canvas'); // ゲームのcanvas要素
 
         // まず、すべてのメニューアイコンのアクティブ状態をリセット
-        if (rightMenuContainer) {
-            rightMenuContainer.querySelectorAll('.tcg-menu-icon').forEach(btn => btn.classList.remove('active'));
-        }
+        menuIcons.forEach(btn => btn.classList.remove('active'));
 
         // メニューコンテナの初期状態を適用
-        updateMenuIconsVisibility(); // isMenuIconsVisibleに基づいてクラスを適用
+        updateMenuIconsVisibility();
 
         if (isSidebarOpen) {
-            // サイドバーが開いている状態を復元
             if (contentArea) {
                 contentArea.classList.add('active');
-                contentArea.style.right = '0px'; // ゲーム画面に重なるように配置
+                contentArea.style.right = '0px';
             }
             if (gameCanvas) {
-                gameCanvas.style.display = 'block'; // ゲーム画面は表示のまま
+                gameCanvas.style.display = 'block';
             }
             document.body.classList.remove('game-focused-mode');
-            
-            // アクティブなセクションのコンテンツを表示
-            showSection(activeSection); // This will activate the content section
-
-            // そして、対応するメニューアイコンをアクティブにする
-            if (rightMenuContainer) {
-                const initialActiveIcon = rightMenuContainer.querySelector(`.tcg-menu-icon[data-section="${activeSection}"]`);
-                if (initialActiveIcon) {
-                    initialActiveIcon.classList.add('active');
-                }
+            showSection(activeSection); // アクティブなセクションのコンテンツを表示
+            const initialActiveIcon = menuContainer.querySelector(`.tcg-menu-icon[data-section="${activeSection}"]`);
+            if (initialActiveIcon) {
+                initialActiveIcon.classList.add('active');
             }
-
         } else {
-            // サイドバーが閉じている状態を復元
             if (contentArea) {
                 contentArea.classList.remove('active');
-                contentArea.style.right = `-${SIDEBAR_WIDTH}px`; // 完全に画面外に隠す
+                contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
             }
             if (gameCanvas) {
-                gameCanvas.style.display = 'block'; // ゲーム画面は表示のまま
+                gameCanvas.style.display = 'block';
             }
             document.body.classList.remove('game-focused-mode');
-
-            // 閉じた状態でも、最後にアクティブだったアイコンをハイライトしておく
-            if (rightMenuContainer) {
-                const initialActiveIcon = rightMenuContainer.querySelector(`.tcg-menu-icon[data-section="${activeSection}"]`);
-                if (initialActiveIcon) {
-                    initialActiveIcon.classList.add('active');
-                }
+            const initialActiveIcon = menuContainer.querySelector(`.tcg-menu-icon[data-section="${activeSection}"]`);
+            if (initialActiveIcon) {
+                initialActiveIcon.classList.add('active');
             }
         }
     });
 }
+
+// メニューアイコンクリックハンドラ
+function handleMenuIconClick(event) {
+    const sectionId = event.currentTarget.dataset.section;
+    toggleContentArea(sectionId);
+}
+
+// メニュー開閉トグルボタンクリックハンドラ
+function handleMenuToggleButtonClick() {
+    isMenuIconsVisible = !isMenuIconsVisible;
+    updateMenuIconsVisibility();
+    chrome.storage.local.set({ isMenuIconsVisible: isMenuIconsVisible });
+}
+
 
 /**
  * コンテンツエリアの表示/非表示を切り替えます。
@@ -230,68 +210,45 @@ function toggleContentArea(sectionId) {
     const contentArea = document.getElementById('tcg-content-area');
     const rightMenuContainer = document.getElementById('tcg-right-menu-container');
     const gameCanvas = document.querySelector('canvas#unity-canvas');
-    const menuIcons = rightMenuContainer.querySelectorAll('.tcg-menu-icon'); // アイコンリストを再取得
+    const menuIcons = rightMenuContainer ? rightMenuContainer.querySelectorAll('.tcg-menu-icon') : [];
 
     if (!contentArea || !rightMenuContainer) return;
 
     const currentActiveIcon = rightMenuContainer.querySelector('.tcg-menu-icon.active');
     const clickedIcon = rightMenuContainer.querySelector(`.tcg-menu-icon[data-section="${sectionId}"]`);
 
-    const isContentAreaActive = contentArea.classList.contains('active');
-    const isSameIconAlreadyActiveAndClicked = isContentAreaActive && (currentActiveIcon && currentActiveIcon.dataset.section === sectionId);
-
-    console.log('toggleContentArea called with sectionId:', sectionId);
-    console.log('isContentAreaActive:', isContentAreaActive);
-    console.log('currentActiveIcon:', currentActiveIcon ? currentActiveIcon.dataset.section : 'none');
-    console.log('clickedIcon:', clickedIcon ? clickedIcon.dataset.section : 'none');
-    console.log('isSameIconAlreadyActiveAndClicked:', isSameIconAlreadyActiveAndClicked);
-
-
     // すべてのメニューアイコンのアクティブ状態を解除
     menuIcons.forEach(btn => btn.classList.remove('active'));
 
+    // クリックされたアイコンが既にアクティブで、かつサイドバーが開いている場合は閉じる
+    const isContentAreaActive = contentArea.classList.contains('active');
+    const isSameIconAlreadyActiveAndClicked = isContentAreaActive && (currentActiveIcon && currentActiveIcon.dataset.section === sectionId);
+
     if (isSameIconAlreadyActiveAndClicked) {
-        // コンテンツエリアが開いていて、同じアイコンがクリックされた場合 -> コンテンツエリアを閉じる
         contentArea.classList.remove('active');
         contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
-
-        // メニューアイコンと背景を非表示にする
-        isMenuIconsVisible = false; 
-        updateMenuIconsVisibility(); 
-
-        if (gameCanvas) {
-            gameCanvas.style.display = 'block'; // ゲーム画面を再表示
-        }
+        isMenuIconsVisible = false;
+        updateMenuIconsVisibility();
+        if (gameCanvas) gameCanvas.style.display = 'block';
         document.body.classList.remove('game-focused-mode');
         isSidebarOpen = false;
         chrome.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
-        console.log('Sidebar closed, menu icons and background are hidden.');
-
     } else {
-        // コンテンツエリアが閉じている場合、または異なるセクションのアイコンがクリックされた場合
+        // サイドバーを開く、または別のセクションに切り替える
         contentArea.classList.add('active');
         contentArea.style.right = '0px';
-
-        // メニューアイコンと背景を表示する
-        isMenuIconsVisible = true; 
-        updateMenuIconsVisibility(); 
-
-        if (gameCanvas) {
-            gameCanvas.style.display = 'block'; // ゲーム画面は表示のまま
-        }
+        isMenuIconsVisible = true;
+        updateMenuIconsVisibility();
+        if (gameCanvas) gameCanvas.style.display = 'block';
         document.body.classList.remove('game-focused-mode');
         isSidebarOpen = true;
         chrome.storage.local.set({ isSidebarOpen: isSidebarOpen, activeSection: sectionId, isMenuIconsVisible: isMenuIconsVisible });
 
-        // ターゲットセクションのコンテンツを表示
-        showSection(sectionId);
+        showSection(sectionId); // ターゲットセクションのコンテンツを表示
 
-        // クリックされたアイコンをアクティブにする
         if (clickedIcon) {
             clickedIcon.classList.add('active');
-            console.log('Icon activated:', clickedIcon.dataset.section);
         }
-        console.log('Sidebar opened/switched to:', sectionId);
     }
 }
 
@@ -303,8 +260,6 @@ const loadedSectionScripts = {};
  * @param {string} sectionId - 表示するセクションのID (例: "home", "rateMatch")。
  */
 async function showSection(sectionId) {
-    console.log(`Attempting to show section: ${sectionId}`);
-    
     // すべてのセクションを非アクティブにする
     document.querySelectorAll('.tcg-section').forEach(section => {
         section.classList.remove('active');
@@ -321,7 +276,6 @@ async function showSection(sectionId) {
         targetSection.className = 'tcg-section';
         if (tcgSectionsWrapper) {
             tcgSectionsWrapper.appendChild(targetSection);
-            console.log(`Created new section container: tcg-${sectionId}-section`);
         } else {
             console.error("tcg-sections-wrapper not found. Cannot append new section.");
             return;
@@ -330,48 +284,43 @@ async function showSection(sectionId) {
 
     // セクションのHTMLをロード
     try {
-        const htmlPath = chrome.runtime.getURL(`html/sections/${sectionId}.html`); // 各セクションのHTMLを個別にロード
-        console.log(`Fetching HTML from: ${htmlPath}`);
+        const htmlPath = chrome.runtime.getURL(`html/sections/${sectionId}.html`);
         const response = await fetch(htmlPath);
         if (!response.ok) {
             throw new Error(`Failed to load HTML for ${sectionId}: ${response.statusText} (${response.status})`);
         }
         const htmlContent = await response.text();
         targetSection.innerHTML = htmlContent;
-        console.log(`HTML loaded and injected for section: ${sectionId}`);
     } catch (error) {
         console.error(`Error loading HTML for section ${sectionId}:`, error);
         targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました: ${sectionId}<br>エラー: ${error.message}</p>`;
-        return; // HTMLロード失敗時は後続処理を中断
+        return;
     }
 
 
     // セクションのJavaScriptをロード
-    const jsPath = chrome.runtime.getURL(`js/sections/${sectionId}.js`); // 例: js/sections/home.js
+    const jsPath = chrome.runtime.getURL(`js/sections/${sectionId}.js`);
     const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}Section`;
 
+    // スクリプトがまだロードされていない場合のみ追加
     if (!loadedSectionScripts[jsPath]) {
         try {
-            console.log(`Checking JS existence: ${jsPath}`);
             const script = document.createElement('script');
             script.src = jsPath;
+            // script.type = 'module'; // windowに公開するためtype='module'は削除
             document.body.appendChild(script);
             loadedSectionScripts[jsPath] = true;
-            console.log(`JS script element appended for section: ${sectionId}`);
 
             // スクリプトがロードされてから初期化関数を呼び出す
             script.onload = () => {
-                console.log(`Script loaded: ${jsPath}`);
                 // DOMが完全に更新されるのを待つためにsetTimeout(0)を使用
                 setTimeout(() => {
                     if (typeof window[initFunctionName] === 'function') {
-                        console.log(`Calling initialization function: ${initFunctionName}`);
-                        // 各セクションのJSはDOM要素を自身で取得するため、引数はallCardsとshowCustomDialogのみ
                         window[initFunctionName](allCards, showCustomDialog);
                     } else {
                         console.warn(`Initialization function ${initFunctionName} not found on window object after script load for section ${sectionId}. This might indicate a scoping issue in the section's JS file.`);
                     }
-                }, 0); // 0ms delay to allow DOM to settle
+                }, 0);
             };
             script.onerror = (e) => {
                 console.error(`Error loading script: ${jsPath}`, e);
@@ -380,21 +329,18 @@ async function showSection(sectionId) {
             console.warn(`Error loading JavaScript for section ${sectionId}: ${jsPath}`, error);
         }
     } else {
-        console.log(`JS already loaded for section: ${sectionId}. Attempting to re-call init function.`);
         // 既にロード済みの場合は、初期化関数を再実行
         setTimeout(() => {
-            if (typeof window[initFunctionName] === 'function') {
-                console.log(`Re-calling initialization function: ${initFunctionName}`);
+            if (typeof window[initFunctionName} === 'function') {
                 window[initFunctionName](allCards, showCustomDialog);
             } else {
                 console.warn(`Initialization function ${initFunctionName} not found on window object for already loaded script for section ${sectionId}.`);
             }
-        }, 0); // 0ms delay to allow DOM to settle
+        }, 0);
     }
 
     // 指定されたセクションをアクティブにする
     targetSection.classList.add('active');
-    console.log(`Section tcg-${sectionId}-section is now active.`);
 
     // アクティブなセクションを保存
     chrome.storage.local.set({ activeSection: sectionId });
@@ -421,16 +367,15 @@ function getSectionTitle(sectionId) {
 
 /**
  * 拡張機能の各種機能を初期化し、イベントリスナーを設定します。
+ * この関数はUIがDOMに挿入された後に一度だけ呼び出されます。
  */
 async function initializeExtensionFeatures() {
     // cards.jsonを読み込む
     try {
-        const response = await fetch(chrome.runtime.getURL('json/cards.json')); // パスを修正
+        const response = await fetch(chrome.runtime.getURL('json/cards.json'));
         allCards = await response.json();
         if (!Array.isArray(allCards) || allCards.length === 0) {
             console.warn("カードデータが空または無効です。一部機能が制限される可能性があります。");
-        } else {
-            console.log("カードデータがロードされました:", allCards.length + "枚");
         }
     } catch (error) {
         console.error("カードデータのロードに失敗しました:", error);
@@ -444,7 +389,7 @@ async function initializeExtensionFeatures() {
     const currentScreenshotCanvas = document.getElementById('screenshot-canvas');
     const currentCropScreenshotButton = document.getElementById('crop-screenshot-button');
     const currentPasteFullScreenshotButton = document.getElementById('paste-full-screenshot-button');
-    const currentCancelCropButton = document.getElementById('cancel-crop-button');
+    const currentCancelCropButton = document.getElementById('cancel-cancel-button'); // ID修正
 
     if (currentScreenshotCanvas) {
         screenshotCtx = currentScreenshotCanvas.getContext('2d');
@@ -496,7 +441,6 @@ async function initializeExtensionFeatures() {
 
     if (currentCropScreenshotButton) {
         currentCropScreenshotButton.addEventListener('click', () => {
-            // メモセクションのscreenshot-areaは各セクションのJSで取得するため、ここでは直接参照しない
             if (!currentScreenshotImage || !currentScreenshotOverlay || !currentScreenshotCanvas || !screenshotCtx) {
                 return;
             }
@@ -541,7 +485,6 @@ async function initializeExtensionFeatures() {
 
     if (currentPasteFullScreenshotButton) {
         currentPasteFullScreenshotButton.addEventListener('click', () => {
-            // メモセクションのscreenshot-areaは各セクションのJSで取得するため、ここでは直接参照しない
             if (!currentScreenshotImage || !currentScreenshotOverlay) return;
             
             // メモセクションのJSに画像を渡すためのカスタムイベントを発火させる
@@ -567,118 +510,161 @@ async function initializeExtensionFeatures() {
 
 /**
  * 拡張機能のUIをウェブページに挿入します。
+ * この関数は一度だけ実行されることを保証します。
  */
 async function injectUIIntoPage() {
-    // UIのHTML構造を文字列として定義
-    const uiHtml = `
-        <!-- 右サイドメニューのコンテナ -->
-        <div id="tcg-right-menu-container">
-            <div class="tcg-menu-icons-wrapper">
-                <button class="tcg-menu-icon" data-section="home" title="ホーム"><i class="fas fa-home"></i></button>
-                <button class="tcg-menu-icon" data-section="rateMatch" title="レート戦"><i class="fas fa-fist-raised"></i></button>
-                <button class="tcg-menu-icon" data-section="memo" title="メモ"><i class="fas fa-clipboard"></i></button>
-                <button class="tcg-menu-icon" data-section="search" title="検索"><i class="fas fa-search"></i></button>
-                <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
-                <button class="tcg-menu-icon" data-section="battleRecord" title="戦いの記録"><i class="fas fa-trophy"></i></button>
-                <button class="tcg-menu-icon" data-section="deckAnalysis" title="デッキ分析"><i class="fas fa-cube"></i></button>
-            </div>
-            <button class="tcg-menu-toggle-button" id="tcg-menu-toggle-button" title="メニューを隠す/表示">
-                <i class="fas fa-chevron-right"></i>
-            </button>
-        </div>
+    if (uiInjected) {
+        return;
+    }
 
-        <!-- コンテンツ表示エリア -->
-        <div id="tcg-content-area">
-            <div id="tcg-sections-wrapper">
-                <!-- 各セクションのHTMLコンテンツがここに動的にロードされます -->
-                <!-- 初期表示のホームセクションのコンテンツを直接記述 -->
-                <div id="tcg-home-section" class="tcg-section active">
-                    <h2 class="section-title">ホーム</h2>
-                    <p>あの頃の自作TCGアシスタントへようこそ！</p>
-                    <p>この拡張機能は、unityroomの『あの頃の自作TCG』をより深く、より楽しくプレイするための様々な機能を提供します。</p>
-                    <p>ゲーム体験を拡張し、あなたの戦略をサポートします！</p>
-
-                    <h3>拡張機能でできること</h3>
-
-                    <div class="feature-section">
-                        <h4><i class="fas fa-fist-raised"></i> レート戦のサポート</h4>
-                        <p>現在のレートやマッチング状況をリアルタイムで確認できます。対戦相手とのチャット機能や、勝利・敗北の報告もスムーズに行えます。</p>
-                    </div>
-
-                    <div class="feature-section">
-                        <h4><i class="fas fa-clipboard"></i> 戦略メモ機能</h4>
-                        <p>対戦中の気づきやアイデアをすぐにメモできます。スクリーンショット機能で、盤面状況を記録することも可能です。</p>
-                    </div>
-
-                    <div class="feature-section">
-                        <h4><i class="fas fa-search"></i> カード検索機能</h4>
-                        <p>あいまい検索や、カードタイプ・収録セットによる絞り込み検索で、目的のカード情報を素早く見つけられます。カードの詳細情報も一目で確認できます。</p>
-                    </div>
-
-                    <div class="feature-section">
-                        <h4><i class="fas fa-gamepad"></i> ミニゲームで息抜き</h4>
-                        <p>カード名当てクイズやイラストクイズなど、ちょっとした時間に楽しめるミニゲームで気分転換しましょう。</p>
-                    </div>
-
-                    <div class="feature-section">
-                        <h4><i class="fas fa-trophy"></i> 戦いの記録</h4>
-                        <p>自分のデッキと相手のデッキ、そして勝敗を記録し、戦績を管理できます。あなたの成長を可視化し、次の戦略に活かしましょう。</p>
-                    </div>
-
-                    <div class="feature-section">
-                        <h4><i class="fas fa-cube"></i> デッキ分析</h4>
-                        <p>デッキのスクリーンショットをアップロードして、デッキの構成を分析し、おすすめカードのサジェストを受け取ることができます。</p>
-                    </div>
-
-                    <p style="margin-top: 30px; text-align: center; font-style: italic; color: #666;">
-                        この拡張機能は、あなたの『あの頃の自作TCG』ライフをより豊かにするために開発されています。
-                    </p>
-
-                    <h3>役立つリンク集</h3>
-                    <ul>
-                        <li><a href="https://unityroom.com/games/anokorotcg" target="_blank">『あの頃の自作TCG』ゲーム本体</a></li>
-                        <li><a href="https://example.com/tcg-wiki" target="_blank">非公式Wiki (例)</a></li>
-                        <li><a href="https://example.com/tcg-community" target="_blank">コミュニティフォーラム (例)</a></li>
-                    </ul>
+    try {
+        // UIのHTML構造を文字列として定義
+        const uiHtml = `
+            <!-- 右サイドメニューのコンテナ -->
+            <div id="tcg-right-menu-container">
+                <div class="tcg-menu-icons-wrapper">
+                    <button class="tcg-menu-icon" data-section="home" title="ホーム"><i class="fas fa-home"></i></button>
+                    <button class="tcg-menu-icon" data-section="rateMatch" title="レート戦"><i class="fas fa-fist-raised"></i></button>
+                    <button class="tcg-menu-icon" data-section="memo" title="メモ"><i class="fas fa-clipboard"></i></button>
+                    <button class="tcg-menu-icon" data-section="search" title="検索"><i class="fas fa-search"></i></button>
+                    <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
+                    <button class="tcg-menu-icon" data-section="battleRecord" title="戦いの記録"><i class="fas fa-trophy"></i></button>
+                    <button class="tcg-menu-icon" data-section="deckAnalysis" title="デッキ分析"><i class="fas fa-cube"></i></button>
                 </div>
-
-                <!-- その他のセクションは動的にロードされる -->
-                <div id="tcg-rateMatch-section" class="tcg-section"></div>
-                <div id="tcg-memo-section" class="tcg-section"></div>
-                <div id="tcg-search-section" class="tcg-section"></div>
-                <div id="tcg-minigames-section" class="tcg-section"></div>
-                <div id="tcg-battleRecord-section" class="tcg-section"></div>
-                <div id="tcg-deckAnalysis-section" class="tcg-section"></div>
+                <button class="tcg-menu-toggle-button" id="tcg-menu-toggle-button" title="メニューを隠す/表示">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
             </div>
-        </div>
-    `;
 
-    // 既存のbodyの内容を保持しつつ、UIを挿入する
-    const bodyContent = document.body.innerHTML;
-    document.body.innerHTML = uiHtml + bodyContent; // UIをbodyの先頭に追加
+            <!-- コンテンツ表示エリア -->
+            <div id="tcg-content-area">
+                <div id="tcg-sections-wrapper">
+                    <!-- 各セクションのHTMLコンテンツがここに動的にロードされます -->
+                    <!-- 初期表示のホームセクションのコンテンツを直接記述 -->
+                    <div id="tcg-home-section" class="tcg-section active">
+                        <h2 class="section-title">ホーム</h2>
+                        <p>あの頃の自作TCGアシスタントへようこそ！</p>
+                        <p>この拡張機能は、unityroomの『あの頃の自作TCG』をより深く、より楽しくプレイするための様々な機能を提供します。</p>
+                        <p>ゲーム体験を拡張し、あなたの戦略をサポートします！</p>
 
-    // UI要素がDOMに挿入された後に、グローバル変数に参照を割り当てる
-    // index.htmlに静的に存在していた要素も、ここで改めて取得する
-    screenshotOverlay = document.getElementById('screenshot-overlay');
-    screenshotCanvas = document.getElementById('screenshot-canvas');
-    cropScreenshotButton = document.getElementById('crop-screenshot-button');
-    pasteFullScreenshotButton = document.getElementById('paste-full-screenshot-button');
-    cancelCropButton = document.getElementById('cancel-crop-button');
+                        <h3>拡張機能でできること</h3>
 
-    console.log("UI elements injected into the page.");
+                        <div class="feature-section">
+                            <h4><i class="fas fa-fist-raised"></i> レート戦のサポート</h4>
+                            <p>現在のレートやマッチング状況をリアルタイムで確認できます。対戦相手とのチャット機能や、勝利・敗北の報告もスムーズに行えます。</p>
+                        </div>
 
-    // UI要素がDOMに挿入され、グローバル変数が割り当てられた後に初期化関数を呼び出す
-    createRightSideMenu(); // 右サイドメニューのイベントリスナー設定
-    initializeExtensionFeatures(); // カードデータロード、スクリーンショット関連初期化
+                        <div class="feature-section">
+                            <h4><i class="fas fa-clipboard"></i> 戦略メモ機能</h4>
+                            <p>対戦中の気づきやアイデアをすぐにメモできます。スクリーンショット機能で、盤面状況を記録することも可能です。</p>
+                        </div>
 
-    // 初期表示セクションをロード
-    chrome.storage.local.get(['activeSection'], (result) => {
-        const activeSection = result.activeSection || 'home';
-        showSection(activeSection);
-    });
+                        <div class="feature-section">
+                            <h4><i class="fas fa-search"></i> カード検索機能</h4>
+                            <p>あいまい検索や、カードタイプ・収録セットによる絞り込み検索で、目的のカード情報を素早く見つけられます。カードの詳細情報も一目で確認できます。</p>
+                        </div>
+
+                        <div class="feature-section">
+                            <h4><i class="fas fa-gamepad"></i> ミニゲームで息抜き</h4>
+                            <p>カード名当てクイズやイラストクイズなど、ちょっとした時間に楽しめるミニゲームで気分転換しましょう。</p>
+                        </div>
+
+                        <div class="feature-section">
+                            <h4><i class="fas fa-trophy"></i> 戦いの記録</h4>
+                            <p>自分のデッキと相手のデッキ、そして勝敗を記録し、戦績を管理できます。あなたの成長を可視化し、次の戦略に活かしましょう。</p>
+                        </div>
+
+                        <div class="feature-section">
+                            <h4><i class="fas fa-cube"></i> デッキ分析</h4>
+                            <p>デッキのスクリーンショットをアップロードして、デッキの構成を分析し、おすすめカードのサジェストを受け取ることができます。</p>
+                        </div>
+
+                        <p style="margin-top: 30px; text-align: center; font-style: italic; color: #666;">
+                            この拡張機能は、あなたの『あの頃の自作TCG』ライフをより豊かにするために開発されています。
+                        </p>
+
+                        <h3>役立つリンク集</h3>
+                        <ul>
+                            <li><a href="https://unityroom.com/games/anokorotcg" target="_blank">『あの頃の自作TCG』ゲーム本体</a></li>
+                            <li><a href="https://example.com/tcg-wiki" target="_blank">非公式Wiki (例)</a></li>
+                            <li><a href="https://example.com/tcg-community" target="_blank">コミュニティフォーラム (例)</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- その他のセクションは動的にロードされる -->
+                    <div id="tcg-rateMatch-section" class="tcg-section"></div>
+                    <div id="tcg-memo-section" class="tcg-section"></div>
+                    <div id="tcg-search-section" class="tcg-section"></div>
+                    <div id="tcg-minigames-section" class="tcg-section"></div>
+                    <div id="tcg-battleRecord-section" class="tcg-section"></div>
+                    <div id="tcg-deckAnalysis-section" class="tcg-section"></div>
+                </div>
+            </div>
+
+            <!-- カスタムダイアログのオーバーレイ -->
+            <div id="tcg-custom-dialog-overlay" class="tcg-modal-overlay" style="display: none;">
+                <div class="tcg-modal-content">
+                    <h3 id="tcg-dialog-title"></h3>
+                    <p id="tcg-dialog-message"></p>
+                    <button id="tcg-dialog-ok-button">OK</button>
+                    <button id="tcg-dialog-cancel-button" style="margin-left: 10px; background-color: #6c757d; display: none;">キャンセル</button>
+                </div>
+            </div>
+
+            <!-- スクリーンショットトリミング用のオーバーレイ -->
+            <div id="screenshot-overlay" class="tcg-modal-overlay" style="display: none;">
+                <div class="tcg-modal-content screenshot-modal-content">
+                    <h3>スクリーンショットをトリミング</h3>
+                    <p>ドラッグで範囲を選択してください。</p>
+                    <canvas id="screenshot-canvas"></canvas>
+                    <div style="margin-top:15px; display:flex; justify-content:center; gap:10px;">
+                        <button id="crop-screenshot-button" class="tcg-button-primary">トリミングして貼り付け</button>
+                        <button id="paste-full-screenshot-button" class="tcg-button-secondary">トリミングせずに貼り付け</button>
+                        <button id="cancel-crop-button" class="tcg-button-danger">キャンセル</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 一時的なコンテナを作成し、HTMLコンテンツを解析
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = uiHtml;
+
+        // bodyの既存コンテンツを保持しつつ、UIを挿入
+        const bodyContent = document.body.innerHTML;
+        document.body.innerHTML = ''; // bodyを一度クリア
+        while (tempDiv.firstChild) {
+            document.body.appendChild(tempDiv.firstChild); // tempDivの子要素をbodyに移動
+        }
+        document.body.innerHTML += bodyContent; // 元のbodyコンテンツを再追加
+
+        // グローバル変数にDOM要素を再割り当て
+        // この時点で要素はDOMに存在しているはず
+        screenshotOverlay = document.getElementById('screenshot-overlay');
+        screenshotCanvas = document.getElementById('screenshot-canvas');
+        cropScreenshotButton = document.getElementById('crop-screenshot-button');
+        pasteFullScreenshotButton = document.getElementById('paste-full-screenshot-button');
+        cancelCropButton = document.getElementById('cancel-crop-button');
+
+        uiInjected = true; // 挿入フラグを設定
+
+        // UI要素がDOMに挿入され、グローバル変数が割り当てられた後に初期化関数を呼び出す
+        createRightSideMenuAndAttachListeners(); // 右サイドメニューのイベントリスナー設定
+        initializeExtensionFeatures(); // カードデータロード、スクリーンショット関連初期化
+
+        // 初期表示セクションをロード
+        chrome.storage.local.get(['activeSection'], (result) => {
+            const activeSection = result.activeSection || 'home';
+            showSection(activeSection);
+        });
+
+    } catch (error) {
+        console.error("Failed to inject UI into page:", error);
+    }
 }
 
 // ページが完全にロードされ、アイドル状態になった後にUIを挿入
+// manifest.jsonのrun_at: "document_idle"に依存するため、DOMContentLoadedは不要
 injectUIIntoPage();
 
 

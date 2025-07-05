@@ -1,7 +1,7 @@
 // js/sections/rateMatch.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-export function initRateMatchSection(allCards, showCustomDialog) {
+window.initRateMatchSection = function(allCards, showCustomDialog) {
     console.log("RateMatch section initialized.");
 
     // === レート戦セクションのロジック ===

@@ -256,28 +256,11 @@ function toggleContentArea(sectionId) {
     }
 }
 
-// 各セクションの初期化関数を直接参照
-// これにより、動的なスクリプト読み込みとwindowオブジェクトへの依存を避ける
-// これらのimport文は、main.jsがESモジュールとしてロードされている場合にのみ機能します。
-import { initHomeSection } from './sections/home.js';
-import { initRateMatchSection } from './sections/rateMatch.js';
-import { initMemoSection } from './sections/memo.js';
-import { initSearchSection } from './sections/search.js';
-import { initMinigamesSection } from './sections/minigames.js';
-import { initBattleRecordSection } from './sections/battleRecord.js';
-import { initDeckAnalysisSection } from './sections/deckAnalysis.js';
-
-// 初期化関数のマッピング
-const sectionInitializers = {
-    home: initHomeSection,
-    rateMatch: initRateMatchSection,
-    memo: initMemoSection,
-    search: initSearchSection,
-    minigames: initMinigamesSection,
-    battleRecord: initBattleRecordSection,
-    deckAnalysis: initDeckAnalysisSection
-};
-
+// 各セクションのJavaScriptファイルを追跡するためのセット
+// これにより同じスクリプトが複数回注入されるのを防ぐ
+if (!window._injectedSectionScripts) {
+    window._injectedSectionScripts = new Set();
+}
 
 /**
  * 指定されたセクションを表示し、他のセクションを非表示にします。
@@ -321,20 +304,47 @@ async function showSection(sectionId) {
         return;
     }
 
-    // 各セクションの初期化関数を直接呼び出す
-    // HTMLコンテンツがDOMに挿入されてから実行されるようにsetTimeoutで遅延
-    // これにより、DOM要素が確実に存在することを保証
-    setTimeout(() => {
-        const initializer = sectionInitializers[sectionId];
-        if (typeof initializer === 'function') {
-            console.log(`Calling initializer for section: ${sectionId}`);
-            // allCards と showCustomDialog を引数として渡す
-            initializer(allCards, showCustomDialog);
-        } else {
-            console.error(`No initializer function found for section: ${sectionId}. This indicates a mismatch between sectionId and the imported function, or a missing import.`);
-        }
-    }, 0);
+    // 各セクションのJavaScriptを動的に注入
+    const jsPath = `js/sections/${sectionId}.js`; // chrome.runtime.getURL は background.js で行う
+    const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace(/-([a-z])/g, (g) => g[1].toUpperCase())}Section`;
 
+    // スクリプトがまだ注入されていない場合のみ注入
+    if (!window._injectedSectionScripts.has(jsPath)) {
+        try {
+            // background.js にメッセージを送信してスクリプト注入を依頼
+            // chrome.scripting.executeScript は Service Worker から呼び出す必要がある
+            chrome.runtime.sendMessage({
+                action: "injectSectionScript",
+                scriptPath: jsPath,
+                initFunctionName: initFunctionName,
+                allCards: allCards // allCardsも渡す
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error injecting script via background:", chrome.runtime.lastError.message);
+                    return;
+                }
+                if (response && response.success) {
+                    window._injectedSectionScripts.add(jsPath); // 注入済みとしてマーク
+                    console.log(`Script ${jsPath} injected and ${initFunctionName} called via background.js.`);
+                } else {
+                    console.error(`Failed to inject script ${jsPath}: ${response ? response.error : 'Unknown error'}`);
+                }
+            });
+        } catch (error) {
+            console.error(`Failed to send message to background for script injection for section ${sectionId}:`, error);
+        }
+    } else {
+        // 既にスクリプトが注入されている場合は、初期化関数を再実行
+        // DOMが更新された後にイベントリスナーを再アタッチするため
+        setTimeout(() => {
+            if (typeof window[initFunctionName] === 'function') {
+                console.log(`Re-calling ${initFunctionName} for already injected section ${sectionId}.`);
+                window[initFunctionName](allCards, showCustomDialog);
+            } else {
+                console.error(`Initialization function ${initFunctionName} NOT found on window object for already injected script for section ${sectionId}. This indicates a scoping issue or the function is not exposed globally.`);
+            }
+        }, 0);
+    }
 
     // 指定されたセクションをアクティブにする
     targetSection.classList.add('active');

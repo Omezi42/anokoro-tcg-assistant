@@ -1,7 +1,7 @@
 // js/sections/battleRecord.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-export function initBattleRecordSection(allCards, showCustomDialog) {
+window.initBattleRecordSection = function(allCards, showCustomDialog) {
     console.log("BattleRecord section initialized.");
 
     // === 戦いの記録セクションのロジック ===

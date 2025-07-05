@@ -1,7 +1,7 @@
 // js/sections/minigames.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-export function initMinigamesSection(allCards, showCustomDialog) {
+window.initMinigamesSection = function(allCards, showCustomDialog) {
     console.log("Minigames section initialized.");
 
     // 現在のクイズの状態を管理する変数

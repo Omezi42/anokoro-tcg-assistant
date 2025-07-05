@@ -256,11 +256,9 @@ function toggleContentArea(sectionId) {
     }
 }
 
-// 現在ロードされているセクションのスクリプトを追跡
-// const loadedSectionScripts = {}; // この行は不要になるため削除またはコメントアウト
-
 // 各セクションの初期化関数を直接参照
 // これにより、動的なスクリプト読み込みとwindowオブジェクトへの依存を避ける
+// これらのimport文は、main.jsがESモジュールとしてロードされている場合にのみ機能します。
 import { initHomeSection } from './sections/home.js';
 import { initRateMatchSection } from './sections/rateMatch.js';
 import { initMemoSection } from './sections/memo.js';
@@ -325,10 +323,12 @@ async function showSection(sectionId) {
 
     // 各セクションの初期化関数を直接呼び出す
     // HTMLコンテンツがDOMに挿入されてから実行されるようにsetTimeoutで遅延
+    // これにより、DOM要素が確実に存在することを保証
     setTimeout(() => {
         const initializer = sectionInitializers[sectionId];
         if (typeof initializer === 'function') {
             console.log(`Calling initializer for section: ${sectionId}`);
+            // allCards と showCustomDialog を引数として渡す
             initializer(allCards, showCustomDialog);
         } else {
             console.error(`No initializer function found for section: ${sectionId}. This indicates a mismatch between sectionId and the imported function, or a missing import.`);

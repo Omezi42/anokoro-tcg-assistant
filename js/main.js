@@ -133,13 +133,12 @@ function createRightSideMenuAndAttachListeners() {
     // 各メニューアイコンにクリックイベントリスナーを設定
     menuIcons.forEach(iconButton => {
         // 既存のリスナーを削除してから追加することで、重複登録を防ぐ
-        // ただし、今回はこの関数が一度しか呼ばれない想定なので、厳密には不要だが安全のため
-        iconButton.removeEventListener('click', handleMenuIconClick); // 以前のリスナーを削除
+        iconButton.removeEventListener('click', handleMenuIconClick);
         iconButton.addEventListener('click', handleMenuIconClick);
     });
 
     // トグルボタンのイベントリスナーを設定
-    toggleButton.removeEventListener('click', handleMenuToggleButtonClick); // 以前のリスナーを削除
+    toggleButton.removeEventListener('click', handleMenuToggleButtonClick);
     toggleButton.addEventListener('click', handleMenuToggleButtonClick);
 
     // メニューアイコンの表示状態をロードし、初期状態を適用
@@ -290,6 +289,7 @@ async function showSection(sectionId) {
 
     // セクションのHTMLをロード
     try {
+        // ファイルパスを修正: html/sections/ ではなく、html/ の直下にあることを想定
         const htmlPath = chrome.runtime.getURL(`html/sections/${sectionId}.html`);
         const response = await fetch(htmlPath);
         if (!response.ok) {
@@ -313,7 +313,6 @@ async function showSection(sectionId) {
         try {
             const script = document.createElement('script');
             script.src = jsPath;
-            // script.type = 'module'; // windowに公開するためtype='module'は削除
             document.body.appendChild(script);
             loadedSectionScripts[jsPath] = true;
 
@@ -337,7 +336,7 @@ async function showSection(sectionId) {
     } else {
         // 既にロード済みの場合は、初期化関数を再実行
         setTimeout(() => {
-            if (typeof window[initFunctionName] === 'function') { // 修正済み
+            if (typeof window[initFunctionName] === 'function') {
                 window[initFunctionName](allCards, showCustomDialog);
             } else {
                 console.warn(`Initialization function ${initFunctionName} not found on window object for already loaded script for section ${sectionId}.`);
@@ -372,147 +371,6 @@ function getSectionTitle(sectionId) {
 
 
 /**
- * 拡張機能の各種機能を初期化し、イベントリスナーを設定します。
- * この関数はUIがDOMに挿入された後に一度だけ呼び出されます。
- */
-async function initializeExtensionFeatures() {
-    // cards.jsonを読み込む
-    try {
-        const response = await fetch(chrome.runtime.getURL('json/cards.json'));
-        allCards = await response.json();
-        if (!Array.isArray(allCards) || allCards.length === 0) {
-            console.warn("カードデータが空または無効です。一部機能が制限される可能性があります。");
-        }
-    } catch (error) {
-        console.error("カードデータのロードに失敗しました:", error);
-    }
-
-    // screenshotCanvasのコンテキストを初期化
-    // これらの要素はUI注入後に取得されるため、ここで直接参照する
-    screenshotOverlay = document.getElementById('screenshot-overlay');
-    screenshotCanvas = document.getElementById('screenshot-canvas');
-    cropScreenshotButton = document.getElementById('crop-screenshot-button');
-    pasteFullScreenshotButton = document.getElementById('paste-full-screenshot-button');
-    cancelCropButton = document.getElementById('cancel-crop-button'); // ID修正
-
-    if (screenshotCanvas) {
-        screenshotCtx = screenshotCanvas.getContext('2d');
-
-        screenshotCanvas.addEventListener('mousedown', (e) => {
-            const rect = screenshotCanvas.getBoundingClientRect();
-            const xInCanvas = e.clientX - rect.left;
-            const yInCanvas = e.clientY - rect.top;
-
-            if (xInCanvas >= 0 && xInCanvas <= screenshotCanvas.width &&
-                yInCanvas >= 0 && yInCanvas <= screenshotCanvas.height) {
-                startX = xInCanvas;
-                startY = yInCanvas;
-                endX = xInCanvas; // 初期化
-                endY = yInCanvas; // 初期化
-                isDrawing = true;
-            }
-        });
-
-        screenshotCanvas.addEventListener('mousemove', (e) => {
-            if (!isDrawing || !screenshotCtx || !currentScreenshotImage) return;
-            
-            const rect = screenshotCanvas.getBoundingClientRect();
-            const xInCanvas = e.clientX - rect.left;
-            const yInCanvas = e.clientY - rect.top;
-
-            endX = Math.max(0, Math.min(screenshotCanvas.width, xInCanvas));
-            endY = Math.max(0, Math.min(screenshotCanvas.height, yInCanvas));
-
-            screenshotCtx.clearRect(0, 0, screenshotCanvas.width, screenshotCanvas.height);
-            screenshotCtx.drawImage(currentScreenshotImage, 0, 0, screenshotCanvas.width, screenshotCanvas.height);
-            
-            const width = endX - startX;
-            const height = endY - startY;
-            screenshotCtx.strokeStyle = 'red';
-            screenshotCtx.lineWidth = 2;
-            screenshotCtx.strokeRect(startX, startY, width, height);
-        });
-
-        screenshotCanvas.addEventListener('mouseup', () => {
-            isDrawing = false;
-        });
-        screenshotCanvas.addEventListener('mouseleave', () => {
-            if (isDrawing) {
-                isDrawing = false;
-            }
-        });
-    }
-
-    if (cropScreenshotButton) {
-        cropScreenshotButton.addEventListener('click', () => {
-            if (!currentScreenshotImage || !screenshotOverlay || !screenshotCanvas || !screenshotCtx) {
-                return;
-            }
-            let croppedImageUrl;
-            const selectionWidth = Math.abs(endX - startX);
-            const selectionHeight = Math.abs(endY - startY);
-
-            if (startX !== undefined && startY !== undefined && selectionWidth > 0 && selectionHeight > 0) {
-                const x = Math.min(startX, endX);
-                const y = Math.min(startY, endY);
-                const width = selectionWidth;
-                const height = selectionHeight;
-
-                const scaleX = currentScreenshotImage.naturalWidth / screenshotCanvas.width;
-                const scaleY = currentScreenshotImage.naturalHeight / screenshotCanvas.height;
-
-                const croppedCanvas = document.createElement('canvas');
-                croppedCanvas.width = width * scaleX;
-                croppedCanvas.height = height * scaleY;
-                const croppedCtx = croppedCanvas.getContext('2d');
-                croppedCtx.drawImage(
-                    currentScreenshotImage,
-                    x * scaleX, y * scaleY, width * scaleX, height * scaleY,
-                    0, 0, croppedCanvas.width, croppedCanvas.height
-                );
-                croppedImageUrl = croppedCanvas.toDataURL('image/png');
-            } else {
-                croppedImageUrl = currentScreenshotImage.src;
-            }
-            
-            // メモセクションのJSに画像を渡すためのカスタムイベントを発火させる
-            const event = new CustomEvent('screenshotCropped', {
-                detail: { imageUrl: croppedImageUrl }
-            });
-            document.dispatchEvent(event);
-
-            screenshotOverlay.style.display = 'none';
-            startX = startY = endX = endY = undefined;
-            showCustomDialog('貼り付け完了', 'スクリーンショットがメモエリアに貼り付けられました。');
-        });
-    }
-
-    if (pasteFullScreenshotButton) {
-        pasteFullScreenshotButton.addEventListener('click', () => {
-            if (!currentScreenshotImage || !screenshotOverlay) return;
-            
-            // メモセクションのJSに画像を渡すためのカスタムイベントを発火させる
-            const event = new CustomEvent('screenshotCropped', {
-                detail: { imageUrl: currentScreenshotImage.src }
-            });
-            document.dispatchEvent(event);
-
-            screenshotOverlay.style.display = 'none';
-            startX = startY = endX = endY = undefined;
-            showCustomDialog('貼り付け完了', 'スクリーンショットがメモエリアに貼り付けられました。');
-        });
-    }
-
-    if (cancelCropButton) {
-        cancelCropButton.addEventListener('click', () => {
-            if (screenshotOverlay) screenshotOverlay.style.display = 'none';
-            startX = startY = endX = endY = undefined;
-            showCustomDialog('キャンセル', 'スクリーンショットのトリミングをキャンセルしました。');
-        });
-    }
-}
-
-/**
  * 拡張機能のUIをウェブページに挿入します。
  * この関数は一度だけ実行されることを保証します。
  */
@@ -541,56 +399,8 @@ async function injectUIIntoPage() {
 
             <div id="tcg-content-area">
                 <div id="tcg-sections-wrapper">
-                    <div id="tcg-home-section" class="tcg-section active">
-                        <h2 class="section-title">ホーム</h2>
-                        <p>あの頃の自作TCGアシスタントへようこそ！</p>
-                        <p>この拡張機能は、unityroomの『あの頃の自作TCG』をより深く、より楽しくプレイするための様々な機能を提供します。</p>
-                        <p>ゲーム体験を拡張し、あなたの戦略をサポートします！</p>
-
-                        <h3>拡張機能でできること</h3>
-
-                        <div class="feature-section">
-                            <h4><i class="fas fa-fist-raised"></i> レート戦のサポート</h4>
-                            <p>現在のレートやマッチング状況をリアルタイムで確認できます。対戦相手とのチャット機能や、勝利・敗北の報告もスムーズに行えます。</p>
-                        </div>
-
-                        <div class="feature-section">
-                            <h4><i class="fas fa-clipboard"></i> 戦略メモ機能</h4>
-                            <p>対戦中の気づきやアイデアをすぐにメモできます。スクリーンショット機能で、盤面状況を記録することも可能です。</p>
-                        </div>
-
-                        <div class="feature-section">
-                            <h4><i class="fas fa-search"></i> カード検索機能</h4>
-                            <p>あいまい検索や、カードタイプ・収録セットによる絞り込み検索で、目的のカード情報を素早く見つけられます。カードの詳細情報も一目で確認できます。</p>
-                        </div>
-
-                        <div class="feature-section">
-                            <h4><i class="fas fa-gamepad"></i> ミニゲームで息抜き</h4>
-                            <p>カード名当てクイズやイラストクイズなど、ちょっとした時間に楽しめるミニゲームで気分転換しましょう。</p>
-                        </div>
-
-                        <div class="feature-section">
-                            <h4><i class="fas fa-trophy"></i> 戦いの記録</h4>
-                            <p>自分のデッキと相手のデッキ、そして勝敗を記録し、戦績を管理できます。あなたの成長を可視化し、次の戦略に活かしましょう。</p>
-                        </div>
-
-                        <div class="feature-section">
-                            <h4><i class="fas fa-cube"></i> デッキ分析</h4>
-                            <p>デッキのスクリーンショットをアップロードして、デッキの構成を分析し、おすすめカードのサジェストを受け取ることができます。</p>
-                        </div>
-
-                        <p style="margin-top: 30px; text-align: center; font-style: italic; color: #666;">
-                            この拡張機能は、あなたの『あの頃の自作TCG』ライフをより豊かにするために開発されています。
-                        </p>
-
-                        <h3>役立つリンク集</h3>
-                        <ul>
-                            <li><a href="https://unityroom.com/games/anokorotcg" target="_blank">『あの頃の自作TCG』ゲーム本体</a></li>
-                            <li><a href="https://example.com/tcg-wiki" target="_blank">非公式Wiki (例)</a></li>
-                            <li><a href="https://example.com/tcg-community" target="_blank">コミュニティフォーラム (例)</a></li>
-                        </ul>
-                    </div>
-
+                    <!-- 各セクションのコンテンツはここに動的にロードされます -->
+                    <div id="tcg-home-section" class="tcg-section"></div>
                     <div id="tcg-rateMatch-section" class="tcg-section"></div>
                     <div id="tcg-memo-section" class="tcg-section"></div>
                     <div id="tcg-search-section" class="tcg-section"></div>
@@ -647,7 +457,7 @@ async function injectUIIntoPage() {
         screenshotCanvas = document.getElementById('screenshot-canvas');
         cropScreenshotButton = document.getElementById('crop-screenshot-button');
         pasteFullScreenshotButton = document.getElementById('paste-full-screenshot-button');
-        cancelCropButton = document.getElementById('cancel-crop-button'); // ID修正
+        cancelCropButton = document.getElementById('cancel-crop-button');
 
         uiInjected = true; // 挿入フラグを設定
 
@@ -676,6 +486,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "showSection") {
         toggleContentArea(request.section);
     } else if (request.action === "toggleSidebar") {
+        // サイドバーの表示/非表示を切り替えるコマンド
         const contentArea = document.getElementById('tcg-content-area');
         const rightMenuContainer = document.getElementById('tcg-right-menu-container');
         const gameCanvas = document.querySelector('canvas#unity-canvas');
@@ -685,14 +496,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (contentArea.classList.contains('active')) {
             contentArea.classList.remove('active');
             contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
-            isMenuIconsVisible = false; 
-            updateMenuIconsVisibility(); 
+            isMenuIconsVisible = false;
+            updateMenuIconsVisibility();
         } else {
             contentArea.classList.add('active');
             contentArea.style.right = '0px';
-            isMenuIconsVisible = true; 
-            updateMenuIconsVisibility(); 
-            
+            isMenuIconsVisible = true;
+            updateMenuIconsVisibility();
+
             chrome.storage.local.get(['activeSection'], (result) => {
                 const activeSection = result.activeSection || 'home';
                 const initialActiveIcon = rightMenuContainer.querySelector(`.tcg-menu-icon[data-section="${activeSection}"]`);
@@ -717,8 +528,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
         // メニューアイコンを隠す (矢印ボタンだけ表示)
         if (rightMenuContainer) {
-            isMenuIconsVisible = false; 
-            updateMenuIconsVisibility(); 
+            isMenuIconsVisible = false;
+            updateMenuIconsVisibility();
         }
         if (gameCanvas) {
             gameCanvas.style.display = 'block';

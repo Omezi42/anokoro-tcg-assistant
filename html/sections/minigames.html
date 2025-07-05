@@ -1,0 +1,27 @@
+<h2 class="section-title">ミニゲーム</h2>
+<p>ミニゲームで息抜き！</p>
+<div class="minigame-list">
+    <button id="quiz-card-name"><i class="fas fa-question-circle"></i> カード名当てクイズ</button>
+    <button id="quiz-illustration-enlarge"><i class="fas fa-image"></i> イラスト拡大クイズ</button>
+    <button id="quiz-illustration-silhouette"><i class="fas fa-palette"></i> イラストシルエットクイズ</button>
+    <button id="quiz-illustration-mosaic"><i class="fas fa-th-large"></i> イラストモザイク化クイズ</button>
+</div>
+
+<!-- クイズ表示エリア -->
+<div id="quiz-display-area" class="quiz-container" style="display: none;">
+    <h3 id="quiz-title"></h3>
+    <div class="quiz-hint-area" id="quiz-hint-area"></div>
+    <div class="quiz-image-area" id="quiz-image-area">
+        <canvas id="quiz-canvas"></canvas>
+    </div>
+    <div class="quiz-input-area">
+        <input type="text" id="quiz-answer-input" placeholder="カード名を入力">
+        <button id="quiz-submit-button">解答</button>
+    </div>
+    <div class="quiz-result-area" id="quiz-result-area"></div>
+    <div class="quiz-answer-display" id="quiz-answer-display"></div>
+    <div class="quiz-controls">
+        <button id="quiz-next-button" style="display: none;">次のヒント/問題</button>
+        <button id="quiz-reset-button">リセット</button>
+    </div>
+</div>

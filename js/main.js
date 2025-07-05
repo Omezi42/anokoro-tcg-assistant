@@ -331,7 +331,7 @@ async function showSection(sectionId) {
     } else {
         // 既にロード済みの場合は、初期化関数を再実行
         setTimeout(() => {
-            if (typeof window[initFunctionName} === 'function') {
+            if (typeof window[initFunctionName] === 'function') {
                 window[initFunctionName](allCards, showCustomDialog);
             } else {
                 console.warn(`Initialization function ${initFunctionName} not found on window object for already loaded script for section ${sectionId}.`);

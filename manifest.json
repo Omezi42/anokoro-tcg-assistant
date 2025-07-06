@@ -8,8 +8,7 @@
     "storage",
     "scripting",
     "notifications",
-    "tabs",
-    "https://unityroom.com/games/anokorotcg*"
+    "tabs"
   ],
   "host_permissions": [
     "https://unityroom.com/games/anokorotcg*"

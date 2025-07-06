@@ -1,54 +1,212 @@
-<h2 class="section-title">レート戦</h2>
-<div class="rate-match-info">
-    <div class="info-box">
-        <h3>現在のレート</h3>
-        <p id="rate-display">1500</p>
-    </div>
-    <div class="info-box">
-        <h3>マッチング</h3>
-        <p>待機中: <span id="matching-waiting">3</span>人</p>
-        <p>対戦中: <span id="matching-playing">8</span>人</p>
-    </div>
-</div>
+// js/sections/rateMatch.js
 
-<!-- マッチング前のUI要素 -->
-<div id="pre-match-ui">
-    <button id="matching-button">マッチング</button>
-    <h3>対戦履歴</h3>
-    <ul id="match-history-list">
-        </ul>
-    <h3>ランキング</h3>
-    <p>ここにランキング情報が表示されます。</p>
-</div>
+// グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
+window.initRateMatchSection = async function() { // async を追加
+    console.log("RateMatch section initialized.");
 
-<!-- マッチング中の表示 -->
-<div id="matching-status" style="display: none;">
-    <p>対戦相手を検索中...</p>
-    <div class="spinner"></div>
-    <button id="cancel-matching-button" class="cancel-button">マッチングキャンセル</button>
-</div>
+    // === レート戦セクションのロジック ===
+    // 各要素を関数内で取得
+    const matchingButton = document.getElementById('matching-button');
+    const cancelMatchingButton = document.getElementById('cancel-matching-button');
+    const matchingStatusDiv = document.getElementById('matching-status');
+    const preMatchUiDiv = document.getElementById('pre-match-ui');
+    const postMatchUiDiv = document.getElementById('post-match-ui');
+    const matchHistoryList = document.getElementById('match-history-list');
 
-<!-- 対戦中（マッチング後）のUI要素 -->
-<div id="post-match-ui" style="display: none;">
-    <h4>チャット</h4>
-    <div id="chat-messages" style="height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; background-color: #f9f9f9; border-radius: 8px;">
-        <p><strong>[システム]:</strong> 対戦が始まりました！</p>
-        <p><strong>[相手プレイヤー]:</strong> ルームID: ABC123DEF, 先攻お願いします！</p>
-    </div>
-    <div class="chat-fixed-phrases">
-        <button class="chat-phrase-button">よろしくお願いします！</button>
-        <button class="chat-phrase-button">ナイスゲームでした！</button>
-        <button class="chat-phrase-button">GG</button>
-        <button class="chat-phrase-button">対戦ありがとうございました！</button>
-    </div>
-    <div style="display: flex; gap: 5px;">
-        <input type="text" id="chat-input" placeholder="メッセージを入力..." style="flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 5px;">
-        <button id="send-chat-button" style="background-color: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">送信</button>
-    </div>
-    <h4>対戦結果報告</h4>
-    <div class="rate-match-actions">
-        <button id="win-button" class="win"><i class="fas fa-check-circle"></i> 勝利</button>
-        <button id="lose-button" class="lose"><i class="fas fa-times-circle"></i> 敗北</button>
-        <button id="cancel-button"><i class="fas fa-stop-circle"></i> 対戦中止</button>
-    </div>
-</div>
+    const chatInput = document.getElementById('chat-input');
+    const sendChatButton = document.getElementById('send-chat-button');
+    const chatMessagesDiv = document.getElementById('chat-messages');
+    const chatPhraseButtons = document.querySelectorAll('.chat-phrase-button');
+
+    const winButton = document.getElementById('win-button');
+    const loseButton = document.getElementById('lose-button');
+    const cancelButton = document.getElementById('cancel-button');
+
+    const rateDisplay = document.getElementById('rate-display'); // レート表示要素
+
+    let matchingTimeout = null; // マッチング中のタイムアウトID
+    let currentRate = 1500; // 仮の初期レート
+
+    // 初期状態ではマッチング後UIを非表示に
+    if (postMatchUiDiv) {
+        postMatchUiDiv.style.display = 'none';
+    }
+
+    // レート表示を更新する関数
+    const updateRateDisplay = () => {
+        if (rateDisplay) {
+            rateDisplay.textContent = currentRate;
+        }
+    };
+
+    // ローカルストレージから対戦履歴を読み込む関数
+    const loadMatchHistory = () => {
+        if (!matchHistoryList) return;
+        chrome.storage.local.get(['matchHistory'], (result) => {
+            const history = result.matchHistory || [];
+            matchHistoryList.innerHTML = ''; // クリア
+            if (history.length === 0) {
+                matchHistoryList.innerHTML = '<li>まだ対戦履歴がありません。</li>';
+            } else {
+                history.forEach(record => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = record;
+                    matchHistoryList.appendChild(listItem);
+                });
+            }
+        });
+    };
+
+    // 対戦履歴を保存する関数
+    const saveMatchHistory = (record) => {
+        chrome.storage.local.get(['matchHistory'], (result) => {
+            const history = result.matchHistory || [];
+            history.unshift(record); // 最新のものを先頭に追加
+            if (history.length > 10) { // 履歴を最新10件に制限
+                history.pop();
+            }
+            chrome.storage.local.set({matchHistory: history}, () => {
+                loadMatchHistory(); // 保存後に再読み込み
+            });
+        });
+    };
+
+    // イベントリスナーを再アタッチ
+    if (matchingButton) {
+        matchingButton.removeEventListener('click', handleMatchingButtonClick); // 既存のリスナーを削除
+        matchingButton.addEventListener('click', handleMatchingButtonClick);
+    }
+
+    if (cancelMatchingButton) {
+        cancelMatchingButton.removeEventListener('click', handleCancelMatchingButtonClick);
+        cancelMatchingButton.addEventListener('click', handleCancelMatchingButtonClick);
+    }
+
+    if (sendChatButton) {
+        sendChatButton.removeEventListener('click', handleSendChatButtonClick);
+        sendChatButton.addEventListener('click', handleSendChatButtonClick);
+        if (chatInput) {
+            chatInput.removeEventListener('keypress', handleChatInputKeypress);
+            chatInput.addEventListener('keypress', handleChatInputKeypress);
+        }
+    }
+
+    chatPhraseButtons.forEach(button => {
+        button.removeEventListener('click', handleChatPhraseButtonClick);
+        button.addEventListener('click', handleChatPhraseButtonClick);
+    });
+
+    if (winButton) {
+        winButton.removeEventListener('click', handleWinButtonClick);
+        winButton.addEventListener('click', handleWinButtonClick);
+    }
+
+    if (loseButton) {
+        loseButton.removeEventListener('click', handleLoseButtonClick);
+        loseButton.addEventListener('click', handleLoseButtonClick);
+    }
+
+    if (cancelButton) {
+        cancelButton.removeEventListener('click', handleCancelBattleButtonClick);
+        cancelButton.addEventListener('click', handleCancelBattleButtonClick);
+    }
+
+    // イベントハンドラ関数
+    async function handleMatchingButtonClick() {
+        if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
+        if (matchingStatusDiv) matchingStatusDiv.style.display = 'flex';
+        if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
+
+        await window.showCustomDialog('マッチング開始', '対戦相手を検索中です...');
+
+        matchingTimeout = setTimeout(async () => {
+            if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
+            if (postMatchUiDiv) {
+                postMatchUiDiv.style.display = 'block';
+                if (chatMessagesDiv) {
+                    chatMessagesDiv.innerHTML = `
+                        <p><strong>[システム]:</strong> 対戦が始まりました！</p>
+                        <p><strong>[相手プレイヤー]:</strong> ルームID: ABC123DEF, 先攻お願いします！</p>
+                    `;
+                    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                }
+            }
+            // 対戦相手が決まったポップアップを表示
+            await window.showCustomDialog('対戦相手決定', '対戦相手が決まりました！');
+            chrome.runtime.sendMessage({ action: "matchFoundNotification" });
+        }, 3000);
+    }
+
+    async function handleCancelMatchingButtonClick() {
+        const confirmed = await window.showCustomDialog('マッチングキャンセル', 'マッチングをキャンセルしますか？', true);
+        if (confirmed) {
+            clearTimeout(matchingTimeout);
+            if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
+            if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
+            await window.showCustomDialog('キャンセル完了', 'マッチングをキャンセルしました。');
+        }
+    }
+
+    function handleSendChatButtonClick() {
+        if (!chatInput || !chatMessagesDiv) return;
+        const message = chatInput.value.trim();
+        if (message) {
+            const newMessage = document.createElement('p');
+            newMessage.innerHTML = `<strong>[あなた]:</strong> ${message}`;
+            chatMessagesDiv.appendChild(newMessage);
+            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+            chatInput.value = '';
+        }
+    }
+
+    function handleChatInputKeypress(e) {
+        if (e.key === 'Enter') {
+            sendChatButton.click();
+        }
+    }
+
+    function handleChatPhraseButtonClick(event) {
+        if (chatInput && sendChatButton) {
+            chatInput.value = event.currentTarget.textContent;
+            sendChatButton.click();
+        }
+    }
+
+    async function handleWinButtonClick() {
+        const confirmed = await window.showCustomDialog('勝利報告', 'BO3の対戦で勝利を報告しますか？', true);
+        if (confirmed) {
+            const oldRate = currentRate;
+            currentRate += 30; // 仮のレート増加
+            updateRateDisplay();
+            saveMatchHistory(`${new Date().toLocaleString()} - BO3 勝利 (レート: ${oldRate} -> ${currentRate})`);
+            window.showCustomDialog('報告完了', `勝利を報告しました！<br>レート: ${oldRate} → ${currentRate} (+30)`);
+            if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
+            if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
+        }
+    }
+
+    async function handleLoseButtonClick() {
+        const confirmed = await window.showCustomDialog('敗北報告', 'BO3の対戦で敗北を報告しますか？', true);
+        if (confirmed) {
+            const oldRate = currentRate;
+            currentRate -= 20; // 仮のレート減少
+            updateRateDisplay();
+            saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北 (レート: ${oldRate} -> ${currentRate})`);
+            window.showCustomDialog('報告完了', `敗北を報告しました。<br>レート: ${oldRate} → ${currentRate} (-20)`);
+            if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
+            if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
+        }
+    }
+
+    async function handleCancelBattleButtonClick() {
+        const confirmed = await window.showCustomDialog('対戦中止', '対戦を中止しますか？', true);
+        if (confirmed) {
+            window.showCustomDialog('完了', '対戦を中止しました。');
+            if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
+            if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
+        }
+    }
+
+    updateRateDisplay(); // 初期レート表示
+    loadMatchHistory();
+}; // End of initRateMatchSection

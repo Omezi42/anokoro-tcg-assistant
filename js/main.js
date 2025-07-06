@@ -305,19 +305,19 @@ async function showSection(sectionId) {
     }
 
     // 各セクションのJavaScriptを動的に注入
-    const jsPath = `js/sections/${sectionId}.js`; // chrome.runtime.getURL は background.js で行う
+    // jsPath は background.js に渡すための相対パス
+    const jsPath = `js/sections/${sectionId}.js`; 
     const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace(/-([a-z])/g, (g) => g[1].toUpperCase())}Section`;
 
     // スクリプトがまだ注入されていない場合のみ注入
     if (!window._injectedSectionScripts.has(jsPath)) {
         try {
             // background.js にメッセージを送信してスクリプト注入を依頼
-            // chrome.scripting.executeScript は Service Worker から呼び出す必要がある
             chrome.runtime.sendMessage({
                 action: "injectSectionScript",
                 scriptPath: jsPath,
                 initFunctionName: initFunctionName,
-                allCards: allCards // allCardsも渡す
+                allCards: allCards // allCardsデータも渡す
             }, (response) => {
                 if (chrome.runtime.lastError) {
                     console.error("Error injecting script via background:", chrome.runtime.lastError.message);
@@ -480,7 +480,7 @@ async function injectUIIntoPage() {
 
 /**
  * 拡張機能の各種機能を初期化し、イベントリスナーを設定します。
- * この関数はUIがDOMに挿入された後に一度だけ呼び出されます。
+ * この関数は一度だけ呼び出されます。
  * ここでは、セクション固有ではない、グローバルな機能の初期化を行います。
  */
 async function initializeExtensionFeatures() {
@@ -616,7 +616,7 @@ async function initializeExtensionFeatures() {
 
 // DOMが完全にロードされるのを待ってから要素を注入し、機能を初期化します。
 // script要素がdefer属性を持つか、bodyの最後にある場合、DOMContentLoadedは不要かもしれませんが、
-// 念のためこのままとします。
+// 念のためこのまかとします。
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         injectUIIntoPage();

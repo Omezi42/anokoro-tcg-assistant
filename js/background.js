@@ -41,37 +41,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse({ success: true, screenshotUrl: screenshotUrl });
         });
     } else {
-        sendResponse({ success: false, error: "No active tab found for screenshot." });
+        sendResponse({ success: false, error: "Invalid parameters for script injection." });
     }
     // 非同期処理のためtrueを返し、sendResponseを後で呼び出すことを示す
     return true;
   } else if (request.action === "injectSectionScript") {
       // content.js からのスクリプト注入リクエスト
       if (sender.tab && sender.tab.id && request.scriptPath && request.initFunctionName) {
-          const scriptUrl = chrome.runtime.getURL(request.scriptPath);
           chrome.scripting.executeScript({
               target: { tabId: sender.tab.id },
-              files: [scriptUrl] // 注入するスクリプトのパス
+              files: [request.scriptPath] // 相対パスを直接使用
           }, () => {
-              if (chrome.runtime.lastError) {
-                  console.error(`Failed to execute script ${scriptUrl}:`, chrome.runtime.lastError.message);
+              if (chrome.runtime.lastError) {                  
+                  console.error(`Failed to execute script ${request.scriptPath}:`, chrome.runtime.lastError.message);
                   sendResponse({ success: false, error: chrome.runtime.lastError.message });
                   return;
               }
               // スクリプトが注入された後、その中の初期化関数を呼び出す
-              // chrome.scripting.executeScript の results は、注入されたスクリプトの最後の式の評価結果を返す
-              // ここでは、初期化関数を呼び出すための別の executeScript を行う
               chrome.scripting.executeScript({
                   target: { tabId: sender.tab.id },
-                  function: (funcName, allCardsData, showCustomDialogCode) => {
-                      // allCards と showCustomDialog は content.js のスコープにあるため、
-                      // ここで直接渡すか、content.js 側でグローバルにアクセスできるようにする必要がある。
-                      // 今回は、allCardsData を JSON 文字列として渡し、showCustomDialog は content.js のグローバル関数としてアクセスする。
-                      // ただし、showCustomDialog は複雑なので、content.js 側で直接呼び出すようにする。
-                      // ここでは initFunctionName の呼び出しのみに集中する。
-
-                      // allCardsData は JSON 文字列として渡されるのでパースする
-                      const parsedAllCards = JSON.parse(allCardsData);
+                  function: (funcName, allCardsDataJson) => { // showCustomDialogCode を削除
+                      // allCardsDataJson は JSON 文字列として渡されるのでパースする
+                      const parsedAllCards = JSON.parse(allCardsDataJson);
 
                       // showCustomDialog は content.js のグローバル関数としてアクセスできるはず
                       const globalShowCustomDialog = window.showCustomDialog;
@@ -82,7 +73,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                           console.error(`Background: Initialization function ${funcName} not found on window object after script injection.`);
                       }
                   },
-                  args: [request.initFunctionName, JSON.stringify(request.allCards), request.showCustomDialog] // allCardsをJSON文字列として渡す
+                  // allCards を JSON 文字列に変換して渡す。showCustomDialog は削除
+                  args: [request.initFunctionName, JSON.stringify(request.allCards)] 
               }, () => {
                   if (chrome.runtime.lastError) {
                       console.error(`Failed to call init function ${request.initFunctionName}:`, chrome.runtime.lastError.message);

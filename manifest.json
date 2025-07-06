@@ -52,7 +52,10 @@
         "html/sections/*.html",
         "js/main.js",
         "js/sections/*.js",
-        "images/*.png"
+        "images/*.png",
+        "js/lib/firebase/firebase-app.js",    
+        "js/lib/firebase/firebase-auth.js",   
+        "js/lib/firebase/firebase-firestore.js"
       ],
       "matches": ["<all_urls>"]
     }

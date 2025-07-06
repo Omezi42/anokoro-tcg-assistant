@@ -313,7 +313,7 @@ async function showSection(sectionId) {
         }
         const htmlContent = await response.text();
         targetSection.innerHTML = htmlContent;
-    } catch (error) {
+    } catch(error) {
         console.error(`Error loading HTML for section ${sectionId}:`, error);
         targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました: ${sectionId}<br>エラー: ${error.message}</p>`;
         return;
@@ -382,7 +382,7 @@ function getSectionTitle(sectionId) {
         case 'search': return '検索';
         case 'minigames': return 'ミニゲーム';
         case 'battleRecord': return '戦いの記録';
-        case 'deckAnalysis': return 'デッキ分析';
+        // case 'deckAnalysis': return 'デッキ分析'; // デッキ分析は削除
         case 'arena': return 'アリーナ'; // アリーナセクションのタイトル
         default: return 'あの頃の自作TCGアシスタント';
     }
@@ -410,7 +410,7 @@ async function injectUIIntoPage() {
                     <button class="tcg-menu-icon" data-section="search" title="検索"><i class="fas fa-search"></i></button>
                     <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
                     <button class="tcg-menu-icon" data-section="battleRecord" title="戦いの記録"><i class="fas fa-trophy"></i></button>
-                    <button class="tcg-menu-icon" data-section="deckAnalysis" title="デッキ分析"><i class="fas fa-cube"></i></button>
+                    <!-- <button class="tcg-menu-icon" data-section="deckAnalysis" title="デッキ分析"><i class="fas fa-cube"></i></button> -->
                     <!-- アリーナボタンはリンク集に移動するため、ここから削除 -->
                 </div>
                 <button class="tcg-menu-toggle-button" id="tcg-menu-toggle-button" title="メニューを隠す/表示">
@@ -427,7 +427,7 @@ async function injectUIIntoPage() {
                     <div id="tcg-search-section" class="tcg-section"></div>
                     <div id="tcg-minigames-section" class="tcg-section"></div>
                     <div id="tcg-battleRecord-section" class="tcg-section"></div>
-                    <div id="tcg-deckAnalysis-section" class="tcg-section"></div>
+                    <!-- <div id="tcg-deckAnalysis-section" class="tcg-section"></div> -->
                     <!-- アリーナセクションは直接表示しないため、ここから削除 -->
                 </div>
             </div>

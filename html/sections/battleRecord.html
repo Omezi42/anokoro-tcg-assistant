@@ -90,8 +90,9 @@
             <!-- 選択されたデッキの詳細な勝率がここに表示されます -->
         </div>
 
-        <div class="chart-placeholder">
-            <img src="https://placehold.co/350x200/cccccc/333333?text=Win+Rate+Chart" alt="勝率グラフのプレースホルダー">
+        <!-- Chart.js用のCanvas要素に置き換え -->
+        <div class="chart-container" style="position: relative; height:250px; width:100%; margin-top: 20px;">
+            <canvas id="win-rate-chart"></canvas>
         </div>
     </div>
 </div>
@@ -102,3 +103,6 @@
         <li>まだ対戦記録がありません。</li>
     </ul>
 </div>
+
+<!-- Chart.js CDNを読み込む -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

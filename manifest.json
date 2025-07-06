@@ -8,11 +8,11 @@
     "storage",
     "scripting",
     "notifications",
-    "tabs",
-    "<all_urls>"
+    "tabs"
   ],
   "host_permissions": [
-    "https://unityroom.com/games/anokorotcg*"
+    "https://unityroom.com/games/anokorotcg*",
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "js/background.js"

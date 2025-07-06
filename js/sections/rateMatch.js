@@ -101,7 +101,10 @@ window.initRateMatchSection = async function() { // async を追加
             if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
             if (chatMessagesDiv) chatMessagesDiv.dataset.initialized = 'false'; // リセット
             // マッチ情報がクリアされたことをバックグラウンドに通知
-            chrome.runtime.sendMessage({ action: "clearMatchInfo" });
+            // このブロックは、UIが既にクリアされている状態（例：拡張機能が再ロードされた）で
+            // バックグラウンドのマッチ情報が残っていた場合にのみ実行されるべき
+            // 勝利/敗北/キャンセル時は各ハンドラで明示的にclearMatchInfoを呼ぶ
+            // chrome.runtime.sendMessage({ action: "clearMatchInfo" });
         }
     };
 
@@ -205,7 +208,10 @@ window.initRateMatchSection = async function() { // async を追加
             updateRateDisplay();
             saveMatchHistory(`${new Date().toLocaleString()} - BO3 勝利 (レート: ${oldRate} -> ${currentRate})`);
             await window.showCustomDialog('報告完了', `勝利を報告しました！<br>レート: ${oldRate} → ${currentRate} (+30)`);
-            updateMatchingUI(); // UIを元の状態に戻す (マッチ情報をクリア)
+            
+            // マッチ情報をクリアするメッセージをバックグラウンドに送信
+            await chrome.runtime.sendMessage({ action: "clearMatchInfo" });
+            updateMatchingUI(); // UIを元の状態に戻す
         }
     }
 
@@ -215,9 +221,12 @@ window.initRateMatchSection = async function() { // async を追加
             const oldRate = currentRate;
             currentRate -= 20; // 仮のレート減少
             updateRateDisplay();
-            saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北 (レート: ${oldRate} -> ${currentRate})`);
+            saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北 (レート: ${oldRate} → ${currentRate})`);
             await window.showCustomDialog('報告完了', `敗北を報告しました。<br>レート: ${oldRate} → ${currentRate} (-20)`);
-            updateMatchingUI(); // UIを元の状態に戻す (マッチ情報をクリア)
+            
+            // マッチ情報をクリアするメッセージをバックグラウンドに送信
+            await chrome.runtime.sendMessage({ action: "clearMatchInfo" });
+            updateMatchingUI(); // UIを元の状態に戻す
         }
     }
 
@@ -225,7 +234,10 @@ window.initRateMatchSection = async function() { // async を追加
         const confirmed = await window.showCustomDialog('対戦中止', '対戦を中止しますか？', true);
         if (confirmed) {
             await window.showCustomDialog('完了', '対戦を中止しました。');
-            updateMatchingUI(); // UIを元の状態に戻す (マッチ情報をクリア)
+            
+            // マッチ情報をクリアするメッセージをバックグラウンドに送信
+            await chrome.runtime.sendMessage({ action: "clearMatchInfo" });
+            updateMatchingUI(); // UIを元の状態に戻す
         }
     }
 

@@ -39,9 +39,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === "captureScreenshot") {
     // スクリーンショットをキャプチャするリクエスト
     if (sender.tab && sender.tab.id) {
-        // Manifest V3では、chrome.scripting.captureVisibleTab が推奨されます。
-        // これには "scripting" 権限と対象ホストの "host_permissions" が必要です。
-        chrome.scripting.captureVisibleTab(sender.tab.windowId, { format: "png" }, (screenshotUrl) => {
+        // chrome.tabs.captureVisibleTab を使用 (Manifest V3でも利用可能)
+        // Manifest V3では、このAPIには "<all_urls>" または "activeTab" 権限が必要です。
+        // "activeTab" はユーザーが拡張機能のアイコンをクリックしたときに一時的に付与されますが、
+        // コンテンツスクリプトからのメッセージでトリガーされる場合は、"<all_urls>" がより確実です。
+        chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: "png" }, (screenshotUrl) => {
             if (chrome.runtime.lastError) {
                 console.error("スクリーンショットのキャプチャに失敗しました:", chrome.runtime.lastError.message);
                 sendAsyncResponse({ success: false, error: chrome.runtime.lastError.message });

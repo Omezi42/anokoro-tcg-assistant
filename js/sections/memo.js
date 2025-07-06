@@ -6,7 +6,7 @@ window.initMemoSection = async function() { // async を追加
 
     // === メモセクションのロジック ===
     // 各要素を関数内で取得
-    const screenshotButton = document.getElementById('screenshot-button');
+    // const screenshotButton = document.getElementById('screenshot-button'); // スクリーンショットボタンは削除
     const saveMemoButton = document.getElementById('save-memo-button');
     const memoTextArea = document.getElementById('memo-text-area');
     const savedMemosList = document.getElementById('saved-memos-list');
@@ -84,7 +84,7 @@ window.initMemoSection = async function() { // async を追加
                 if (memoToEdit.screenshotUrl && screenshotArea) {
                     screenshotArea.innerHTML = `<img src="${memoToEdit.screenshotUrl}" alt="Screenshot">`;
                 } else if (screenshotArea) {
-                    screenshotArea.innerHTML = '<p>スクリーンショットがここに表示されます。</p>';
+                    screenshotArea.innerHTML = '<p>スクリーンショットがここに表示されます。（画像をここに貼り付けることもできます - Ctrl+V / Cmd+V）</p>';
                 }
                 editingMemoIndex = originalIndex;
                 window.showCustomDialog('メモ編集', 'メモを編集モードにしました。内容を変更して「メモを保存」ボタンを押してください。');
@@ -94,7 +94,7 @@ window.initMemoSection = async function() { // async を追加
 
     // イベントハンドラ関数
     async function handleDeleteMemoClick(event) {
-        const originalIndexToDelete = parseInt(event.currentTarget.dataset.originalIndex);
+        const originalIndexToDelete = parseInt(event.currentTarget.dataset.original-index);
         const confirmed = await window.showCustomDialog('メモ削除', 'このメモを削除しますか？', true);
         if (confirmed) {
             deleteMemo(originalIndexToDelete);
@@ -102,14 +102,14 @@ window.initMemoSection = async function() { // async を追加
     }
 
     function handleEditMemoClick(event) {
-        const originalIndexToEdit = parseInt(event.currentTarget.dataset.originalIndex);
+        const originalIndexToEdit = parseInt(event.currentTarget.dataset.original-index);
         editMemo(originalIndexToEdit);
     }
 
-    async function handleScreenshotButtonClick() {
-        // main.jsのスクリーンショットキャプチャロジックをトリガー
-        chrome.runtime.sendMessage({ action: "captureScreenshot" });
-    }
+    // スクリーンショットボタンのクリックハンドラは削除
+    // async function handleScreenshotButtonClick() {
+    //     chrome.runtime.sendMessage({ action: "captureScreenshot" });
+    // }
 
     async function handleSaveMemoButtonClick() {
         if (!memoTextArea || !screenshotArea) return;
@@ -135,7 +135,7 @@ window.initMemoSection = async function() { // async を追加
 
                 chrome.storage.local.set({ savedMemos: memos }, () => {
                     if (memoTextArea) memoTextArea.value = '';
-                    if (screenshotArea) screenshotArea.innerHTML = '<p>スクリーンショットがここに表示されます。</p>';
+                    if (screenshotArea) screenshotArea.innerHTML = '<p>スクリーンショットがここに表示されます。（画像をここに貼り付けることもできます - Ctrl+V / Cmd+V）</p>';
                     if (memoSearchInput) loadMemos(memoSearchInput.value.trim());
                 });
             });
@@ -157,7 +157,7 @@ window.initMemoSection = async function() { // async を追加
         }
     }
 
-    // main.jsから発火されるカスタムイベントをリッスン
+    // main.jsから発火されるカスタムイベントをリッスン (このイベントはmain.jsから削除されるため、将来的には不要になる)
     document.removeEventListener('screenshotCropped', handleScreenshotCropped); // 既存のリスナーを削除
     document.addEventListener('screenshotCropped', handleScreenshotCropped);
 
@@ -167,11 +167,38 @@ window.initMemoSection = async function() { // async を追加
         }
     }
 
-    // イベントリスナーを再アタッチ
-    if (screenshotButton) {
-        screenshotButton.removeEventListener('click', handleScreenshotButtonClick);
-        screenshotButton.addEventListener('click', handleScreenshotButtonClick);
+    // 画像貼り付けイベントリスナーを追加
+    if (screenshotArea) {
+        screenshotArea.removeEventListener('paste', handleImagePaste); // 重複防止
+        screenshotArea.addEventListener('paste', handleImagePaste);
     }
+
+    function handleImagePaste(event) {
+        const items = event.clipboardData.items;
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                const blob = item.getAsFile();
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imageUrl = e.target.result;
+                    if (screenshotArea) {
+                        screenshotArea.innerHTML = `<img src="${imageUrl}" alt="Pasted Image">`;
+                        window.showCustomDialog('貼り付け完了', '画像をメモエリアに貼り付けました。');
+                    }
+                };
+                reader.readAsDataURL(blob);
+                return;
+            }
+        }
+        window.showCustomDialog('貼り付け失敗', 'クリップボードに画像がありませんでした。');
+    }
+
+
+    // イベントリスナーを再アタッチ
+    // if (screenshotButton) { // スクリーンショットボタンは削除
+    //     screenshotButton.removeEventListener('click', handleScreenshotButtonClick);
+    //     screenshotButton.addEventListener('click', handleScreenshotButtonClick);
+    // }
 
     if (saveMemoButton) {
         saveMemoButton.removeEventListener('click', handleSaveMemoButtonClick);

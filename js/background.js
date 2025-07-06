@@ -36,26 +36,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       message: '『あの頃の自作TCG』で対戦相手が見つかりました！ゲーム画面に戻りましょう。',
       priority: 2
     });
-  } else if (request.action === "captureScreenshot") {
-    // スクリーンショットをキャプチャするリクエスト
-    if (sender.tab && sender.tab.id) {
-        // chrome.tabs.captureVisibleTab を使用 (Manifest V3でも利用可能)
-        // Manifest V3では、このAPIには "<all_urls>" または "activeTab" 権限が必要です。
-        // "activeTab" はユーザーが拡張機能のアイコンをクリックしたときに一時的に付与されますが、
-        // コンテンツスクリプトからのメッセージでトリガーされる場合は、"<all_urls>" がより確実です。
-        chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: "png" }, (screenshotUrl) => {
-            if (chrome.runtime.lastError) {
-                console.error("スクリーンショットのキャプチャに失敗しました:", chrome.runtime.lastError.message);
-                sendAsyncResponse({ success: false, error: chrome.runtime.lastError.message });
-                return;
-            }
-            sendAsyncResponse({ success: true, screenshotUrl: screenshotUrl });
-        });
-    } else {
-        sendAsyncResponse({ success: false, error: "Invalid parameters for screenshot capture: sender.tab or sender.tab.id is missing." });
-    }
-    return true; // 非同期処理のため true を返す
-  } else if (request.action === "injectSectionScript") {
+  }
+  // "captureScreenshot" のメッセージハンドラは削除
+  // else if (request.action === "captureScreenshot") { /* ... */ }
+  else if (request.action === "injectSectionScript") {
       // content.js からのスクリプト注入リクエスト
       if (sender.tab && sender.tab.id && request.scriptPath && request.initFunctionName) {
           chrome.scripting.executeScript({

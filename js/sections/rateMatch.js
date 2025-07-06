@@ -202,10 +202,11 @@ window.initRateMatchSection = async function() { // async を追加
             currentRate += 30; // 仮のレート増加
             updateRateDisplay();
             saveMatchHistory(`${new Date().toLocaleString()} - BO3 勝利 (レート: ${oldRate} -> ${currentRate})`);
+            // ポップアップの表示完了を待つ
             await window.showCustomDialog('報告完了', `勝利を報告しました！<br>レート: ${oldRate} → ${currentRate} (+30)`);
             
-            // マッチ情報をクリアするメッセージをバックグラウンドに送信
-            await chrome.runtime.sendMessage({ action: "clearMatchInfo" }); // await を追加
+            // マッチ情報をクリアするメッセージをバックグラウンドに送信し、その完了を待つ
+            await chrome.runtime.sendMessage({ action: "clearMatchInfo" });
             updateMatchingUI(); // UIを元の状態に戻す
         }
     }
@@ -217,10 +218,11 @@ window.initRateMatchSection = async function() { // async を追加
             currentRate -= 20; // 仮のレート減少
             updateRateDisplay();
             saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北 (レート: ${oldRate} → ${currentRate})`);
+            // ポップアップの表示完了を待つ
             await window.showCustomDialog('報告完了', `敗北を報告しました。<br>レート: ${oldRate} → ${currentRate} (-20)`);
             
-            // マッチ情報をクリアするメッセージをバックグラウンドに送信
-            await chrome.runtime.sendMessage({ action: "clearMatchInfo" }); // await を追加
+            // マッチ情報をクリアするメッセージをバックグラウンドに送信し、その完了を待つ
+            await chrome.runtime.sendMessage({ action: "clearMatchInfo" });
             updateMatchingUI(); // UIを元の状態に戻す
         }
     }
@@ -228,10 +230,11 @@ window.initRateMatchSection = async function() { // async を追加
     async function handleCancelBattleButtonClick() {
         const confirmed = await window.showCustomDialog('対戦中止', '対戦を中止しますか？', true);
         if (confirmed) {
+            // ポップアップの表示完了を待つ
             await window.showCustomDialog('完了', '対戦を中止しました。');
             
-            // マッチ情報をクリアするメッセージをバックグラウンドに送信
-            await chrome.runtime.sendMessage({ action: "clearMatchInfo" }); // await を追加
+            // マッチ情報をクリアするメッセージをバックグラウンドに送信し、その完了を待つ
+            await chrome.runtime.sendMessage({ action: "clearMatchInfo" });
             updateMatchingUI(); // UIを元の状態に戻す
         }
     }

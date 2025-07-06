@@ -97,7 +97,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === "clearMatchInfo") {
     // マッチ情報をクリアするリクエスト (UIがマッチ後状態から抜ける際に呼び出す)
     currentMatchInfo = null;
-    sendAsyncResponse({ success: true });
+    sendAsyncResponse({ success: true }); // 完了を通知
     return true;
   }
   else if (request.action === "injectSectionScript") {

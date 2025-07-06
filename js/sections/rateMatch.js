@@ -199,7 +199,7 @@ window.initRateMatchSection = async function() { // async を追加
             const oldRate = currentRate;
             currentRate -= 20; // 仮のレート減少
             updateRateDisplay();
-            saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北 (レート: ${oldRate} → ${currentRate})`);
+            saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北 (レート: ${oldRate} -> ${currentRate})`);
             window.showCustomDialog('報告完了', `敗北を報告しました。<br>レート: ${oldRate} → ${currentRate} (-20)`);
             if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
             if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
@@ -219,29 +219,29 @@ window.initRateMatchSection = async function() { // async を追加
     loadMatchHistory();
     updateMatchingUI(); // 初期ロード時にマッチング状態をチェックしてUIを更新
 
-    // バックグラウンドからのマッチング完了通知をリッスン
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        if (request.action === "matchFound") {
-            console.log("RateMatch: Match found message received from background.");
-            if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
-            if (postMatchUiDiv) {
-                postMatchUiDiv.style.display = 'block';
-                if (chatMessagesDiv) {
-                    chatMessagesDiv.innerHTML = `
-                        <p><strong>[システム]:</strong> 対戦が始まりました！</p>
-                        <p><strong>[相手プレイヤー]:</strong> ルームID: ${request.roomId}, 先攻お願いします！</p>
-                    `;
-                    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-                }
-            }
-            // サイドバーが開いていなければ開く
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs[0] && tabs[0].id) {
-                    chrome.tabs.sendMessage(tabs[0].id, { action: "showSection", section: "rateMatch", forceOpenSidebar: true });
-                }
-            });
-            window.showCustomDialog('対戦相手決定', `対戦相手が決まりました！<br>ルームID: ${request.roomId}`);
-        }
-    });
+    // バックグラウンドからのマッチング完了通知をリッスン (main.jsで処理するため、ここからは削除)
+    // chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    //     if (request.action === "matchFound") {
+    //         console.log("RateMatch: Match found message received from background.");
+    //         if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
+    //         if (postMatchUiDiv) {
+    //             postMatchUiDiv.style.display = 'block';
+    //             if (chatMessagesDiv) {
+    //                 chatMessagesDiv.innerHTML = `
+    //                     <p><strong>[システム]:</strong> 対戦が始まりました！</p>
+    //                     <p><strong>[相手プレイヤー]:</strong> ルームID: ${request.roomId}, 先攻お願いします！</p>
+    //                 `;
+    //                 chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+    //             }
+    //         }
+    //         // サイドバーが開いていなければ開く
+    //         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    //             if (tabs[0] && tabs[0].id) {
+    //                 chrome.tabs.sendMessage(tabs[0].id, { action: "showSection", section: "rateMatch", forceOpenSidebar: true });
+    //             }
+    //         });
+    //         window.showCustomDialog('対戦相手決定', `対戦相手が決まりました！<br>ルームID: ${request.roomId}`);
+    //     }
+    // });
 
 }; // End of initRateMatchSection

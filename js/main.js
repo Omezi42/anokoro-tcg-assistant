@@ -20,18 +20,6 @@ const SIDEBAR_WIDTH = 500; // px (コンテンツエリアの幅)
 const MENU_ICON_SIZE = 60; // px (各アイコンボタンのサイズ)
 const TOGGLE_BUTTON_SIZE = 50; // px (メニュー開閉ボタンのサイズ)
 
-// スクリーンショットオーバーレイ関連の要素は削除するため、これらの変数は不要になります。
-// let screenshotOverlay;
-// let screenshotCanvas;
-// let cropScreenshotButton;
-// let pasteFullScreenshotButton;
-// let cancelCropButton;
-
-// let screenshotCtx = null; // Canvasコンテキストは不要
-// let currentScreenshotImage = null;
-// let startX, startY, endX, endY;
-// let isDrawing = false;
-
 // UIが既に挿入されたかどうかを追跡するフラグ
 let uiInjected = false;
 
@@ -463,13 +451,6 @@ async function injectUIIntoPage() {
         });
         
         // UI要素がDOMに挿入された後に、グローバル変数に参照を割り当てる
-        // スクリーンショット関連の変数は削除
-        // screenshotOverlay = document.getElementById('screenshot-overlay');
-        // screenshotCanvas = document.getElementById('screenshot-canvas');
-        // cropScreenshotButton = document.getElementById('crop-screenshot-button');
-        // pasteFullScreenshotButton = document.getElementById('paste-full-screenshot-button');
-        // cancelCropButton = document.getElementById('cancel-crop-button');
-
         uiInjected = true; // 挿入フラグを設定
         console.log("main.js: UI injected into page. Elements referenced.");
 
@@ -507,54 +488,6 @@ async function initializeExtensionFeatures() {
     } catch (error) {
         console.error("main.js: カードデータのロードに失敗しました:", error);
     }
-
-    // スクリーンショットCanvas関連の初期化ロジックは削除
-    // if (screenshotCanvas) {
-    //     screenshotCtx = screenshotCanvas.getContext('2d');
-    //     console.log("main.js: screenshotCanvas context initialized.");
-
-    //     screenshotCanvas.removeEventListener('mousedown', handleCanvasMouseDown);
-    //     screenshotCanvas.addEventListener('mousedown', handleCanvasMouseDown);
-    //     screenshotCanvas.removeEventListener('mousemove', handleCanvasMouseMove);
-    //     screenshotCanvas.addEventListener('mousemove', handleCanvasMouseMove);
-    //     screenshotCanvas.removeEventListener('mouseup', handleCanvasMouseUp);
-    //     screenshotCanvas.addEventListener('mouseup', handleCanvasMouseUp);
-    //     screenshotCanvas.removeEventListener('mouseleave', handleCanvasMouseLeave);
-    //     screenshotCanvas.addEventListener('mouseleave', handleCanvasMouseLeave);
-
-    //     function handleCanvasMouseDown(e) { /* ... */ }
-    //     function handleCanvasMouseMove(e) { /* ... */ }
-    //     function handleCanvasMouseUp() { /* ... */ }
-    //     function handleCanvasMouseLeave() { /* ... */ }
-
-    // } else {
-    //     console.error("main.js: screenshotCanvas element not found during initialization.");
-    // }
-
-    // スクリーンショットボタン関連のロジックは削除
-    // if (cropScreenshotButton) {
-    //     cropScreenshotButton.removeEventListener('click', handleCropScreenshotClick);
-    //     cropScreenshotButton.addEventListener('click', handleCropScreenshotClick);
-    //     function handleCropScreenshotClick() { /* ... */ }
-    // } else {
-    //     console.warn("main.js: cropScreenshotButton not found.");
-    // }
-
-    // if (pasteFullScreenshotButton) {
-    //     pasteFullScreenshotButton.removeEventListener('click', handlePasteFullScreenshotClick);
-    //     pasteFullScreenshotButton.addEventListener('click', handlePasteFullScreenshotClick);
-    //     function handlePasteFullScreenshotClick() { /* ... */ }
-    // } else {
-    //     console.warn("main.js: pasteFullScreenshotButton not found.");
-    // }
-
-    // if (cancelCropButton) {
-    //     cancelCropButton.removeEventListener('click', handleCancelCropClick);
-    //     cancelCropButton.addEventListener('click', handleCancelCropClick);
-    //     function handleCancelCropClick() { /* ... */ }
-    // } else {
-    //     console.warn("main.js: cancelCropButton not found.");
-    // }
 }
 
 // DOMが完全にロードされるのを待ってから要素を注入し、機能を初期化します。
@@ -603,7 +536,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
         }
         chrome.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
+    } else if (request.action === "matchFound") {
+        // バックグラウンドからのマッチング完了通知を受け取り、ポップアップとサイドバー表示をトリガー
+        console.log("main.js: Match found message received from background. Triggering dialog and sidebar.");
+        // ポップアップ表示
+        window.showCustomDialog('対戦相手決定', `対戦相手が決まりました！<br>ルームID: ${request.roomId}`);
+        // レート戦セクションを強制的に開く
+        toggleContentArea('rateMatch', true);
     }
-    // "captureScreenshot" のメッセージハンドラは削除
-    // else if (request.action === "captureScreenshot") { /* ... */ }
 });

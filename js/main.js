@@ -35,8 +35,17 @@ window.currentUserId = null; // Authenticated user ID
 async function initializeFirebase() {
     console.log("Firebase: Initializing Firebase...");
     try {
-        // Firebase SDKのCDNを動的にロード
-        await loadFirebaseSDKs();
+        // Firebase SDKがロードされていることを確認
+        if (typeof firebase === 'undefined' || !firebase.app || !firebase.auth || !firebase.firestore) {
+             console.error("Firebase: Firebase SDKs are not loaded. Attempting to inject them.");
+             // SDKがロードされていない場合は、動的に注入を試みる
+             await injectFirebaseSDKs();
+             // 再度チェック
+             if (typeof firebase === 'undefined' || !firebase.app || !firebase.auth || !firebase.firestore) {
+                 window.showCustomDialog('エラー', 'Firebase SDKのロードに失敗しました。拡張機能のファイルを確認してください。');
+                 return;
+             }
+        }
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
@@ -49,15 +58,15 @@ async function initializeFirebase() {
         // Firebaseアプリが既に初期化されているかチェック
         if (!window.firebaseApp) {
             window.firebaseApp = firebase.initializeApp(firebaseConfig); // firebase名前空間からinitializeAppを呼び出す
-            window.db = firebase.firestore(window.firebaseApp); // firebase名前空間からfirestoreを呼び出す
-            window.auth = firebase.auth(window.firebaseApp); // firebase名前空間からauthを呼び出す
+            window.db = firebase.firestore(); // firebase名前空間からfirestoreを呼び出す (appインスタンスは不要)
+            window.auth = firebase.auth(); // firebase名前空間からauthを呼び出す (appインスタンスは不要)
             console.log("Firebase: App, Firestore, Auth initialized.");
         } else {
             console.log("Firebase: App already initialized.");
         }
 
         // 認証状態の変更をリッスン
-        window.auth.onAuthStateChanged(async (user) => { // firebase.auth().onAuthStateChanged を呼び出す
+        firebase.auth().onAuthStateChanged(async (user) => { // firebase.auth().onAuthStateChanged を呼び出す
             if (user) {
                 window.currentUserId = user.uid;
                 console.log("Firebase: User signed in:", user.uid);
@@ -65,12 +74,12 @@ async function initializeFirebase() {
                 console.log("Firebase: No user signed in. Attempting anonymous or custom token sign-in.");
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await window.auth.signInWithCustomToken(__initial_auth_token); // signInWithCustomTokenを呼び出す
-                        window.currentUserId = window.auth.currentUser.uid;
+                        await firebase.auth().signInWithCustomToken(__initial_auth_token); // signInWithCustomTokenを呼び出す
+                        window.currentUserId = firebase.auth().currentUser.uid;
                         console.log("Firebase: Signed in with custom token:", window.currentUserId);
                     } else {
-                        await window.auth.signInAnonymously(); // signInAnonymouslyを呼び出す
-                        window.currentUserId = window.auth.currentUser.uid;
+                        await firebase.auth().signInAnonymously(); // signInAnonymouslyを呼び出す
+                        window.currentUserId = firebase.auth().currentUser.uid;
                         console.log("Firebase: Signed in anonymously:", window.currentUserId);
                     }
                 } catch (error) {
@@ -90,49 +99,56 @@ async function initializeFirebase() {
 }
 
 /**
- * Firebase SDKsを動的にロードするヘルパー関数
+ * Firebase SDKsを動的に注入するヘルパー関数
  */
-async function loadFirebaseSDKs() {
-    if (typeof firebase !== 'undefined' && firebase.app) {
-        console.log("Firebase SDKs already loaded.");
-        return;
-    }
-
-    const firebaseAppScript = document.createElement('script');
-    firebaseAppScript.src = "https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"; // Firebase SDK v8を使用
-    document.head.appendChild(firebaseAppScript);
-
-    const firebaseAuthScript = document.createElement('script');
-    firebaseAuthScript.src = "https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js";
-    document.head.appendChild(firebaseAuthScript);
-
-    const firebaseFirestoreScript = document.createElement('script');
-    firebaseFirestoreScript.src = "https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js";
-    document.head.appendChild(firebaseFirestoreScript);
-
+async function injectFirebaseSDKs() {
     return new Promise((resolve, reject) => {
-        let loadedCount = 0;
-        const totalScripts = 3;
+        const scriptsToInject = [
+            "https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js",
+            "https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js",
+            "https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"
+        ];
 
-        const checkLoad = () => {
-            loadedCount++;
-            if (loadedCount === totalScripts) {
-                if (typeof firebase !== 'undefined' && firebase.app && firebase.auth && firebase.firestore) {
-                    console.log("All Firebase SDKs loaded successfully.");
-                    resolve();
-                } else {
-                    reject(new Error("Firebase SDKs did not load correctly. 'firebase' global object or its modules are missing."));
-                }
-            }
+        let loadedCount = 0;
+        const totalScripts = scriptsToInject.length;
+
+        const loadScript = (url) => {
+            return new Promise((res, rej) => {
+                chrome.scripting.executeScript({
+                    target: { tabId: chrome.tabs.TAB_ID_NONE }, // 現在のタブに注入
+                    func: (scriptUrl) => {
+                        const script = document.createElement('script');
+                        script.src = scriptUrl;
+                        document.head.appendChild(script);
+                        return new Promise((resolveScript, rejectScript) => {
+                            script.onload = resolveScript;
+                            script.onerror = rejectScript;
+                        });
+                    },
+                    args: [url]
+                }, (results) => {
+                    if (chrome.runtime.lastError) {
+                        rej(new Error(chrome.runtime.lastError.message));
+                    } else if (results && results[0] && results[0].result === false) {
+                        rej(new Error(`Script injection failed for ${url}`));
+                    } else {
+                        res();
+                    }
+                });
+            });
         };
 
-        firebaseAppScript.onload = checkLoad;
-        firebaseAuthScript.onload = checkLoad;
-        firebaseFirestoreScript.onload = checkLoad;
+        const loadPromises = scriptsToInject.map(url => loadScript(url));
 
-        firebaseAppScript.onerror = reject;
-        firebaseAuthScript.onerror = reject;
-        firebaseFirestoreScript.onerror = reject;
+        Promise.all(loadPromises)
+            .then(() => {
+                console.log("All Firebase SDKs injected successfully.");
+                resolve();
+            })
+            .catch(error => {
+                console.error("Failed to inject Firebase SDKs:", error);
+                reject(error);
+            });
     });
 }
 

@@ -6,10 +6,11 @@ window.initRateMatchSection = async function() { // async を追加
 
     // Firebaseが利用可能になるまで待機
     // main.jsでFirebase SDKを動的にロードするため、ここではグローバルなfirebaseオブジェクトが利用可能
-    if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.auth) {
-        console.log("Firebase SDKs not yet loaded. Waiting for firebaseAuthReady event...");
+    // window.db, window.auth, window.currentUserId が初期化されるのを待つ
+    if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.auth || !window.db || !window.auth || !window.currentUserId) {
+        console.log("Firebase SDKs or global instances not yet ready. Waiting for firebaseAuthReady event...");
         await new Promise(resolve => document.addEventListener('firebaseAuthReady', resolve, { once: true }));
-        console.log("Firebase SDKs are now ready!");
+        console.log("Firebase is now ready!");
     }
 
     // === レート戦セクションのロジック ===
@@ -108,9 +109,11 @@ window.initRateMatchSection = async function() { // async を追加
             if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
             if (postMatchUiDiv) {
                 postMatchUiDiv.style.display = 'block';
-                if (chatMessagesDiv && chatMessagesDiv.dataset.initialized !== 'true') { // 二重初期化防止
+                // チャットメッセージの初期化は、ルーム参加時またはマッチング完了時にのみ行う
+                if (chatMessagesDiv && chatMessagesDiv.dataset.initialized !== 'true') {
                     chatMessagesDiv.innerHTML = `
                         <p><strong>[システム]:</strong> 対戦が始まりました！</p>
+                        <p><strong>[システム]:</strong> ルームID: ${currentRoomId}</p>
                         <p><strong>[相手プレイヤー]:</strong> 先攻お願いします！</p>
                     `;
                     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
@@ -141,17 +144,20 @@ window.initRateMatchSection = async function() { // async を追加
     // Firebase Firestoreのパスヘルパー関数
     const getRoomsCollectionRef = () => {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        return firebase.firestore().collection(`artifacts/${appId}/public/data/rooms`); // firebase.firestore()を呼び出す
+        // window.db が初期化されていることを前提とする
+        return window.db.collection(`artifacts/${appId}/public/data/rooms`);
     };
 
     const getRoomDocRef = (roomId) => {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        return firebase.firestore().doc(`artifacts/${appId}/public/data/rooms/${roomId}`); // firebase.firestore()を呼び出す
+        // window.db が初期化されていることを前提とする
+        return window.db.doc(`artifacts/${appId}/public/data/rooms/${roomId}`);
     };
 
     const getMessagesCollectionRef = (roomId) => {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        return firebase.firestore().collection(`artifacts/${appId}/public/data/rooms/${roomId}/messages`); // firebase.firestore()を呼び出す
+        // window.db が初期化されていることを前提とする
+        return window.db.collection(`artifacts/${appId}/public/data/rooms/${roomId}/messages`);
     };
 
     // ルームのリスナーを設定 (参加者リストなど)
@@ -163,8 +169,8 @@ window.initRateMatchSection = async function() { // async を追加
         console.log(`Setting up listeners for room: ${roomId}`);
 
         const roomDocRef = getRoomDocRef(roomId);
-        unsubscribeRoomListener = roomDocRef.onSnapshot((docSnap) => { // onSnapshotを呼び出す
-            if (docSnap.exists()) {
+        unsubscribeRoomListener = roomDocRef.onSnapshot((docSnap) => {
+            if (docSnap.exists) {
                 const roomData = docSnap.data();
                 console.log("Room data updated:", roomData);
                 // ここでルームの参加者リストなどをUIに表示するロジックを追加可能
@@ -182,7 +188,9 @@ window.initRateMatchSection = async function() { // async を追加
 
         // チャットメッセージのリスナーを設定
         const messagesColRef = getMessagesCollectionRef(roomId);
-        unsubscribeChatListener = messagesColRef.orderBy("timestamp").onSnapshot((snapshot) => { // orderByとonSnapshotを呼び出す
+        // orderBy("timestamp") を使用する際は、Firestoreのインデックス設定が必要になる場合があります。
+        // エラーが発生する場合は、Firebaseコンソールでインデックスを作成してください。
+        unsubscribeChatListener = messagesColRef.orderBy("timestamp").onSnapshot((snapshot) => {
             snapshot.docChanges().forEach(change => {
                 const messageData = change.doc.data();
                 if (change.type === "added") {
@@ -259,7 +267,7 @@ window.initRateMatchSection = async function() { // async を追加
 
     // イベントハンドラ関数
     async function handleMatchingButtonClick() {
-        // マッチング開始をバックグラウンドに要求 (Firestoreマッチングロジックに置き換えられる可能性あり)
+        // バックグラウンドスクリプトにマッチング開始を要求 (Firestoreマッチングロジックに置き換えられる可能性あり)
         const response = await chrome.runtime.sendMessage({ action: "startMatching" });
         if (response && response.success) {
             await window.showCustomDialog('オンラインマッチング開始', '対戦相手を検索中です...');
@@ -294,14 +302,14 @@ window.initRateMatchSection = async function() { // async を追加
         const roomDocRef = getRoomDocRef(roomId);
 
         try {
-            const docSnap = await roomDocRef.get(); // .get()を呼び出す
-            if (docSnap.exists) { // .existsプロパティを使用
+            const docSnap = await roomDocRef.get();
+            if (docSnap.exists) {
                 await window.showCustomDialog('エラー', `ルームID「${roomId}」は既に存在します。別のIDを試すか、参加してください。`);
                 return;
             }
 
-            await roomDocRef.set({ // .set()を呼び出す
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(), // サーバータイムスタンプを使用
+            await roomDocRef.set({
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 creatorId: window.currentUserId,
                 players: [window.currentUserId],
                 status: 'waiting' // waiting, playing, finished
@@ -341,8 +349,8 @@ window.initRateMatchSection = async function() { // async を追加
         const roomDocRef = getRoomDocRef(roomId);
 
         try {
-            const docSnap = await roomDocRef.get(); // .get()を呼び出す
-            if (!docSnap.exists) { // .existsプロパティを使用
+            const docSnap = await roomDocRef.get();
+            if (!docSnap.exists) {
                 await window.showCustomDialog('エラー', `ルームID「${roomId}」は見つかりませんでした。`);
                 return;
             }
@@ -352,8 +360,8 @@ window.initRateMatchSection = async function() { // async を追加
                 await window.showCustomDialog('情報', `既にルーム「${roomId}」に参加しています。`);
             } else {
                 // プレイヤーをルームに追加
-                await roomDocRef.update({ // .update()を呼び出す
-                    players: firebase.firestore.FieldValue.arrayUnion(window.currentUserId) // arrayUnionを呼び出す
+                await roomDocRef.update({
+                    players: firebase.firestore.FieldValue.arrayUnion(window.currentUserId)
                 });
                 await window.showCustomDialog('ルーム参加完了', `ルーム「${roomId}」に参加しました！`);
             }
@@ -385,10 +393,10 @@ window.initRateMatchSection = async function() { // async を追加
         const message = chatInput.value.trim();
         if (message) {
             try {
-                await getMessagesCollectionRef(currentRoomId).add({ // .add()を呼び出す
+                await getMessagesCollectionRef(currentRoomId).add({
                     senderId: window.currentUserId,
                     message: message,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp() // サーバータイムスタンプを使用
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 chatInput.value = '';
             } catch (error) {

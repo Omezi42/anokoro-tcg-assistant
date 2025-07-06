@@ -410,7 +410,7 @@ async function injectUIIntoPage() {
                     <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
                     <button class="tcg-menu-icon" data-section="battleRecord" title="戦いの記録"><i class="fas fa-trophy"></i></button>
                     <button class="tcg-menu-icon" data-section="deckAnalysis" title="デッキ分析"><i class="fas fa-cube"></i></button>
-                    <button class="tcg-menu-icon" data-section="arena" title="アリーナ"><i class="fas fa-dice-d20"></i></button> <!-- アリーナボタン追加 -->
+                    <!-- アリーナボタンはリンク集に移動するため、ここから削除 -->
                 </div>
                 <button class="tcg-menu-toggle-button" id="tcg-menu-toggle-button" title="メニューを隠す/表示">
                     <i class="fas fa-chevron-right"></i>
@@ -427,7 +427,7 @@ async function injectUIIntoPage() {
                     <div id="tcg-minigames-section" class="tcg-section"></div>
                     <div id="tcg-battleRecord-section" class="tcg-section"></div>
                     <div id="tcg-deckAnalysis-section" class="tcg-section"></div>
-                    <div id="tcg-arena-section" class="tcg-section"></div> <!-- アリーナセクションは直接表示しないため、ここから削除 -->
+                    <!-- アリーナセクションは直接表示しないため、ここから削除 -->
                 </div>
             </div>
 

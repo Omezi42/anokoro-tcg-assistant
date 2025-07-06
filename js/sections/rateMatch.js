@@ -131,6 +131,8 @@ window.initRateMatchSection = async function() { // async を追加
                     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
                 }
             }
+            // 対戦相手が決まったポップアップを表示
+            await window.showCustomDialog('対戦相手決定', '対戦相手が決まりました！');
             chrome.runtime.sendMessage({ action: "matchFoundNotification" });
         }, 3000);
     }

@@ -35,6 +35,9 @@ window.currentUserId = null; // Authenticated user ID
 async function initializeFirebase() {
     console.log("Firebase: Initializing Firebase...");
     try {
+        // Firebase SDKのCDNを動的にロード
+        await loadFirebaseSDKs();
+
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 
@@ -45,16 +48,16 @@ async function initializeFirebase() {
 
         // Firebaseアプリが既に初期化されているかチェック
         if (!window.firebaseApp) {
-            window.firebaseApp = initializeApp(firebaseConfig);
-            window.db = getFirestore(window.firebaseApp);
-            window.auth = getAuth(window.firebaseApp);
+            window.firebaseApp = firebase.initializeApp(firebaseConfig); // firebase名前空間からinitializeAppを呼び出す
+            window.db = firebase.firestore(window.firebaseApp); // firebase名前空間からfirestoreを呼び出す
+            window.auth = firebase.auth(window.firebaseApp); // firebase名前空間からauthを呼び出す
             console.log("Firebase: App, Firestore, Auth initialized.");
         } else {
             console.log("Firebase: App already initialized.");
         }
 
         // 認証状態の変更をリッスン
-        onAuthStateChanged(window.auth, async (user) => {
+        window.auth.onAuthStateChanged(async (user) => { // firebase.auth().onAuthStateChanged を呼び出す
             if (user) {
                 window.currentUserId = user.uid;
                 console.log("Firebase: User signed in:", user.uid);
@@ -62,11 +65,11 @@ async function initializeFirebase() {
                 console.log("Firebase: No user signed in. Attempting anonymous or custom token sign-in.");
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(window.auth, __initial_auth_token);
+                        await window.auth.signInWithCustomToken(__initial_auth_token); // signInWithCustomTokenを呼び出す
                         window.currentUserId = window.auth.currentUser.uid;
                         console.log("Firebase: Signed in with custom token:", window.currentUserId);
                     } else {
-                        await signInAnonymously(window.auth);
+                        await window.auth.signInAnonymously(); // signInAnonymouslyを呼び出す
                         window.currentUserId = window.auth.currentUser.uid;
                         console.log("Firebase: Signed in anonymously:", window.currentUserId);
                     }
@@ -84,6 +87,53 @@ async function initializeFirebase() {
     } catch (error) {
         console.error("Firebase: Failed to initialize Firebase:", error);
     }
+}
+
+/**
+ * Firebase SDKsを動的にロードするヘルパー関数
+ */
+async function loadFirebaseSDKs() {
+    if (typeof firebase !== 'undefined' && firebase.app) {
+        console.log("Firebase SDKs already loaded.");
+        return;
+    }
+
+    const firebaseAppScript = document.createElement('script');
+    firebaseAppScript.src = "https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"; // Firebase SDK v8を使用
+    document.head.appendChild(firebaseAppScript);
+
+    const firebaseAuthScript = document.createElement('script');
+    firebaseAuthScript.src = "https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js";
+    document.head.appendChild(firebaseAuthScript);
+
+    const firebaseFirestoreScript = document.createElement('script');
+    firebaseFirestoreScript.src = "https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js";
+    document.head.appendChild(firebaseFirestoreScript);
+
+    return new Promise((resolve, reject) => {
+        let loadedCount = 0;
+        const totalScripts = 3;
+
+        const checkLoad = () => {
+            loadedCount++;
+            if (loadedCount === totalScripts) {
+                if (typeof firebase !== 'undefined' && firebase.app && firebase.auth && firebase.firestore) {
+                    console.log("All Firebase SDKs loaded successfully.");
+                    resolve();
+                } else {
+                    reject(new Error("Firebase SDKs did not load correctly. 'firebase' global object or its modules are missing."));
+                }
+            }
+        };
+
+        firebaseAppScript.onload = checkLoad;
+        firebaseAuthScript.onload = checkLoad;
+        firebaseFirestoreScript.onload = checkLoad;
+
+        firebaseAppScript.onerror = reject;
+        firebaseAuthScript.onerror = reject;
+        firebaseFirestoreScript.onerror = reject;
+    });
 }
 
 
@@ -593,9 +643,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         toggleContentArea('rateMatch', true);
     }
 });
-
-// Firebaseのインポート (main.jsのスコープ内で)
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 

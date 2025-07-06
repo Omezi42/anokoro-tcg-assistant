@@ -127,10 +127,20 @@ window.initDeckAnalysisSection = async function() { // async を追加
                 body: JSON.stringify(payload)
             });
             const result = await response.json();
+            console.log("Gemini API raw result:", result); // APIからの生の応答をログに出力
+
+            if (result.error) { // APIがエラーを返した場合
+                console.error("Gemini API returned an error:", result.error);
+                recognizedDeckAnalysisList.innerHTML = `<p>画像認識に失敗しました。APIエラー: ${result.error.message || '不明なエラー'}</p>`;
+                deckAnalysisSummary.innerHTML = '<p>分析結果がここに表示されます。</p>';
+                suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
+                return; // エラーが発生した場合はここで処理を終了
+            }
 
             if (result.candidates && result.candidates.length > 0 &&
                 result.candidates[0].content && result.candidates[0].content.parts &&
-                result.candidates[0].content.parts.length > 0) {
+                result.candidates[0].content.parts.length > 0 &&
+                result.candidates[0].content.parts[0].text) { // textプロパティの存在も確認
                 const jsonText = result.candidates[0].content.parts[0].text;
                 let recognizedCardNames;
                 try {
@@ -160,13 +170,14 @@ window.initDeckAnalysisSection = async function() { // async を追加
                     suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
                 }
             } else {
-                recognizedDeckAnalysisList.innerHTML = '<p>画像認識に失敗しました。APIからの応答がありませんでした。</p>';
+                // candidatesが存在しない、または期待される構造ではない場合
+                recognizedDeckAnalysisList.innerHTML = '<p>画像認識に失敗しました。APIからの予期せぬ応答形式です。</p>';
                 deckAnalysisSummary.innerHTML = '<p>分析結果がここに表示されます。</p>';
                 suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
             }
         } catch (error) {
             console.error("画像認識API呼び出しエラー:", error);
-            recognizedDeckAnalysisList.innerHTML = '<p>画像認識中にエラーが発生しました。インターネット接続を確認してください。</p>';
+            recognizedDeckAnalysisList.innerHTML = `<p>画像認識中にエラーが発生しました。インターネット接続またはAPIの利用状況を確認してください。<br>詳細: ${error.message}</p>`;
             deckAnalysisSummary.innerHTML = '<p>分析結果がここに表示されます。</p>';
             suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
         }

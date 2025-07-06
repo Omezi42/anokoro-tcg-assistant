@@ -24,7 +24,6 @@ window.initRateMatchSection = async function() { // async を追加
 
     const rateDisplay = document.getElementById('rate-display'); // レート表示要素
 
-    let matchingTimeout = null; // マッチング中のタイムアウトID
     let currentRate = 1500; // 仮の初期レート
 
     // 初期状態ではマッチング後UIを非表示に
@@ -69,6 +68,21 @@ window.initRateMatchSection = async function() { // async を追加
                 loadMatchHistory(); // 保存後に再読み込み
             });
         });
+    };
+
+    // マッチング状態をバックグラウンドから取得し、UIを更新する
+    const updateMatchingUI = async () => {
+        const response = await chrome.runtime.sendMessage({ action: "getMatchingStatus" });
+        if (response && response.isMatching) {
+            if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
+            if (matchingStatusDiv) matchingStatusDiv.style.display = 'flex';
+            if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
+            // マッチング中のポップアップはバックグラウンド側で管理されるため、ここでは表示しない
+        } else {
+            if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
+            if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
+            if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
+        }
     };
 
     // イベントリスナーを再アタッチ
@@ -117,33 +131,27 @@ window.initRateMatchSection = async function() { // async を追加
         if (matchingStatusDiv) matchingStatusDiv.style.display = 'flex';
         if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
 
-        await window.showCustomDialog('マッチング開始', '対戦相手を検索中です...');
-
-        matchingTimeout = setTimeout(async () => {
-            if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
-            if (postMatchUiDiv) {
-                postMatchUiDiv.style.display = 'block';
-                if (chatMessagesDiv) {
-                    chatMessagesDiv.innerHTML = `
-                        <p><strong>[システム]:</strong> 対戦が始まりました！</p>
-                        <p><strong>[相手プレイヤー]:</strong> ルームID: ABC123DEF, 先攻お願いします！</p>
-                    `;
-                    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-                }
-            }
-            // 対戦相手が決まったポップアップを表示
-            await window.showCustomDialog('対戦相手決定', '対戦相手が決まりました！');
-            chrome.runtime.sendMessage({ action: "matchFoundNotification" });
-        }, 3000);
+        // バックグラウンドスクリプトにマッチング開始を要求
+        const response = await chrome.runtime.sendMessage({ action: "startMatching" });
+        if (response && response.success) {
+            await window.showCustomDialog('マッチング開始', '対戦相手を検索中です...');
+        } else {
+            await window.showCustomDialog('エラー', response.error || 'マッチングを開始できませんでした。');
+            updateMatchingUI(); // UIを元の状態に戻す
+        }
     }
 
     async function handleCancelMatchingButtonClick() {
         const confirmed = await window.showCustomDialog('マッチングキャンセル', 'マッチングをキャンセルしますか？', true);
         if (confirmed) {
-            clearTimeout(matchingTimeout);
-            if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
-            if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
-            await window.showCustomDialog('キャンセル完了', 'マッチングをキャンセルしました。');
+            // バックグラウンドスクリプトにマッチングキャンセルを要求
+            const response = await chrome.runtime.sendMessage({ action: "cancelMatching" });
+            if (response && response.success) {
+                await window.showCustomDialog('キャンセル完了', 'マッチングをキャンセルしました。');
+            } else {
+                await window.showCustomDialog('エラー', response.error || 'マッチングをキャンセルできませんでした。');
+            }
+            updateMatchingUI(); // UIを更新
         }
     }
 
@@ -191,7 +199,7 @@ window.initRateMatchSection = async function() { // async を追加
             const oldRate = currentRate;
             currentRate -= 20; // 仮のレート減少
             updateRateDisplay();
-            saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北 (レート: ${oldRate} -> ${currentRate})`);
+            saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北 (レート: ${oldRate} → ${currentRate})`);
             window.showCustomDialog('報告完了', `敗北を報告しました。<br>レート: ${oldRate} → ${currentRate} (-20)`);
             if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
             if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
@@ -209,4 +217,31 @@ window.initRateMatchSection = async function() { // async を追加
 
     updateRateDisplay(); // 初期レート表示
     loadMatchHistory();
+    updateMatchingUI(); // 初期ロード時にマッチング状態をチェックしてUIを更新
+
+    // バックグラウンドからのマッチング完了通知をリッスン
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === "matchFound") {
+            console.log("RateMatch: Match found message received from background.");
+            if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
+            if (postMatchUiDiv) {
+                postMatchUiDiv.style.display = 'block';
+                if (chatMessagesDiv) {
+                    chatMessagesDiv.innerHTML = `
+                        <p><strong>[システム]:</strong> 対戦が始まりました！</p>
+                        <p><strong>[相手プレイヤー]:</strong> ルームID: ${request.roomId}, 先攻お願いします！</p>
+                    `;
+                    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                }
+            }
+            // サイドバーが開いていなければ開く
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs[0] && tabs[0].id) {
+                    chrome.tabs.sendMessage(tabs[0].id, { action: "showSection", section: "rateMatch", forceOpenSidebar: true });
+                }
+            });
+            window.showCustomDialog('対戦相手決定', `対戦相手が決まりました！<br>ルームID: ${request.roomId}`);
+        }
+    });
+
 }; // End of initRateMatchSection

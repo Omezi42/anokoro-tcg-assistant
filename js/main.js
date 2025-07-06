@@ -216,8 +216,9 @@ function handleMenuToggleButtonClick() {
 /**
  * コンテンツエリアの表示/非表示を切り替えます。
  * @param {string} sectionId - 表示するセクションのID。
+ * @param {boolean} forceOpenSidebar - サイドバーが閉じている場合でも強制的に開くかどうか
  */
-function toggleContentArea(sectionId) {
+function toggleContentArea(sectionId, forceOpenSidebar = false) {
     const contentArea = document.getElementById('tcg-content-area');
     const rightMenuContainer = document.getElementById('tcg-right-menu-container');
     const gameCanvas = document.querySelector('canvas#unity-canvas');
@@ -235,7 +236,7 @@ function toggleContentArea(sectionId) {
     const isContentAreaActive = contentArea.classList.contains('active');
     const isSameIconAlreadyActiveAndClicked = isContentAreaActive && (currentActiveIcon && currentActiveIcon.dataset.section === sectionId);
 
-    if (isSameIconAlreadyActiveAndClicked) {
+    if (isSameIconAlreadyActiveAndClicked && !forceOpenSidebar) { // forceOpenSidebar が true の場合は閉じない
         contentArea.classList.remove('active');
         contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
         isMenuIconsVisible = false;
@@ -313,7 +314,7 @@ async function showSection(sectionId) {
         }
         const htmlContent = await response.text();
         targetSection.innerHTML = htmlContent;
-    } catch(error) {
+    } catch (error) {
         console.error(`Error loading HTML for section ${sectionId}:`, error);
         targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました: ${sectionId}<br>エラー: ${error.message}</p>`;
         return;
@@ -568,7 +569,8 @@ if (document.readyState === 'loading') {
 // popup.jsからのメッセージを受け取るリスナー
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "showSection") {
-        toggleContentArea(request.section);
+        // forceOpenSidebar が true の場合、サイドバーが閉じていても強制的に開く
+        toggleContentArea(request.section, request.forceOpenSidebar);
     } else if (request.action === "toggleSidebar") {
         // サイドバーの表示/非表示を切り替えるコマンド
         const contentArea = document.getElementById('tcg-content-area');

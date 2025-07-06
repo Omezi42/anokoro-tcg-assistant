@@ -9,6 +9,10 @@ chrome.runtime.onInstalled.addListener((details) => {
   }
 });
 
+// マッチング状態を管理する変数 (サービスワーカーのスコープ内で保持)
+let currentMatchingTimeout = null;
+let isUserMatching = false; // ユーザーがマッチング中かどうか
+
 // popup.jsやcontent.jsからのメッセージを受け取り、content.jsに転送したり、通知を作成したりします。
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // 非同期処理のレスポンスを返すために sendResponse を保持
@@ -36,10 +40,57 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       message: '『あの頃の自作TCG』で対戦相手が見つかりました！ゲーム画面に戻りましょう。',
       priority: 2
     });
-  }
-  // "captureScreenshot" のメッセージハンドラは削除
-  // else if (request.action === "captureScreenshot") { /* ... */ }
-  else if (request.action === "injectSectionScript") {
+  } else if (request.action === "startMatching") {
+    // マッチング開始リクエスト
+    if (isUserMatching) {
+        sendAsyncResponse({ success: false, error: "Already matching." });
+        return;
+    }
+    isUserMatching = true;
+    console.log("Background: Matching started.");
+
+    // 3秒後にマッチング完了をシミュレート
+    currentMatchingTimeout = setTimeout(() => {
+        isUserMatching = false; // マッチング終了
+        console.log("Background: Match found!");
+
+        // アクティブなタブにマッチング完了を通知
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs[0] && tabs[0].id) {
+                chrome.tabs.sendMessage(tabs[0].id, {
+                    action: "matchFound",
+                    roomId: "ABC123DEF" // 仮のルームID
+                });
+            }
+        });
+        // 通知も作成
+        chrome.notifications.create('matchFound', {
+            type: 'basic',
+            iconUrl: 'images/icon128.png', // 拡張機能のアイコン
+            title: '対戦相手が見つかりました！',
+            message: '『あの頃の自作TCG』で対戦相手が見つかりました！ゲーム画面に戻りましょう。',
+            priority: 2
+        });
+
+    }, 3000); // 3秒後にマッチング完了
+
+    sendAsyncResponse({ success: true, message: "Matching started." });
+    return true; // 非同期処理のため true を返す
+  } else if (request.action === "cancelMatching") {
+    // マッチングキャンセルリクエスト
+    if (currentMatchingTimeout) {
+        clearTimeout(currentMatchingTimeout);
+        currentMatchingTimeout = null;
+    }
+    isUserMatching = false;
+    console.log("Background: Matching cancelled.");
+    sendAsyncResponse({ success: true, message: "Matching cancelled." });
+    return true; // 非同期処理のため true を返す
+  } else if (request.action === "getMatchingStatus") {
+    // マッチング状態の取得リクエスト
+    sendAsyncResponse({ isMatching: isUserMatching });
+    return true; // 非同期処理のため true を返す
+  } else if (request.action === "injectSectionScript") {
       // content.js からのスクリプト注入リクエスト
       if (sender.tab && sender.tab.id && request.scriptPath && request.initFunctionName) {
           chrome.scripting.executeScript({

@@ -50,7 +50,8 @@
         "html/index.html",
         "html/sections/*.html",
         "js/main.js",
-        "js/sections/*.js"
+        "js/sections/*.js",
+        "images/*.png"
       ],
       "matches": ["<all_urls>"]
     }

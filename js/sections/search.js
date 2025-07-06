@@ -1,12 +1,8 @@
 // js/sections/search.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initSearchSection = async function() { // async を追加
+window.initSearchSection = async function() { // async を維持
     console.log("Search section initialized.");
-
-    // allCards は main.js でロードされ、グローバル変数として利用可能
-    // showCustomDialog も main.js でグローバル関数として定義されている
-    // 必要に応じて allCards や showCustomDialog を使用する
 
     // === 検索セクションのロジック ===
     // 各要素を関数内で取得
@@ -18,6 +14,9 @@ window.initSearchSection = async function() { // async を追加
     const searchTextTarget = document.getElementById('search-text-target');
 
     const autocompleteSuggestions = document.getElementById('autocomplete-suggestions');
+
+    // fuzzyThreshold を initSearchSection のスコープ内で定義
+    const fuzzyThreshold = 2; // 許容する誤字脱字の閾値 (例: 2文字までの違いを許容)
 
     // 検索フィルターのセットオプションを動的に追加
     function populateSearchFilters() {
@@ -91,8 +90,7 @@ window.initSearchSection = async function() { // async を追加
                 );
             }
             // 検索クエリが長すぎる場合、パフォーマンスのために早期終了
-            const fuzzyThreshold = 2; // ここで定義
-            if (dp[i][n] > fuzzyThreshold + 1) { // 閾値+1よりも大きければ、これ以上計算しても無駄
+            if (dp[i][n] > fuzzyThreshold + 1) { // fuzzyThreshold は外側のスコープで定義されている
                 return Infinity;
             }
         }
@@ -111,7 +109,7 @@ window.initSearchSection = async function() { // async を追加
         searchResults.innerHTML = '<p><div class="spinner"></div> 検索中...</p>'; // ローディングスピナー表示
 
         const normalizedQuery = normalizeText(query);
-        const fuzzyThreshold = 2; // 許容する誤字脱字の閾値 (例: 2文字までの違いを許容)
+        // fuzzyThreshold は initSearchSection のスコープで定義されているため、ここで再定義は不要
 
         let filteredCards = window.allCards.filter(card => { // window.allCards を使用
             // テキスト検索

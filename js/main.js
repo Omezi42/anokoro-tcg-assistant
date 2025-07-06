@@ -7,7 +7,8 @@ link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css
 document.head.appendChild(link);
 
 // 全カードデータを格納する変数 (グローバルで保持し、各セクションからアクセス可能にする)
-let allCards = [];
+// window.allCards として公開
+window.allCards = [];
 
 // サイドバーの開閉状態を記憶するための変数
 let isSidebarOpen = false;
@@ -273,6 +274,14 @@ if (!window._injectedSectionScripts) {
  * @param {string} sectionId - 表示するセクションのID (例: "home", "rateMatch")。
  */
 async function showSection(sectionId) {
+    // アリーナセクションはHTMLとしてロードしない
+    if (sectionId === 'arena') {
+        // アリーナボタンがクリックされたら新しいタブで開くロジックは handleMenuIconClick で処理済み
+        // ここでは何もしないか、エラーログを出力しないようにする
+        console.log("Arena section is handled by opening a new tab. No HTML to load.");
+        return; 
+    }
+
     // すべてのセクションを非アクティブにする
     document.querySelectorAll('.tcg-section').forEach(section => {
         section.classList.remove('active');
@@ -401,7 +410,7 @@ async function injectUIIntoPage() {
                     <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
                     <button class="tcg-menu-icon" data-section="battleRecord" title="戦いの記録"><i class="fas fa-trophy"></i></button>
                     <button class="tcg-menu-icon" data-section="deckAnalysis" title="デッキ分析"><i class="fas fa-cube"></i></button>
-                    <!-- アリーナボタンはリンク集に移動するため、ここから削除 -->
+                    <button class="tcg-menu-icon" data-section="arena" title="アリーナ"><i class="fas fa-dice-d20"></i></button> <!-- アリーナボタン追加 -->
                 </div>
                 <button class="tcg-menu-toggle-button" id="tcg-menu-toggle-button" title="メニューを隠す/表示">
                     <i class="fas fa-chevron-right"></i>
@@ -418,7 +427,7 @@ async function injectUIIntoPage() {
                     <div id="tcg-minigames-section" class="tcg-section"></div>
                     <div id="tcg-battleRecord-section" class="tcg-section"></div>
                     <div id="tcg-deckAnalysis-section" class="tcg-section"></div>
-                    <!-- アリーナセクションは直接表示しないため、ここから削除 -->
+                    <div id="tcg-arena-section" class="tcg-section"></div> <!-- アリーナセクションは直接表示しないため、ここから削除 -->
                 </div>
             </div>
 
@@ -497,8 +506,8 @@ async function initializeExtensionFeatures() {
     // cards.jsonを読み込む (main.jsで一度だけロード)
     try {
         const response = await fetch(chrome.runtime.getURL('json/cards.json'));
-        allCards = await response.json();
-        if (!Array.isArray(allCards) || allCards.length === 0) {
+        window.allCards = await response.json(); // window.allCards に代入
+        if (!Array.isArray(window.allCards) || window.allCards.length === 0) {
             console.warn("カードデータが空または無効です。一部機能が制限される可能性があります。");
         }
     } catch (error) {

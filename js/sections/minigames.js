@@ -510,7 +510,7 @@ window.initMinigamesSection = async function() { // async を追加
                 offsetX = 0;
                 offsetY = (currentQuiz.quizCanvas.height - drawHeight) / 2;
             } else {
-                drawHeight = currentQuiz.quizCanvas.height;
+                drawHeight = canvasHeight;
                 drawWidth = canvasAspectRatio === 0 ? finalImage.naturalWidth : currentQuiz.quizCanvas.height * imgAspectRatio;
                 offsetX = (currentQuiz.quizCanvas.width - drawWidth) / 2;
                 offsetY = 0;

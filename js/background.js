@@ -11,6 +11,16 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 // popup.jsやcontent.jsからのメッセージを受け取り、content.jsに転送したり、通知を作成したりします。
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // 非同期処理のレスポンスを返すために sendResponse を保持
+  // sendResponse は一度しか呼び出せないため、フラグで制御
+  let responded = false;
+  const sendAsyncResponse = (response) => {
+      if (!responded) {
+          sendResponse(response);
+          responded = true;
+      }
+  };
+
   if (request.action === "showSection" && sender.tab) {
     // 特定のセクションを表示するリクエスト
     chrome.tabs.sendMessage(sender.tab.id, {
@@ -28,23 +38,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
   } else if (request.action === "captureScreenshot") {
     // スクリーンショットをキャプチャするリクエスト
-    // activeTab権限は、ユーザーが拡張機能のツールバーアイコンをクリックしたときに一時的に付与される
-    // そのコンテキストで content.js からメッセージが送られてきた場合、sender.tab.id を使ってキャプチャを試みる
-    // sender.tab.id はメッセージを送ってきたタブのIDなので、これを使ってキャプチャする
     if (sender.tab && sender.tab.id) {
         chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: "png" }, (screenshotUrl) => {
             if (chrome.runtime.lastError) {
                 console.error("スクリーンショットのキャプチャに失敗しました:", chrome.runtime.lastError.message);
-                sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                sendAsyncResponse({ success: false, error: chrome.runtime.lastError.message });
                 return;
             }
-            sendResponse({ success: true, screenshotUrl: screenshotUrl });
+            sendAsyncResponse({ success: true, screenshotUrl: screenshotUrl });
         });
     } else {
-        sendResponse({ success: false, error: "Invalid parameters for script injection." });
+        sendAsyncResponse({ success: false, error: "Invalid parameters for script injection." });
     }
-    // 非同期処理のためtrueを返し、sendResponseを後で呼び出すことを示す
-    return true;
+    return true; // 非同期処理のため true を返す
   } else if (request.action === "injectSectionScript") {
       // content.js からのスクリプト注入リクエスト
       if (sender.tab && sender.tab.id && request.scriptPath && request.initFunctionName) {
@@ -54,40 +60,36 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           }, () => {
               if (chrome.runtime.lastError) {                  
                   console.error(`Failed to execute script ${request.scriptPath}:`, chrome.runtime.lastError.message);
-                  sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                  sendAsyncResponse({ success: false, error: chrome.runtime.lastError.message });
                   return;
               }
               // スクリプトが注入された後、その中の初期化関数を呼び出す
+              // allCards と showCustomDialog は content.js のグローバルスコープからアクセスできることを前提とする
               chrome.scripting.executeScript({
                   target: { tabId: sender.tab.id },
-                  function: (funcName, allCardsDataJson) => { // showCustomDialogCode を削除
-                      // allCardsDataJson は JSON 文字列として渡されるのでパースする
-                      const parsedAllCards = JSON.parse(allCardsDataJson);
-
-                      // showCustomDialog は content.js のグローバル関数としてアクセスできるはず
-                      const globalShowCustomDialog = window.showCustomDialog;
-
+                  // function を文字列として渡すことで、シリアライズの問題を回避
+                  function: (funcName) => {
                       if (typeof window[funcName] === 'function') {
-                          window[funcName](parsedAllCards, globalShowCustomDialog);
+                          // allCards と showCustomDialog は window オブジェクトから直接アクセス
+                          window[funcName](); 
                       } else {
                           console.error(`Background: Initialization function ${funcName} not found on window object after script injection.`);
                       }
                   },
-                  // allCards を JSON 文字列に変換して渡す。showCustomDialog は削除
-                  args: [request.initFunctionName, JSON.stringify(request.allCards)] 
+                  args: [request.initFunctionName] // initFunctionName のみ渡す
               }, () => {
                   if (chrome.runtime.lastError) {
                       console.error(`Failed to call init function ${request.initFunctionName}:`, chrome.runtime.lastError.message);
-                      sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                      sendAsyncResponse({ success: false, error: chrome.runtime.lastError.message });
                       return;
                   }
-                  sendResponse({ success: true });
+                  sendAsyncResponse({ success: true });
               });
           });
       } else {
-          sendResponse({ success: false, error: "Invalid parameters for script injection." });
+          sendAsyncResponse({ success: false, error: "Invalid parameters for script injection." });
       }
-      return true; // 非同期処理のため
+      return true; // 非同期処理のため true を返す
   }
 });
 
@@ -104,7 +106,6 @@ chrome.commands.onCommand.addListener((command) => {
       }
     } else {
       // ゲームページでない場合はユーザーに通知（content.jsのカスタムダイアログをトリガー）
-      // chrome.scripting.executeScript を使用して、現在のタブにスクリプトを注入
       if (tabs[0] && tabs[0].id) {
           chrome.scripting.executeScript({
               target: { tabId: tabs[0].id },

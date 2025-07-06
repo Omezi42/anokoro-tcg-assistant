@@ -12,6 +12,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 // マッチング状態を管理する変数 (サービスワーカーのスコープ内で保持)
 let currentMatchingTimeout = null;
 let isUserMatching = false; // ユーザーがマッチング中かどうか
+let currentMatchInfo = null; // 成立したマッチの情報 { roomId: string } または null
 
 // popup.jsやcontent.jsからのメッセージを受け取り、content.jsに転送したり、通知を作成したりします。
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -47,11 +48,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return;
     }
     isUserMatching = true;
+    currentMatchInfo = null; // 新しいマッチング開始時は既存のマッチ情報をクリア
     console.log("Background: Matching started.");
 
     // 3秒後にマッチング完了をシミュレート
     currentMatchingTimeout = setTimeout(() => {
         isUserMatching = false; // マッチング終了
+        currentMatchInfo = { roomId: "ランダムなルームID" }; // 仮のルームIDを設定
         console.log("Background: Match found!");
 
         // アクティブなタブにマッチング完了を通知
@@ -59,7 +62,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (tabs[0] && tabs[0].id) {
                 chrome.tabs.sendMessage(tabs[0].id, {
                     action: "matchFound",
-                    roomId: "ABC123DEF" // 仮のルームID
+                    roomId: currentMatchInfo.roomId // ルームIDを渡す
                 });
             }
         });
@@ -83,14 +86,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         currentMatchingTimeout = null;
     }
     isUserMatching = false;
+    currentMatchInfo = null; // キャンセル時はマッチ情報をクリア
     console.log("Background: Matching cancelled.");
     sendAsyncResponse({ success: true, message: "Matching cancelled." });
     return true; // 非同期処理のため true を返す
   } else if (request.action === "getMatchingStatus") {
     // マッチング状態の取得リクエスト
-    sendAsyncResponse({ isMatching: isUserMatching });
+    sendAsyncResponse({ isMatching: isUserMatching, currentMatch: currentMatchInfo });
     return true; // 非同期処理のため true を返す
-  } else if (request.action === "injectSectionScript") {
+  } else if (request.action === "clearMatchInfo") {
+    // マッチ情報をクリアするリクエスト (UIがマッチ後状態から抜ける際に呼び出す)
+    currentMatchInfo = null;
+    sendAsyncResponse({ success: true });
+    return true;
+  }
+  else if (request.action === "injectSectionScript") {
       // content.js からのスクリプト注入リクエスト
       if (sender.tab && sender.tab.id && request.scriptPath && request.initFunctionName) {
           chrome.scripting.executeScript({

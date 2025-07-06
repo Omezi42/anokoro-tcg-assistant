@@ -539,8 +539,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === "matchFound") {
         // バックグラウンドからのマッチング完了通知を受け取り、ポップアップとサイドバー表示をトリガー
         console.log("main.js: Match found message received from background. Triggering dialog and sidebar.");
-        // ポップアップ表示
-        window.showCustomDialog('対戦相手決定', `対戦相手が決まりました！<br>ルームID: ${request.roomId}`);
+        // ポップアップ表示 (ルームIDは表示しない)
+        window.showCustomDialog('対戦相手決定', `対戦相手が決まりました！対戦を開始しましょう！`);
         // レート戦セクションを強制的に開く
         toggleContentArea('rateMatch', true);
     }

@@ -481,6 +481,7 @@ async function injectUIIntoPage() {
         cancelCropButton = document.getElementById('cancel-crop-button');
 
         uiInjected = true; // 挿入フラグを設定
+        console.log("main.js: UI injected into page. Elements referenced.");
 
         // UI要素がDOMに挿入され、グローバル変数が割り当てられた後に初期化関数を呼び出す
         createRightSideMenuAndAttachListeners(); // 右サイドメニューのイベントリスナー設定
@@ -503,23 +504,36 @@ async function injectUIIntoPage() {
  * ここでは、セクション固有ではない、グローバルな機能の初期化を行います。
  */
 async function initializeExtensionFeatures() {
+    console.log("main.js: Initializing extension features...");
     // cards.jsonを読み込む (main.jsで一度だけロード)
     try {
         const response = await fetch(chrome.runtime.getURL('json/cards.json'));
         window.allCards = await response.json(); // window.allCards に代入
         if (!Array.isArray(window.allCards) || window.allCards.length === 0) {
-            console.warn("カードデータが空または無効です。一部機能が制限される可能性があります。");
+            console.warn("main.js: カードデータが空または無効です。一部機能が制限される可能性があります。");
+        } else {
+            console.log(`main.js: ${window.allCards.length} cards loaded into window.allCards.`);
         }
     } catch (error) {
-        console.error("カードデータのロードに失敗しました:", error);
+        console.error("main.js: カードデータのロードに失敗しました:", error);
     }
 
     // screenshotCanvasのコンテキストを初期化
     if (screenshotCanvas) {
         screenshotCtx = screenshotCanvas.getContext('2d');
+        console.log("main.js: screenshotCanvas context initialized.");
 
         // スクリーンショットCanvasのイベントリスナーはここに残す（グローバルなオーバーレイ要素のため）
-        screenshotCanvas.addEventListener('mousedown', (e) => {
+        screenshotCanvas.removeEventListener('mousedown', handleCanvasMouseDown); // 重複防止
+        screenshotCanvas.addEventListener('mousedown', handleCanvasMouseDown);
+        screenshotCanvas.removeEventListener('mousemove', handleCanvasMouseMove); // 重複防止
+        screenshotCanvas.addEventListener('mousemove', handleCanvasMouseMove);
+        screenshotCanvas.removeEventListener('mouseup', handleCanvasMouseUp); // 重複防止
+        screenshotCanvas.addEventListener('mouseup', handleCanvasMouseUp);
+        screenshotCanvas.removeEventListener('mouseleave', handleCanvasMouseLeave); // 重複防止
+        screenshotCanvas.addEventListener('mouseleave', handleCanvasMouseLeave);
+
+        function handleCanvasMouseDown(e) {
             const rect = screenshotCanvas.getBoundingClientRect();
             const xInCanvas = e.clientX - rect.left;
             const yInCanvas = e.clientY - rect.top;
@@ -531,10 +545,11 @@ async function initializeExtensionFeatures() {
                 endX = xInCanvas; // 初期化
                 endY = yInCanvas; // 初期化
                 isDrawing = true;
+                console.log("Canvas: Mouse down at", startX, startY);
             }
-        });
+        }
 
-        screenshotCanvas.addEventListener('mousemove', (e) => {
+        function handleCanvasMouseMove(e) {
             if (!isDrawing || !screenshotCtx || !currentScreenshotImage) return;
             
             const rect = screenshotCanvas.getBoundingClientRect();
@@ -552,21 +567,30 @@ async function initializeExtensionFeatures() {
             screenshotCtx.strokeStyle = 'red';
             screenshotCtx.lineWidth = 2;
             screenshotCtx.strokeRect(startX, startY, width, height);
-        });
+        }
 
-        screenshotCanvas.addEventListener('mouseup', () => {
+        function handleCanvasMouseUp() {
             isDrawing = false;
-        });
-        screenshotCanvas.addEventListener('mouseleave', () => {
+            console.log("Canvas: Mouse up. Selection from", startX, startY, "to", endX, endY);
+        }
+
+        function handleCanvasMouseLeave() {
             if (isDrawing) {
                 isDrawing = false;
+                console.log("Canvas: Mouse left canvas while drawing. Selection from", startX, startY, "to", endX, endY);
             }
-        });
+        }
+
+    } else {
+        console.error("main.js: screenshotCanvas element not found during initialization.");
     }
 
     if (cropScreenshotButton) {
-        cropScreenshotButton.addEventListener('click', () => {
+        cropScreenshotButton.removeEventListener('click', handleCropScreenshotClick); // 重複防止
+        cropScreenshotButton.addEventListener('click', handleCropScreenshotClick);
+        function handleCropScreenshotClick() {
             if (!currentScreenshotImage || !screenshotOverlay || !screenshotCanvas || !screenshotCtx) {
+                console.error("Crop button: Missing elements for cropping.");
                 return;
             }
             let croppedImageUrl;
@@ -579,6 +603,7 @@ async function initializeExtensionFeatures() {
                 const width = selectionWidth;
                 const height = selectionHeight;
 
+                // Canvasの表示サイズと元画像の自然なサイズ間の比率を計算
                 const scaleX = currentScreenshotImage.naturalWidth / screenshotCanvas.width;
                 const scaleY = currentScreenshotImage.naturalHeight / screenshotCanvas.height;
 
@@ -592,8 +617,10 @@ async function initializeExtensionFeatures() {
                     0, 0, croppedCanvas.width, croppedCanvas.height
                 );
                 croppedImageUrl = croppedCanvas.toDataURL('image/png');
+                console.log("Screenshot: Cropped image generated.");
             } else {
                 croppedImageUrl = currentScreenshotImage.src;
+                console.log("Screenshot: No valid crop selection, pasting full image.");
             }
             
             // メモセクションのJSに画像を渡すためのカスタムイベントを発火させる
@@ -601,35 +628,55 @@ async function initializeExtensionFeatures() {
                 detail: { imageUrl: croppedImageUrl }
             });
             document.dispatchEvent(event);
+            console.log("Screenshot: 'screenshotCropped' event dispatched.");
 
             screenshotOverlay.style.display = 'none';
             startX = startY = endX = endY = undefined;
             window.showCustomDialog('貼り付け完了', 'スクリーンショットがメモエリアに貼り付けられました。');
-        });
+        }
+    } else {
+        console.warn("main.js: cropScreenshotButton not found.");
     }
 
     if (pasteFullScreenshotButton) {
-        pasteFullScreenshotButton.addEventListener('click', () => {
-            if (!currentScreenshotImage || !screenshotOverlay) return;
+        pasteFullScreenshotButton.removeEventListener('click', handlePasteFullScreenshotClick); // 重複防止
+        pasteFullScreenshotButton.addEventListener('click', handlePasteFullScreenshotClick);
+        function handlePasteFullScreenshotClick() {
+            if (!currentScreenshotImage || !screenshotOverlay) {
+                console.error("Paste full button: Missing elements.");
+                return;
+            }
             
             // メモセクションのJSに画像を渡すためのカスタムイベントを発火させる
             const event = new CustomEvent('screenshotCropped', {
                 detail: { imageUrl: currentScreenshotImage.src }
             });
             document.dispatchEvent(event);
+            console.log("Screenshot: 'screenshotCropped' event dispatched (full image).");
 
             screenshotOverlay.style.display = 'none';
             startX = startY = endX = endY = undefined;
             window.showCustomDialog('貼り付け完了', 'スクリーンショットがメモエリアに貼り付けられました。');
-        });
+        }
+    } else {
+        console.warn("main.js: pasteFullScreenshotButton not found.");
     }
 
     if (cancelCropButton) {
-        cancelCropButton.addEventListener('click', () => {
-            if (screenshotOverlay) screenshotOverlay.style.display = 'none';
+        cancelCropButton.removeEventListener('click', handleCancelCropClick); // 重複防止
+        cancelCropButton.addEventListener('click', handleCancelCropClick);
+        function handleCancelCropClick() {
+            if (screenshotOverlay) {
+                screenshotOverlay.style.display = 'none';
+                console.log("Screenshot: Cropping cancelled.");
+            } else {
+                console.warn("main.js: screenshotOverlay not found when cancelling crop.");
+            }
             startX = startY = endX = endY = undefined;
             window.showCustomDialog('キャンセル', 'スクリーンショットのトリミングをキャンセルしました。');
-        });
+        }
+    } else {
+        console.warn("main.js: cancelCropButton not found.");
     }
 }
 
@@ -659,12 +706,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (contentArea.classList.contains('active')) {
             contentArea.classList.remove('active');
             contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
-            isMenuIconsVisible = false;
+            isSidebarOpen = false;
+            isMenuIconsVisible = false; // サイドバーを閉じるときはアイコンも隠す
             updateMenuIconsVisibility();
         } else {
             contentArea.classList.add('active');
             contentArea.style.right = '0px';
-            isMenuIconsVisible = true;
+            isSidebarOpen = true;
+            isMenuIconsVisible = true; // サイドバーを開くときはアイコンを表示
             updateMenuIconsVisibility();
 
             chrome.storage.local.get(['activeSection'], (result) => {
@@ -679,6 +728,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
         chrome.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
     } else if (request.action === "captureScreenshot") {
+        console.log("main.js: Received captureScreenshot request from memo section.");
         // スクリーンショット撮影前にサイドバーとメニューアイコンを閉じる
         const contentArea = document.getElementById('tcg-content-area');
         const rightMenuContainer = document.getElementById('tcg-right-menu-container');
@@ -688,14 +738,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             contentArea.classList.remove('active');
             contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
             isSidebarOpen = false;
+            console.log("main.js: Sidebar closed before screenshot.");
         }
         // メニューアイコンを隠す (矢印ボタンだけ表示)
         if (rightMenuContainer) {
             isMenuIconsVisible = false;
             updateMenuIconsVisibility();
+            console.log("main.js: Menu icons hidden before screenshot.");
         }
         if (gameCanvas) {
-            gameCanvas.style.display = 'block';
+            gameCanvas.style.display = 'block'; // ゲームCanvasを確実に表示
         }
         document.body.classList.remove('game-focused-mode');
         chrome.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
@@ -704,18 +756,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // background.js にメッセージを送信してスクリーンショットをキャプチャ
         chrome.runtime.sendMessage({ action: "captureScreenshot" }, (response) => {
             if (chrome.runtime.lastError) {
-                console.error("スクリーンショットのキャプチャに失敗しました:", chrome.runtime.lastError.message);
+                console.error("main.js: スクリーンショットのキャプチャに失敗しました (runtime.lastError):", chrome.runtime.lastError.message);
                 window.showCustomDialog('エラー', `スクリーンショットのキャプチャに失敗しました: ${chrome.runtime.lastError.message}<br>拡張機能に必要な権限が不足している可能性があります。`);
                 return;
             }
             if (response && response.success && response.screenshotUrl) {
+                console.log("main.js: Screenshot URL received (first 50 chars):", response.screenshotUrl.substring(0, 50) + "..."); // Log first 50 chars
                 currentScreenshotImage = new Image();
                 currentScreenshotImage.onload = () => {
+                    console.log("main.js: Screenshot image loaded. Natural dimensions:", currentScreenshotImage.naturalWidth, "x", currentScreenshotImage.naturalHeight);
                     // ここで screenshotCanvas が null でないことを確認
                     if (!screenshotCanvas || !screenshotCtx) {
+                        console.error("main.js: screenshotCanvas or screenshotCtx is null after image load. This should not happen if UI is injected correctly.");
                         window.showCustomDialog('エラー', 'スクリーンショットの表示に必要な要素が見つかりません。');
                         return;
                     }
+                    if (currentScreenshotImage.naturalWidth === 0 || currentScreenshotImage.naturalHeight === 0) {
+                        console.error("main.js: Loaded image has zero dimensions. Possibly a corrupted or empty screenshot.");
+                        window.showCustomDialog('エラー', 'キャプチャした画像が空または破損しています。');
+                        return;
+                    }
+
                     const maxWidth = window.innerWidth * 0.9;
                     const maxHeight = window.innerHeight * 0.8;
 
@@ -725,29 +786,44 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     let displayWidth = imgNaturalWidth;
                     let displayHeight = imgNaturalHeight;
 
+                    // Adjust dimensions to fit within max constraints while maintaining aspect ratio
                     if (displayWidth > maxWidth) {
                         displayWidth = maxWidth;
                         displayHeight = imgNaturalHeight * (maxWidth / imgNaturalWidth);
                     }
 
                     if (displayHeight > maxHeight) {
-                        displayHeight = maxHeight;
+                        // Recalculate displayWidth based on new displayHeight to maintain aspect ratio
                         displayWidth = displayWidth * (maxHeight / displayHeight);
+                        displayHeight = maxHeight;
+                    }
+                    
+                    // Ensure dimensions are positive and not NaN
+                    if (isNaN(displayWidth) || isNaN(displayHeight) || displayWidth <= 0 || displayHeight <= 0) {
+                        console.error("main.js: Calculated display dimensions are invalid:", displayWidth, "x", displayHeight);
+                        window.showCustomDialog('エラー', 'スクリーンショットの表示サイズが不正です。');
+                        return;
                     }
 
                     screenshotCanvas.width = displayWidth;
                     screenshotCanvas.height = displayHeight;
+                    console.log("main.js: Drawing image to canvas with dimensions:", displayWidth, "x", displayHeight);
                     screenshotCtx.drawImage(currentScreenshotImage, 0, 0, displayWidth, displayHeight);
 
-                    if (screenshotOverlay) screenshotOverlay.style.display = 'flex';
+                    if (screenshotOverlay) {
+                        screenshotOverlay.style.display = 'flex';
+                        console.log("main.js: Screenshot overlay displayed.");
+                    } else {
+                        console.error("main.js: screenshotOverlay is null, cannot display overlay.");
+                    }
                 };
                 currentScreenshotImage.onerror = (e) => {
-                    console.error("スクリーンショット画像のロードに失敗しました:", e);
+                    console.error("main.js: スクリーンショット画像のロードに失敗しました (Image.onerror):", e);
                     window.showCustomDialog('エラー', 'キャプチャした画像の表示に失敗しました。');
                 };
                 currentScreenshotImage.src = response.screenshotUrl;
             } else {
-                console.error("スクリーンショットのキャプチャに失敗しました:", response ? response.error : "不明なエラー");
+                console.error("main.js: スクリーンショットのキャプチャに失敗しました (response error):", response ? response.error : "不明なエラー");
                 window.showCustomDialog('エラー', `スクリーンショットのキャプチャに失敗しました: ${response ? response.error : '不明なエラー'}<br>拡張機能に必要な権限が不足している可能性があります。`);
             }
         });

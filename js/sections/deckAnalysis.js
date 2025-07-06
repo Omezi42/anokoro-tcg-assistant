@@ -4,16 +4,12 @@
 window.initDeckAnalysisSection = async function() { // async を追加
     console.log("DeckAnalysis section initialized.");
 
-    // cards.jsonをロード (各セクションで必要に応じてロードする)
-    let allCards = [];
-    try {
-        const response = await fetch(chrome.runtime.getURL('json/cards.json'));
-        allCards = await response.json();
-        if (!Array.isArray(allCards) || allCards.length === 0) {
-            console.warn("DeckAnalysis section: カードデータが空または無効です。一部機能が制限される可能性があります。");
-        }
-    } catch (error) {
-        console.error("DeckAnalysis section: カードデータのロードに失敗しました:", error);
+    // allCards は main.js でロードされ、グローバル変数 window.allCards として利用可能
+    // ここで allCards の再ロードは不要。window.allCards を直接使用する。
+    if (!window.allCards || window.allCards.length === 0) {
+        console.warn("DeckAnalysis section: window.allCards が空または無効です。一部機能が制限される可能性があります。");
+        // この時点で allCards がない場合、機能が動作しない可能性があるため、ユーザーに通知することも検討
+        // window.showCustomDialog('警告', 'カードデータがロードされていません。拡張機能の初期化が完了しているか確認してください。');
     }
 
     // === デッキ分析UIを初期化し、イベントリスナーを設定します。 ===
@@ -25,7 +21,7 @@ window.initDeckAnalysisSection = async function() { // async を追加
     const suggestedCardsDiv = document.getElementById('suggested-cards');
 
     if (!deckAnalysisImageUpload || !recognizeDeckAnalysisButton || !recognizedDeckAnalysisList || !deckAnalysisSummary || !suggestedCardsDiv) {
-        console.error("Deck analysis UI elements not found.");
+        console.error("Deck analysis UI elements not found. Skipping initialization.");
         return;
     }
 
@@ -36,19 +32,20 @@ window.initDeckAnalysisSection = async function() { // async を追加
     recognizeDeckAnalysisButton.disabled = true;
 
     // イベントリスナーを再アタッチ
+    // 既存のリスナーを削除してから追加することで、複数回初期化されてもリスナーが重複しないようにする
     if (deckAnalysisImageUpload) {
-        deckAnalysisImageUpload.removeEventListener('change', handleDeckAnalysisImageUploadChange); // 既存のリスナーを削除
+        deckAnalysisImageUpload.removeEventListener('change', handleDeckAnalysisImageUploadChange);
         deckAnalysisImageUpload.addEventListener('change', handleDeckAnalysisImageUploadChange);
     }
 
     const deckAnalysisSection = document.getElementById('tcg-deckAnalysis-section');
     if (deckAnalysisSection) {
-        deckAnalysisSection.removeEventListener('paste', handleDeckAnalysisSectionPaste); // 既存のリスナーを削除
+        deckAnalysisSection.removeEventListener('paste', handleDeckAnalysisSectionPaste);
         deckAnalysisSection.addEventListener('paste', handleDeckAnalysisSectionPaste);
     }
 
     if (recognizeDeckAnalysisButton) {
-        recognizeDeckAnalysisButton.removeEventListener('click', handleRecognizeDeckAnalysisButtonClick); // 既存のリスナーを削除
+        recognizeDeckAnalysisButton.removeEventListener('click', handleRecognizeDeckAnalysisButtonClick);
         recognizeDeckAnalysisButton.addEventListener('click', handleRecognizeDeckAnalysisButtonClick);
     }
 
@@ -135,7 +132,17 @@ window.initDeckAnalysisSection = async function() { // async を追加
                 result.candidates[0].content && result.candidates[0].content.parts &&
                 result.candidates[0].content.parts.length > 0) {
                 const jsonText = result.candidates[0].content.parts[0].text;
-                const recognizedCardNames = JSON.parse(jsonText);
+                let recognizedCardNames;
+                try {
+                    recognizedCardNames = JSON.parse(jsonText);
+                    if (!Array.isArray(recognizedCardNames)) {
+                        throw new Error("API response is not an array.");
+                    }
+                } catch (parseError) {
+                    console.error("Failed to parse recognized card names JSON:", parseError, "Raw JSON:", jsonText);
+                    recognizedDeckAnalysisList.innerHTML = '<p>カード認識結果の解析に失敗しました。</p>';
+                    return;
+                }
 
                 if (recognizedCardNames.length > 0) {
                     let recognizedHtml = '<h4>認識されたカード:</h4><ul>';
@@ -153,13 +160,13 @@ window.initDeckAnalysisSection = async function() { // async を追加
                     suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
                 }
             } else {
-                recognizedDeckAnalysisList.innerHTML = '<p>画像認識に失敗しました。</p>';
+                recognizedDeckAnalysisList.innerHTML = '<p>画像認識に失敗しました。APIからの応答がありませんでした。</p>';
                 deckAnalysisSummary.innerHTML = '<p>分析結果がここに表示されます。</p>';
                 suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
             }
         } catch (error) {
             console.error("画像認識API呼び出しエラー:", error);
-            recognizedDeckAnalysisList.innerHTML = '<p>画像認識中にエラーが発生しました。</p>';
+            recognizedDeckAnalysisList.innerHTML = '<p>画像認識中にエラーが発生しました。インターネット接続を確認してください。</p>';
             deckAnalysisSummary.innerHTML = '<p>分析結果がここに表示されます。</p>';
             suggestedCardsDiv.innerHTML = '<p>分析後におすすめカードが表示されます。</p>';
         }
@@ -175,7 +182,8 @@ window.initDeckAnalysisSection = async function() { // async を追加
 
         if (!deckAnalysisSummary || !suggestedCardsDiv) return;
 
-        const deckCards = window.allCards.filter(card => cardNames.includes(card.name)); // window.allCards を使用
+        // グローバルな window.allCards を使用
+        const deckCards = window.allCards.filter(card => cardNames.includes(card.name));
 
         if (deckCards.length === 0) {
             deckAnalysisSummary.innerHTML = '<p>認識されたカードに対応するデータが見つかりませんでした。</p>';
@@ -258,11 +266,11 @@ window.initDeckAnalysisSection = async function() { // async を追加
         if (speciesTypes.size > 0) {
             summaryHtml += `<h5>主要な種別:</h5><ul>`;
             Array.from(speciesTypes).sort().forEach(species => {
-                suggestedCardsDiv.innerHTML += `<li>${species}</li>`;
+                summaryHtml += `<li>${species}</li>`; // ここもsummaryHtmlに追加
             });
-            suggestedCardsDiv.innerHTML += `</ul>`;
+            summaryHtml += `</ul>`;
         } else {
-            suggestedCardsDiv.innerHTML += `<p>主要な種別は見つかりませんでした。</p>`;
+            summaryHtml += `<p>主要な種別は見つかりませんでした。</p>`;
         }
 
         deckAnalysisSummary.innerHTML = summaryHtml;

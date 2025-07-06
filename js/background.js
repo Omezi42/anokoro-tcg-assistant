@@ -39,7 +39,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === "captureScreenshot") {
     // スクリーンショットをキャプチャするリクエスト
     if (sender.tab && sender.tab.id) {
-        chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: "png" }, (screenshotUrl) => {
+        // chrome.tabs.captureVisibleTab の代わりに chrome.scripting.captureVisibleTab を使用
+        // Manifest V3 ではこちらが推奨され、host_permissions と scripting 権限で動作します
+        chrome.scripting.captureVisibleTab(sender.tab.windowId, { format: "png" }, (screenshotUrl) => {
             if (chrome.runtime.lastError) {
                 console.error("スクリーンショットのキャプチャに失敗しました:", chrome.runtime.lastError.message);
                 sendAsyncResponse({ success: false, error: chrome.runtime.lastError.message });
@@ -48,7 +50,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendAsyncResponse({ success: true, screenshotUrl: screenshotUrl });
         });
     } else {
-        sendAsyncResponse({ success: false, error: "Invalid parameters for script injection." });
+        sendAsyncResponse({ success: false, error: "Invalid parameters for screenshot capture: sender.tab or sender.tab.id is missing." });
     }
     return true; // 非同期処理のため true を返す
   } else if (request.action === "injectSectionScript") {

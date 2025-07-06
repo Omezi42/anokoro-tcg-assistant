@@ -23,6 +23,69 @@ const TOGGLE_BUTTON_SIZE = 50; // px (メニュー開閉ボタンのサイズ)
 // UIが既に挿入されたかどうかを追跡するフラグ
 let uiInjected = false;
 
+// Firebase関連のグローバル変数
+window.firebaseApp = null;
+window.db = null;
+window.auth = null;
+window.currentUserId = null; // Authenticated user ID
+
+/**
+ * Firebaseを初期化し、認証リスナーを設定します。
+ */
+async function initializeFirebase() {
+    console.log("Firebase: Initializing Firebase...");
+    try {
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+
+        if (Object.keys(firebaseConfig).length === 0) {
+            console.error("Firebase: Firebase config is empty. Cannot initialize Firebase.");
+            return;
+        }
+
+        // Firebaseアプリが既に初期化されているかチェック
+        if (!window.firebaseApp) {
+            window.firebaseApp = initializeApp(firebaseConfig);
+            window.db = getFirestore(window.firebaseApp);
+            window.auth = getAuth(window.firebaseApp);
+            console.log("Firebase: App, Firestore, Auth initialized.");
+        } else {
+            console.log("Firebase: App already initialized.");
+        }
+
+        // 認証状態の変更をリッスン
+        onAuthStateChanged(window.auth, async (user) => {
+            if (user) {
+                window.currentUserId = user.uid;
+                console.log("Firebase: User signed in:", user.uid);
+            } else {
+                console.log("Firebase: No user signed in. Attempting anonymous or custom token sign-in.");
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(window.auth, __initial_auth_token);
+                        window.currentUserId = window.auth.currentUser.uid;
+                        console.log("Firebase: Signed in with custom token:", window.currentUserId);
+                    } else {
+                        await signInAnonymously(window.auth);
+                        window.currentUserId = window.auth.currentUser.uid;
+                        console.log("Firebase: Signed in anonymously:", window.currentUserId);
+                    }
+                } catch (error) {
+                    console.error("Firebase: Anonymous or custom token sign-in failed:", error);
+                    // 認証失敗時のフォールバックとしてランダムなIDを使用
+                    window.currentUserId = crypto.randomUUID();
+                    console.warn("Firebase: Using random UUID as userId due to auth failure:", window.currentUserId);
+                }
+            }
+            // 認証が準備できたことを通知するカスタムイベントを発火
+            document.dispatchEvent(new CustomEvent('firebaseAuthReady'));
+            console.log("Firebase: Auth state changed. Dispatching firebaseAuthReady event.");
+        });
+    } catch (error) {
+        console.error("Firebase: Failed to initialize Firebase:", error);
+    }
+}
+
 
 /**
  * カスタムアラート/確認ダイアログを表示します。
@@ -389,7 +452,6 @@ async function injectUIIntoPage() {
 
     try {
         // UIのHTML構造を文字列として定義
-        // スクリーンショットオーバーレイのHTMLを削除
         const uiHtml = `
             <div id="tcg-right-menu-container">
                 <div class="tcg-menu-icons-wrapper">
@@ -399,8 +461,6 @@ async function injectUIIntoPage() {
                     <button class="tcg-menu-icon" data-section="search" title="検索"><i class="fas fa-search"></i></button>
                     <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
                     <button class="tcg-menu-icon" data-section="battleRecord" title="戦いの記録"><i class="fas fa-trophy"></i></button>
-                    <!-- <button class="tcg-menu-icon" data-section="deckAnalysis" title="デッキ分析"><i class="fas fa-cube"></i></button> -->
-                    <!-- アリーナボタンはリンク集に移動するため、ここから削除 -->
                 </div>
                 <button class="tcg-menu-toggle-button" id="tcg-menu-toggle-button" title="メニューを隠す/表示">
                     <i class="fas fa-chevron-right"></i>
@@ -409,15 +469,12 @@ async function injectUIIntoPage() {
 
             <div id="tcg-content-area">
                 <div id="tcg-sections-wrapper">
-                    <!-- 各セクションのコンテンツはここに動的にロードされます -->
                     <div id="tcg-home-section" class="tcg-section"></div>
                     <div id="tcg-rateMatch-section" class="tcg-section"></div>
                     <div id="tcg-memo-section" class="tcg-section"></div>
                     <div id="tcg-search-section" class="tcg-section"></div>
                     <div id="tcg-minigames-section" class="tcg-section"></div>
                     <div id="tcg-battleRecord-section" class="tcg-section"></div>
-                    <!-- <div id="tcg-deckAnalysis-section" class="tcg-section"></div> -->
-                    <!-- アリーナセクションは直接表示しないため、ここから削除 -->
                 </div>
             </div>
 
@@ -429,7 +486,6 @@ async function injectUIIntoPage() {
                     <button id="tcg-dialog-cancel-button" style="margin-left: 10px; background-color: #6c757d; display: none;">キャンセル</button>
                 </div>
             </div>
-            <!-- スクリーンショットオーバーレイのHTMLを削除 -->
         `;
 
         // 一時的なコンテナを作成し、HTMLコンテンツを解析
@@ -437,28 +493,26 @@ async function injectUIIntoPage() {
         tempDiv.innerHTML = uiHtml;
 
         // bodyの既存コンテンツを保持しつつ、UIを挿入する
-        // bodyを一度クリアし、tempDivの子要素をbodyに移動し、元のbodyコンテンツを再追加
-        const bodyOriginalContent = Array.from(document.body.childNodes); // 元の子ノードを配列にコピー
-        document.body.innerHTML = ''; // bodyをクリア
+        const bodyOriginalContent = Array.from(document.body.childNodes);
+        document.body.innerHTML = '';
 
         while (tempDiv.firstChild) {
-            document.body.appendChild(tempDiv.firstChild); // tempDivの子要素をbodyに移動
+            document.body.appendChild(tempDiv.firstChild);
         }
 
-        // 元のbodyコンテンツを再追加
         bodyOriginalContent.forEach(node => {
             document.body.appendChild(node);
         });
         
-        // UI要素がDOMに挿入された後に、グローバル変数に参照を割り当てる
-        uiInjected = true; // 挿入フラグを設定
+        uiInjected = true;
         console.log("main.js: UI injected into page. Elements referenced.");
 
-        // UI要素がDOMに挿入され、グローバル変数が割り当てられた後に初期化関数を呼び出す
-        createRightSideMenuAndAttachListeners(); // 右サイドメニューのイベントリスナー設定
-        initializeExtensionFeatures(); // カードデータロード、スクリーンショット関連初期化
+        // Firebase初期化をここで行う
+        await initializeFirebase(); // Firebaseの初期化が完了するのを待つ
 
-        // 初期表示セクションをロード
+        createRightSideMenuAndAttachListeners();
+        initializeExtensionFeatures();
+
         chrome.storage.local.get(['activeSection'], (result) => {
             const activeSection = result.activeSection || 'home';
             showSection(activeSection);
@@ -472,14 +526,12 @@ async function injectUIIntoPage() {
 /**
  * 拡張機能の各種機能を初期化し、イベントリスナーを設定します。
  * この関数は一度だけ呼び出されます。
- * ここでは、セクション固有ではない、グローバルな機能の初期化を行います。
  */
 async function initializeExtensionFeatures() {
     console.log("main.js: Initializing extension features...");
-    // cards.jsonを読み込む (main.jsで一度だけロード)
     try {
         const response = await fetch(chrome.runtime.getURL('json/cards.json'));
-        window.allCards = await response.json(); // window.allCards に代入
+        window.allCards = await response.json();
         if (!Array.isArray(window.allCards) || window.allCards.length === 0) {
             console.warn("main.js: カードデータが空または無効です。一部機能が制限される可能性があります。");
         } else {
@@ -491,6 +543,7 @@ async function initializeExtensionFeatures() {
 }
 
 // DOMが完全にロードされるのを待ってから要素を注入し、機能を初期化します。
+// Firebaseの初期化が非同期になったため、DOMContentLoaded後にUI注入とFirebase初期化を行う
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         injectUIIntoPage();
@@ -502,10 +555,8 @@ if (document.readyState === 'loading') {
 // popup.jsからのメッセージを受け取るリスナー
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "showSection") {
-        // forceOpenSidebar が true の場合、サイドバーが閉じていても強制的に開く
         toggleContentArea(request.section, request.forceOpenSidebar);
     } else if (request.action === "toggleSidebar") {
-        // サイドバーの表示/非表示を切り替えるコマンド
         const contentArea = document.getElementById('tcg-content-area');
         const rightMenuContainer = document.getElementById('tcg-right-menu-container');
         const gameCanvas = document.querySelector('canvas#unity-canvas');
@@ -516,13 +567,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             contentArea.classList.remove('active');
             contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
             isSidebarOpen = false;
-            isMenuIconsVisible = false; // サイドバーを閉じるときはアイコンも隠す
+            isMenuIconsVisible = false;
             updateMenuIconsVisibility();
         } else {
             contentArea.classList.add('active');
             contentArea.style.right = '0px';
             isSidebarOpen = true;
-            isMenuIconsVisible = true; // サイドバーを開くときはアイコンを表示
+            isMenuIconsVisible = true;
             updateMenuIconsVisibility();
 
             chrome.storage.local.get(['activeSection'], (result) => {
@@ -537,11 +588,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
         chrome.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
     } else if (request.action === "matchFound") {
-        // バックグラウンドからのマッチング完了通知を受け取り、ポップアップとサイドバー表示をトリガー
         console.log("main.js: Match found message received from background. Triggering dialog and sidebar.");
-        // ポップアップ表示 (ルームIDは表示しない)
         window.showCustomDialog('対戦相手決定', `対戦相手が決まりました！対戦を開始しましょう！`);
-        // レート戦セクションを強制的に開く
         toggleContentArea('rateMatch', true);
     }
 });
+
+// Firebaseのインポート (main.jsのスコープ内で)
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+

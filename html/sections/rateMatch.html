@@ -5,15 +5,20 @@
         <p id="rate-display">1500</p>
     </div>
     <div class="info-box">
-        <h3>マッチング</h3>
-        <p>待機中: <span id="matching-waiting">3</span>人</p>
-        <p>対戦中: <span id="matching-playing">8</span>人</p>
+        <h3>あなたのID</h3>
+        <p id="user-id-display">未ログイン</p>
     </div>
 </div>
 
 <!-- マッチング前のUI要素 -->
 <div id="pre-match-ui">
-    <button id="matching-button">マッチング</button>
+    <h3>オンライン対戦ルーム</h3>
+    <div style="margin-bottom: 15px;">
+        <input type="text" id="room-id-input" placeholder="ルームIDを入力 (任意)">
+        <button id="create-room-button" style="background-color: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; margin-right: 5px;">ルーム作成</button>
+        <button id="join-room-button" style="background-color: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer;">ルーム参加</button>
+    </div>
+    <button id="matching-button">オンラインマッチング</button>
     <h3>対戦履歴</h3>
     <ul id="match-history-list">
         </ul>
@@ -33,7 +38,7 @@
     <h4>チャット</h4>
     <div id="chat-messages" style="height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; background-color: #f9f9f9; border-radius: 8px;">
         <p><strong>[システム]:</strong> 対戦が始まりました！</p>
-        <p><strong>[相手プレイヤー]:</strong> ルームID: ABC123DEF, 先攻お願いします！</p>
+        <p><strong>[相手プレイヤー]:</strong> 先攻お願いします！</p>
     </div>
     <div class="chat-fixed-phrases">
         <button class="chat-phrase-button">よろしくお願いします！</button>

@@ -23,8 +23,8 @@ window.initBattleRecordSection = async function() { // async を追加
     let battleRecordTabButtons = document.querySelectorAll('.battle-record-tab-button');
     let battleRecordTabContents = document.querySelectorAll('.battle-record-tab-content');
 
-    // Chart.jsのインスタンスを保持する変数
-    let winRateChartInstance = null;
+    // Chart.jsのインスタンスを保持する変数を削除
+    // let winRateChartInstance = null;
 
     // 戦績をロードして集計を更新する関数
     const loadBattleRecords = () => {
@@ -39,9 +39,10 @@ window.initBattleRecordSection = async function() { // async を追加
             const secondWinRateSpan = document.getElementById('second-win-rate');
             const myDeckTypeWinRatesDiv = document.getElementById('my-deck-type-win-rates');
             const opponentDeckTypeWinRatesDiv = document.getElementById('opponent-deck-type-win-rates');
-            const winRateChartCanvas = document.getElementById('win-rate-chart'); // Chart.jsのCanvas要素
+            // Chart.jsのCanvas要素の取得を削除
+            // const winRateChartCanvas = document.getElementById('win-rate-chart'); 
 
-            if (!battleRecordsList || !winRateChartCanvas) return;
+            if (!battleRecordsList) return; // winRateChartCanvas のチェックを削除
 
             battleRecordsList.innerHTML = '';
 
@@ -158,55 +159,13 @@ window.initBattleRecordSection = async function() { // async を追加
                 });
             }
             updateSelectedDeckStatsDropdown();
-            // グラフを描画
-            renderWinRateChart(totalWins, totalLosses, winRateChartCanvas);
+            // グラフ描画の呼び出しを削除
+            // renderWinRateChart(totalWins, totalLosses, winRateChartCanvas);
         });
     };
 
-    // 勝率グラフを描画する関数
-    const renderWinRateChart = (wins, losses, canvasElement) => {
-        if (winRateChartInstance) {
-            winRateChartInstance.destroy(); // 既存のグラフがあれば破棄
-        }
-
-        const data = {
-            labels: ['勝利', '敗北'],
-            datasets: [{
-                data: [wins, losses],
-                backgroundColor: ['#28a745', '#dc3545'], // 緑 (勝利), 赤 (敗北)
-                hoverBackgroundColor: ['#218838', '#c82333']
-            }]
-        };
-
-        const config = {
-            type: 'pie',
-            data: data,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: {
-                            font: {
-                                size: 14
-                            }
-                        }
-                    },
-                    title: {
-                        display: true,
-                        text: '総勝率',
-                        font: {
-                            size: 18
-                        },
-                        color: '#333'
-                    }
-                }
-            }
-        };
-
-        winRateChartInstance = new Chart(canvasElement, config);
-    };
+    // 勝率グラフを描画する関数を削除
+    // const renderWinRateChart = (wins, losses, canvasElement) => { /* ... */ };
 
 
     // 戦績を削除する関数
@@ -386,7 +345,7 @@ window.initBattleRecordSection = async function() { // async を追加
         });
         // 各タブに切り替わった際にデータを再ロード
         if (tabId === 'stats-summary') {
-            loadBattleRecords(); // 勝率集計とグラフを再ロード
+            loadBattleRecords(); // 勝率集計を再ロード (グラフはなし)
             updateSelectedDeckStatsDropdown(); // デッキ選択ドロップダウンも更新
         } else if (tabId === 'deck-management') {
             loadRegisteredDecks(); // デッキリストを再ロード
@@ -525,6 +484,6 @@ window.initBattleRecordSection = async function() { // async を追加
     loadRegisteredDecks();
     loadBattleRecords();
 
-    // デフォルトで「新しい対戦記録」タブを表示
+    // デフォルトで「新しい対戦記録」タブを表示}
     showBattleRecordTab('new-record');
-}; // End of initBattleRecordSection
+}

@@ -37,9 +37,19 @@ async function initializeFirebase() {
     try {
         // Firebase SDKがロードされていることを確認
         if (typeof firebase === 'undefined' || !firebase.app || !firebase.auth || !firebase.firestore) {
-             console.error("Firebase: Firebase SDKs are not loaded. Attempting to inject them.");
+             console.error("Firebase: Firebase SDKs are not loaded. Attempting to inject them via background script.");
              // SDKがロードされていない場合は、動的に注入を試みる
-             await injectFirebaseSDKs();
+             await new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({ action: "injectFirebaseSDKs" }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else if (response && response.success) {
+                        resolve();
+                    } else {
+                        reject(new Error(response.error || "Unknown error injecting Firebase SDKs."));
+                    }
+                });
+             });
              // 再度チェック
              if (typeof firebase === 'undefined' || !firebase.app || !firebase.auth || !firebase.firestore) {
                  window.showCustomDialog('エラー', 'Firebase SDKのロードに失敗しました。拡張機能のファイルを確認してください。');
@@ -96,69 +106,6 @@ async function initializeFirebase() {
     } catch (error) {
         console.error("Firebase: Failed to initialize Firebase:", error);
     }
-}
-
-/**
- * Firebase SDKsを動的に注入するヘルパー関数
- */
-async function injectFirebaseSDKs() {
-    return new Promise((resolve, reject) => {
-        const scriptsToInject = [
-            "https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js",
-            "https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js",
-            "https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"
-        ];
-
-        let loadedCount = 0;
-        const totalScripts = scriptsToInject.length;
-
-        // 現在のタブのIDを取得
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (!tabs[0] || !tabs[0].id) {
-                reject(new Error("No active tab found to inject Firebase SDKs."));
-                return;
-            }
-            const tabId = tabs[0].id;
-
-            const loadScript = (url) => {
-                return new Promise((res, rej) => {
-                    chrome.scripting.executeScript({
-                        target: { tabId: tabId }, // 特定のタブに注入
-                        func: (scriptUrl) => {
-                            const script = document.createElement('script');
-                            script.src = scriptUrl;
-                            document.head.appendChild(script);
-                            return new Promise((resolveScript, rejectScript) => {
-                                script.onload = resolveScript;
-                                script.onerror = rejectScript;
-                            });
-                        },
-                        args: [url]
-                    }, (results) => {
-                        if (chrome.runtime.lastError) {
-                            rej(new Error(chrome.runtime.lastError.message));
-                        } else if (results && results[0] && results[0].result === false) {
-                            rej(new Error(`Script injection failed for ${url}`));
-                        } else {
-                            res();
-                        }
-                    });
-                });
-            };
-
-            const loadPromises = scriptsToInject.map(url => loadScript(url));
-
-            Promise.all(loadPromises)
-                .then(() => {
-                    console.log("All Firebase SDKs injected successfully.");
-                    resolve();
-                })
-                .catch(error => {
-                    console.error("Failed to inject Firebase SDKs:", error);
-                    reject(error);
-                });
-        });
-    });
 }
 
 

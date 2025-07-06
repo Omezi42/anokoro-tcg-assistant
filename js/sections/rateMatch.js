@@ -4,11 +4,13 @@
 window.initRateMatchSection = async function() { // async を追加
     console.log("RateMatch section initialized.");
 
-    // Firebaseが利用可能になるまで待機 (Firestore機能削除のため、認証のみに簡略化)
-    if (typeof firebase === 'undefined' || !firebase.auth || !window.auth || !window.currentUserId) {
-        console.log("Firebase Auth not yet ready. Waiting for firebaseAuthReady event...");
+    // Firebaseが利用可能になるまで待機
+    // main.jsでFirebase SDKを動的にロードするため、ここではグローバルなfirebaseオブジェクトが利用可能
+    // window.db, window.auth, window.currentUserId が初期化されるのを待つ
+    if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.auth || !window.db || !window.auth || !window.currentUserId) {
+        console.log("Firebase SDKs or global instances not yet ready. Waiting for firebaseAuthReady event...");
         await new Promise(resolve => document.addEventListener('firebaseAuthReady', resolve, { once: true }));
-        console.log("Firebase Auth is now ready!");
+        console.log("Firebase is now ready!");
     }
 
     // === レート戦セクションのロジック ===

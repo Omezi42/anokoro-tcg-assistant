@@ -140,6 +140,43 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendAsyncResponse({ success: false, error: "Invalid parameters for script injection." });
       }
       return true; // 非同期処理のため true を返す
+  } else if (request.action === "injectFirebaseSDKs") {
+      // Firebase SDKsを動的に注入するリクエスト
+      const scriptsToInject = [
+          "js/lib/firebase/firebase-app.js",
+          "js/lib/firebase/firebase-auth.js",
+          "js/lib/firebase/firebase-firestore.js"
+      ];
+
+      const tabId = sender.tab.id; // リクエスト元のタブID
+
+      const loadScript = (relativePath) => {
+          return new Promise((res, rej) => {
+              chrome.scripting.executeScript({
+                  target: { tabId: tabId },
+                  files: [relativePath]
+              }, (results) => {
+                  if (chrome.runtime.lastError) {
+                      rej(new Error(chrome.runtime.lastError.message));
+                  } else if (results && results[0] && results[0].result === false) {
+                      rej(new Error(`Script injection failed for ${relativePath}`));
+                  } else {
+                      res();
+                  }
+              });
+          });
+      };
+
+      Promise.all(scriptsToInject.map(loadScript))
+          .then(() => {
+              console.log("Background: All Firebase SDKs injected successfully into content script.");
+              sendAsyncResponse({ success: true });
+          })
+          .catch(error => {
+              console.error("Background: Failed to inject Firebase SDKs:", error);
+              sendAsyncResponse({ success: false, error: error.message });
+          });
+      return true; // 非同期処理のため true を返す
   }
 });
 

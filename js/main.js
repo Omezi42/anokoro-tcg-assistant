@@ -112,43 +112,52 @@ async function injectFirebaseSDKs() {
         let loadedCount = 0;
         const totalScripts = scriptsToInject.length;
 
-        const loadScript = (url) => {
-            return new Promise((res, rej) => {
-                chrome.scripting.executeScript({
-                    target: { tabId: chrome.tabs.TAB_ID_NONE }, // 現在のタブに注入
-                    func: (scriptUrl) => {
-                        const script = document.createElement('script');
-                        script.src = scriptUrl;
-                        document.head.appendChild(script);
-                        return new Promise((resolveScript, rejectScript) => {
-                            script.onload = resolveScript;
-                            script.onerror = rejectScript;
-                        });
-                    },
-                    args: [url]
-                }, (results) => {
-                    if (chrome.runtime.lastError) {
-                        rej(new Error(chrome.runtime.lastError.message));
-                    } else if (results && results[0] && results[0].result === false) {
-                        rej(new Error(`Script injection failed for ${url}`));
-                    } else {
-                        res();
-                    }
+        // 現在のタブのIDを取得
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (!tabs[0] || !tabs[0].id) {
+                reject(new Error("No active tab found to inject Firebase SDKs."));
+                return;
+            }
+            const tabId = tabs[0].id;
+
+            const loadScript = (url) => {
+                return new Promise((res, rej) => {
+                    chrome.scripting.executeScript({
+                        target: { tabId: tabId }, // 特定のタブに注入
+                        func: (scriptUrl) => {
+                            const script = document.createElement('script');
+                            script.src = scriptUrl;
+                            document.head.appendChild(script);
+                            return new Promise((resolveScript, rejectScript) => {
+                                script.onload = resolveScript;
+                                script.onerror = rejectScript;
+                            });
+                        },
+                        args: [url]
+                    }, (results) => {
+                        if (chrome.runtime.lastError) {
+                            rej(new Error(chrome.runtime.lastError.message));
+                        } else if (results && results[0] && results[0].result === false) {
+                            rej(new Error(`Script injection failed for ${url}`));
+                        } else {
+                            res();
+                        }
+                    });
                 });
-            });
-        };
+            };
 
-        const loadPromises = scriptsToInject.map(url => loadScript(url));
+            const loadPromises = scriptsToInject.map(url => loadScript(url));
 
-        Promise.all(loadPromises)
-            .then(() => {
-                console.log("All Firebase SDKs injected successfully.");
-                resolve();
-            })
-            .catch(error => {
-                console.error("Failed to inject Firebase SDKs:", error);
-                reject(error);
-            });
+            Promise.all(loadPromises)
+                .then(() => {
+                    console.log("All Firebase SDKs injected successfully.");
+                    resolve();
+                })
+                .catch(error => {
+                    console.error("Failed to inject Firebase SDKs:", error);
+                    reject(error);
+                });
+        });
     });
 }
 
@@ -655,8 +664,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         chrome.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
     } else if (request.action === "matchFound") {
         console.log("main.js: Match found message received from background. Triggering dialog and sidebar.");
+        // ルームIDは表示しない
         window.showCustomDialog('対戦相手決定', `対戦相手が決まりました！対戦を開始しましょう！`);
         toggleContentArea('rateMatch', true);
     }
 });
-

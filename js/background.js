@@ -12,7 +12,8 @@ chrome.runtime.onInstalled.addListener((details) => {
 // マッチング状態を管理する変数 (サービスワーカーのスコープ内で保持)
 let currentMatchingTimeout = null;
 let isUserMatching = false; // ユーザーがマッチング中かどうか
-let currentMatchInfo = null; // 成立したマッチの情報 { roomId: string } または null
+// ルームIDはUIから削除されたため、ここではシンプルなブール値でマッチ成立を管理
+let currentMatchInfo = null; // 成立したマッチの情報 (roomIdは不要になったが、nullでないことでマッチ成立を示す)
 
 // popup.jsやcontent.jsからのメッセージを受け取り、content.jsに転送したり、通知を作成したりします。
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -54,7 +55,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // 3秒後にマッチング完了をシミュレート
     currentMatchingTimeout = setTimeout(() => {
         isUserMatching = false; // マッチング終了
-        currentMatchInfo = { roomId: "ランダムなルームID" }; // 仮のルームIDを設定
+        currentMatchInfo = { matched: true }; // マッチが成立したことを示す
         console.log("Background: Match found!");
 
         // アクティブなタブにマッチング完了を通知
@@ -62,7 +63,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (tabs[0] && tabs[0].id) {
                 chrome.tabs.sendMessage(tabs[0].id, {
                     action: "matchFound",
-                    roomId: currentMatchInfo.roomId // ルームIDを渡す
+                    // roomIdは不要になったため削除
                 });
             }
         });

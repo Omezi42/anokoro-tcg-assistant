@@ -4,13 +4,11 @@
 window.initRateMatchSection = async function() { // async を追加
     console.log("RateMatch section initialized.");
 
-    // Firebaseが利用可能になるまで待機
-    // main.jsでFirebase SDKを動的にロードするため、ここではグローバルなfirebaseオブジェクトが利用可能
-    // window.db, window.auth, window.currentUserId が初期化されるのを待つ
-    if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.auth || !window.db || !window.auth || !window.currentUserId) {
-        console.log("Firebase SDKs or global instances not yet ready. Waiting for firebaseAuthReady event...");
+    // Firebaseが利用可能になるまで待機 (Firestore機能削除のため、認証のみに簡略化)
+    if (typeof firebase === 'undefined' || !firebase.auth || !window.auth || !window.currentUserId) {
+        console.log("Firebase Auth not yet ready. Waiting for firebaseAuthReady event...");
         await new Promise(resolve => document.addEventListener('firebaseAuthReady', resolve, { once: true }));
-        console.log("Firebase is now ready!");
+        console.log("Firebase Auth is now ready!");
     }
 
     // === レート戦セクションのロジック ===
@@ -33,14 +31,16 @@ window.initRateMatchSection = async function() { // async を追加
 
     const rateDisplay = document.getElementById('rate-display'); // レート表示要素
     const userIdDisplay = document.getElementById('user-id-display'); // ユーザーID表示要素
-    const roomIdInput = document.getElementById('room-id-input'); // ルームID入力
-    const createRoomButton = document.getElementById('create-room-button'); // ルーム作成ボタン
-    const joinRoomButton = document.getElementById('join-room-button'); // ルーム参加ボタン
+    // ルーム関連の要素は削除
+    // const roomIdInput = document.getElementById('room-id-input');
+    // const createRoomButton = document.getElementById('create-room-button');
+    // const joinRoomButton = document.getElementById('join-room-button');
 
     let currentRate = 1500; // 仮の初期レート
-    let currentRoomId = null; // 現在参加中のルームID
-    let unsubscribeRoomListener = null; // ルームリスナーの購読解除関数
-    let unsubscribeChatListener = null; // チャットリスナーの購読解除関数
+    // ルーム関連の変数を削除
+    // let currentRoomId = null;
+    // let unsubscribeRoomListener = null;
+    // let unsubscribeChatListener = null;
 
     // ユーザーIDを表示
     if (userIdDisplay) {
@@ -104,7 +104,7 @@ window.initRateMatchSection = async function() { // async を追加
             if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
         } else if (response && response.currentMatch) {
             // マッチが成立している場合のUIを表示
-            currentRoomId = response.currentMatch.roomId; // バックグラウンドからルームIDを取得
+            // currentRoomId = response.currentMatch.roomId; // ルームIDは表示しないため不要
             if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
             if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
             if (postMatchUiDiv) {
@@ -113,12 +113,11 @@ window.initRateMatchSection = async function() { // async を追加
                 if (chatMessagesDiv && chatMessagesDiv.dataset.initialized !== 'true') {
                     chatMessagesDiv.innerHTML = `
                         <p><strong>[システム]:</strong> 対戦が始まりました！</p>
-                        <p><strong>[システム]:</strong> ルームID: ${currentRoomId}</p>
                         <p><strong>[相手プレイヤー]:</strong> 先攻お願いします！</p>
                     `;
                     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
                     chatMessagesDiv.dataset.initialized = 'true'; // 初期化済みマーク
-                    setupRoomListeners(currentRoomId); // ルームが確定したらリスナーを設定
+                    // setupRoomListeners(currentRoomId); // Firestoreリスナーは削除
                 }
             }
         }
@@ -128,84 +127,28 @@ window.initRateMatchSection = async function() { // async を追加
             if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
             if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
             if (chatMessagesDiv) chatMessagesDiv.dataset.initialized = 'false'; // リセット
-            // ルームリスナーを解除
-            if (unsubscribeRoomListener) {
-                unsubscribeRoomListener();
-                unsubscribeRoomListener = null;
-            }
-            if (unsubscribeChatListener) {
-                unsubscribeChatListener();
-                unsubscribeChatListener = null;
-            }
-            currentRoomId = null; // ルームIDをクリア
+            // ルームリスナーを解除 (Firestore機能削除のため不要)
+            // if (unsubscribeRoomListener) {
+            //     unsubscribeRoomListener();
+            //     unsubscribeRoomListener = null;
+            // }
+            // if (unsubscribeChatListener) {
+            //     unsubscribeChatListener();
+            //     unsubscribeChatListener = null;
+            // }
+            // currentRoomId = null; // ルームIDをクリア (Firestore機能削除のため不要)
         }
     };
 
-    // Firebase Firestoreのパスヘルパー関数
-    const getRoomsCollectionRef = () => {
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        // window.db が初期化されていることを前提とする
-        return window.db.collection(`artifacts/${appId}/public/data/rooms`);
-    };
+    // Firebase Firestoreのパスヘルパー関数 (Firestore機能削除のため削除)
+    // const getRoomsCollectionRef = () => { /* ... */ };
+    // const getRoomDocRef = (roomId) => { /* ... */ };
+    // const getMessagesCollectionRef = (roomId) => { /* ... */ };
 
-    const getRoomDocRef = (roomId) => {
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        // window.db が初期化されていることを前提とする
-        return window.db.doc(`artifacts/${appId}/public/data/rooms/${roomId}`);
-    };
+    // ルームのリスナーを設定 (Firestore機能削除のため削除)
+    // const setupRoomListeners = (roomId) => { /* ... */ };
 
-    const getMessagesCollectionRef = (roomId) => {
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        // window.db が初期化されていることを前提とする
-        return window.db.collection(`artifacts/${appId}/public/data/rooms/${roomId}/messages`);
-    };
-
-    // ルームのリスナーを設定 (参加者リストなど)
-    const setupRoomListeners = (roomId) => {
-        if (!window.db) {
-            console.error("Firestore DB is not initialized.");
-            return;
-        }
-        console.log(`Setting up listeners for room: ${roomId}`);
-
-        const roomDocRef = getRoomDocRef(roomId);
-        unsubscribeRoomListener = roomDocRef.onSnapshot((docSnap) => {
-            if (docSnap.exists) {
-                const roomData = docSnap.data();
-                console.log("Room data updated:", roomData);
-                // ここでルームの参加者リストなどをUIに表示するロジックを追加可能
-            } else {
-                console.log("Room does not exist or was deleted.");
-                // ルームが削除された場合、UIをリセット
-                window.showCustomDialog('ルーム終了', '参加していたルームが終了しました。');
-                chrome.runtime.sendMessage({ action: "clearMatchInfo" }); // バックグラウンドのマッチ情報もクリア
-                updateMatchingUI();
-            }
-        }, (error) => {
-            console.error("Error listening to room updates:", error);
-            window.showCustomDialog('エラー', `ルーム情報の取得中にエラーが発生しました: ${error.message}`);
-        });
-
-        // チャットメッセージのリスナーを設定
-        const messagesColRef = getMessagesCollectionRef(roomId);
-        // orderBy("timestamp") を使用する際は、Firestoreのインデックス設定が必要になる場合があります。
-        // エラーが発生する場合は、Firebaseコンソールでインデックスを作成してください。
-        unsubscribeChatListener = messagesColRef.orderBy("timestamp").onSnapshot((snapshot) => {
-            snapshot.docChanges().forEach(change => {
-                const messageData = change.doc.data();
-                if (change.type === "added") {
-                    console.log("New message:", messageData);
-                    displayChatMessage(messageData.senderId, messageData.message, messageData.timestamp);
-                }
-                // 他のchange.type (modified, removed) も処理可能
-            });
-        }, (error) => {
-            console.error("Error listening to chat messages:", error);
-            window.showCustomDialog('エラー', `チャットメッセージの取得中にエラーが発生しました: ${error.message}`);
-        });
-    };
-
-    // チャットメッセージをUIに表示する関数
+    // チャットメッセージをUIに表示する関数 (Firestoreチャット削除のため、簡易的な表示に)
     const displayChatMessage = (senderId, message, timestamp) => {
         if (!chatMessagesDiv) return;
         const messageElement = document.createElement('p');
@@ -255,19 +198,20 @@ window.initRateMatchSection = async function() { // async を追加
         cancelButton.addEventListener('click', handleCancelBattleButtonClick);
     }
 
-    if (createRoomButton) {
-        createRoomButton.removeEventListener('click', handleCreateRoomButtonClick);
-        createRoomButton.addEventListener('click', handleCreateRoomButtonClick);
-    }
-    if (joinRoomButton) {
-        joinRoomButton.removeEventListener('click', handleJoinRoomButtonClick);
-        joinRoomButton.addEventListener('click', handleJoinRoomButtonClick);
-    }
+    // ルーム作成・参加ボタンのイベントリスナーを削除
+    // if (createRoomButton) {
+    //     createRoomButton.removeEventListener('click', handleCreateRoomButtonClick);
+    //     createRoomButton.addEventListener('click', handleCreateRoomButtonClick);
+    // }
+    // if (joinRoomButton) {
+    //     joinRoomButton.removeEventListener('click', handleJoinRoomButtonClick);
+    //     joinRoomButton.addEventListener('click', handleJoinRoomButtonClick);
+    // }
 
 
     // イベントハンドラ関数
     async function handleMatchingButtonClick() {
-        // バックグラウンドスクリプトにマッチング開始を要求 (Firestoreマッチングロジックに置き換えられる可能性あり)
+        // バックグラウンドスクリプトにマッチング開始を要求 (シミュレーションに戻す)
         const response = await chrome.runtime.sendMessage({ action: "startMatching" });
         if (response && response.success) {
             await window.showCustomDialog('オンラインマッチング開始', '対戦相手を検索中です...');
@@ -292,117 +236,25 @@ window.initRateMatchSection = async function() { // async を追加
         }
     }
 
-    async function handleCreateRoomButtonClick() {
-        if (!window.db || !window.currentUserId) {
-            await window.showCustomDialog('エラー', 'Firebaseが初期化されていません。');
-            return;
-        }
-
-        const roomId = roomIdInput.value.trim() || crypto.randomUUID().substring(0, 8); // 入力がなければランダムなID
-        const roomDocRef = getRoomDocRef(roomId);
-
-        try {
-            const docSnap = await roomDocRef.get();
-            if (docSnap.exists) {
-                await window.showCustomDialog('エラー', `ルームID「${roomId}」は既に存在します。別のIDを試すか、参加してください。`);
-                return;
-            }
-
-            await roomDocRef.set({
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                creatorId: window.currentUserId,
-                players: [window.currentUserId],
-                status: 'waiting' // waiting, playing, finished
-            });
-            currentRoomId = roomId;
-            await window.showCustomDialog('ルーム作成完了', `ルーム「${roomId}」を作成しました！あなたのID: ${window.currentUserId}`);
-            
-            // UIをマッチ後状態に切り替え
-            if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
-            if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
-            if (postMatchUiDiv) postMatchUiDiv.style.display = 'block';
-
-            if (chatMessagesDiv) {
-                chatMessagesDiv.innerHTML = `<p><strong>[システム]:</strong> ルーム「${currentRoomId}」に参加しました。他のプレイヤーの参加を待っています。</p>`;
-                chatMessagesDiv.dataset.initialized = 'true';
-            }
-            setupRoomListeners(currentRoomId);
-
-        } catch (error) {
-            console.error("Error creating room:", error);
-            await window.showCustomDialog('エラー', `ルーム作成中にエラーが発生しました: ${error.message}`);
-        }
-    }
-
-    async function handleJoinRoomButtonClick() {
-        if (!window.db || !window.currentUserId) {
-            await window.showCustomDialog('エラー', 'Firebaseが初期化されていません。');
-            return;
-        }
-
-        const roomId = roomIdInput.value.trim();
-        if (!roomId) {
-            await window.showCustomDialog('エラー', '参加するルームIDを入力してください。');
-            return;
-        }
-
-        const roomDocRef = getRoomDocRef(roomId);
-
-        try {
-            const docSnap = await roomDocRef.get();
-            if (!docSnap.exists) {
-                await window.showCustomDialog('エラー', `ルームID「${roomId}」は見つかりませんでした。`);
-                return;
-            }
-
-            const roomData = docSnap.data();
-            if (roomData.players.includes(window.currentUserId)) {
-                await window.showCustomDialog('情報', `既にルーム「${roomId}」に参加しています。`);
-            } else {
-                // プレイヤーをルームに追加
-                await roomDocRef.update({
-                    players: firebase.firestore.FieldValue.arrayUnion(window.currentUserId)
-                });
-                await window.showCustomDialog('ルーム参加完了', `ルーム「${roomId}」に参加しました！`);
-            }
-            currentRoomId = roomId;
-
-            // UIをマッチ後状態に切り替え
-            if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
-            if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
-            if (postMatchUiDiv) postMatchUiDiv.style.display = 'block';
-
-            if (chatMessagesDiv) {
-                chatMessagesDiv.innerHTML = `<p><strong>[システム]:</strong> ルーム「${currentRoomId}」に参加しました。</p>`;
-                chatMessagesDiv.dataset.initialized = 'true';
-            }
-            setupRoomListeners(currentRoomId);
-
-        } catch (error) {
-            console.error("Error joining room:", error);
-            await window.showCustomDialog('エラー', `ルーム参加中にエラーが発生しました: ${error.message}`);
-        }
-    }
+    // ルーム作成・参加ハンドラを削除
+    // async function handleCreateRoomButtonClick() { /* ... */ }
+    // async function handleJoinRoomButtonClick() { /* ... */ }
 
 
     async function handleSendChatButtonClick() {
-        if (!chatInput || !chatMessagesDiv || !currentRoomId || !window.db || !window.currentUserId) {
-            await window.showCustomDialog('エラー', 'チャットを送信できません。ルームに参加しているか確認してください。');
+        if (!chatInput || !chatMessagesDiv) { // ルームIDのチェックを削除
+            await window.showCustomDialog('エラー', 'チャットを送信できません。');
             return;
         }
         const message = chatInput.value.trim();
         if (message) {
-            try {
-                await getMessagesCollectionRef(currentRoomId).add({
-                    senderId: window.currentUserId,
-                    message: message,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                chatInput.value = '';
-            } catch (error) {
-                console.error("Error sending message:", error);
-                await window.showCustomDialog('エラー', `メッセージ送信中にエラーが発生しました: ${error.message}`);
-            }
+            // Firestoreへのメッセージ送信を削除し、簡易的な表示に
+            displayChatMessage(window.currentUserId, message, new Date().toISOString());
+            chatInput.value = '';
+            // 相手からの返信をシミュレート (任意)
+            setTimeout(() => {
+                displayChatMessage('相手プレイヤー', 'よろしくお願いします！', new Date().toISOString());
+            }, 1000);
         }
     }
 
@@ -425,7 +277,7 @@ window.initRateMatchSection = async function() { // async を追加
             const oldRate = currentRate;
             currentRate += 30; // 仮のレート増加
             updateRateDisplay();
-            saveMatchHistory(`${new Date().toLocaleString()} - BO3 勝利 (レート: ${oldRate} -> ${currentRate})`);
+            saveMatchHistory(`${new Date().toLocaleString()} - BO3 勝利 (レート: ${oldRate} → ${currentRate})`);
             await window.showCustomDialog('報告完了', `勝利を報告しました！<br>レート: ${oldRate} → ${currentRate} (+30)`);
             
             // マッチ情報をクリアするメッセージをバックグラウンドに送信し、その完了を待つ

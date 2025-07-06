@@ -1,7 +1,7 @@
 // js/sections/memo.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initMemoSection = function(allCards, showCustomDialog) {
+window.initMemoSection = async function() { // async を追加
     console.log("Memo section initialized.");
 
     // === メモセクションのロジック ===
@@ -65,7 +65,7 @@ window.initMemoSection = function(allCards, showCustomDialog) {
             if (originalIndex > -1 && originalIndex < memos.length) {
                 memos.splice(originalIndex, 1);
                 chrome.storage.local.set({savedMemos: memos}, () => {
-                    showCustomDialog('削除完了', 'メモを削除しました。');
+                    window.showCustomDialog('削除完了', 'メモを削除しました。');
                     if (memoSearchInput) loadMemos(memoSearchInput.value.trim());
                 });
             }
@@ -87,7 +87,7 @@ window.initMemoSection = function(allCards, showCustomDialog) {
                     screenshotArea.innerHTML = '<p>スクリーンショットがここに表示されます。</p>';
                 }
                 editingMemoIndex = originalIndex;
-                showCustomDialog('メモ編集', 'メモを編集モードにしました。内容を変更して「メモを保存」ボタンを押してください。');
+                window.showCustomDialog('メモ編集', 'メモを編集モードにしました。内容を変更して「メモを保存」ボタンを押してください。');
             }
         });
     };
@@ -95,7 +95,7 @@ window.initMemoSection = function(allCards, showCustomDialog) {
     // イベントハンドラ関数
     async function handleDeleteMemoClick(event) {
         const originalIndexToDelete = parseInt(event.currentTarget.dataset.originalIndex);
-        const confirmed = await showCustomDialog('メモ削除', 'このメモを削除しますか？', true);
+        const confirmed = await window.showCustomDialog('メモ削除', 'このメモを削除しますか？', true);
         if (confirmed) {
             deleteMemo(originalIndexToDelete);
         }
@@ -127,10 +127,10 @@ window.initMemoSection = function(allCards, showCustomDialog) {
                     memos[editingMemoIndex].timestamp = timestamp;
                     memos[editingMemoIndex].screenshotUrl = screenshotUrl;
                     editingMemoIndex = -1;
-                    showCustomDialog('保存完了', 'メモを更新しました！');
+                    window.showCustomDialog('保存完了', 'メモを更新しました！');
                 } else {
                     memos.push({ timestamp, content: memoContent, screenshotUrl });
-                    showCustomDialog('保存完了', 'メモを保存しました！');
+                    window.showCustomDialog('保存完了', 'メモを保存しました！');
                 }
 
                 chrome.storage.local.set({ savedMemos: memos }, () => {
@@ -140,7 +140,7 @@ window.initMemoSection = function(allCards, showCustomDialog) {
                 });
             });
         } else {
-            showCustomDialog('エラー', 'メモ内容が空か、スクリーンショットがありません。');
+            window.showCustomDialog('エラー', 'メモ内容が空か、スクリーンショットがありません。');
         }
     }
 

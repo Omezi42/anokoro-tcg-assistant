@@ -1,7 +1,7 @@
 // js/sections/rateMatch.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initRateMatchSection = function(allCards, showCustomDialog) {
+window.initRateMatchSection = async function() { // async を追加
     console.log("RateMatch section initialized.");
 
     // === レート戦セクションのロジック ===
@@ -22,12 +22,22 @@ window.initRateMatchSection = function(allCards, showCustomDialog) {
     const loseButton = document.getElementById('lose-button');
     const cancelButton = document.getElementById('cancel-button');
 
+    const rateDisplay = document.getElementById('rate-display'); // レート表示要素
+
     let matchingTimeout = null; // マッチング中のタイムアウトID
+    let currentRate = 1500; // 仮の初期レート
 
     // 初期状態ではマッチング後UIを非表示に
     if (postMatchUiDiv) {
         postMatchUiDiv.style.display = 'none';
     }
+
+    // レート表示を更新する関数
+    const updateRateDisplay = () => {
+        if (rateDisplay) {
+            rateDisplay.textContent = currentRate;
+        }
+    };
 
     // ローカルストレージから対戦履歴を読み込む関数
     const loadMatchHistory = () => {
@@ -107,7 +117,7 @@ window.initRateMatchSection = function(allCards, showCustomDialog) {
         if (matchingStatusDiv) matchingStatusDiv.style.display = 'flex';
         if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
 
-        await showCustomDialog('マッチング開始', '対戦相手を検索中です...');
+        await window.showCustomDialog('マッチング開始', '対戦相手を検索中です...');
 
         matchingTimeout = setTimeout(async () => {
             if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
@@ -126,12 +136,12 @@ window.initRateMatchSection = function(allCards, showCustomDialog) {
     }
 
     async function handleCancelMatchingButtonClick() {
-        const confirmed = await showCustomDialog('マッチングキャンセル', 'マッチングをキャンセルしますか？', true);
+        const confirmed = await window.showCustomDialog('マッチングキャンセル', 'マッチングをキャンセルしますか？', true);
         if (confirmed) {
             clearTimeout(matchingTimeout);
             if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
             if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
-            await showCustomDialog('キャンセル完了', 'マッチングをキャンセルしました。');
+            await window.showCustomDialog('キャンセル完了', 'マッチングをキャンセルしました。');
         }
     }
 
@@ -161,33 +171,40 @@ window.initRateMatchSection = function(allCards, showCustomDialog) {
     }
 
     async function handleWinButtonClick() {
-        const confirmed = await showCustomDialog('勝利報告', 'BO3の対戦で勝利を報告しますか？', true);
+        const confirmed = await window.showCustomDialog('勝利報告', 'BO3の対戦で勝利を報告しますか？', true);
         if (confirmed) {
-            saveMatchHistory(`${new Date().toLocaleString()} - BO3 勝利`);
-            showCustomDialog('報告完了', '勝利を報告しました！');
+            const oldRate = currentRate;
+            currentRate += 30; // 仮のレート増加
+            updateRateDisplay();
+            saveMatchHistory(`${new Date().toLocaleString()} - BO3 勝利 (レート: ${oldRate} -> ${currentRate})`);
+            window.showCustomDialog('報告完了', `勝利を報告しました！<br>レート: ${oldRate} → ${currentRate} (+30)`);
             if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
             if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
         }
     }
 
     async function handleLoseButtonClick() {
-        const confirmed = await showCustomDialog('敗北報告', 'BO3の対戦で敗北を報告しますか？', true);
+        const confirmed = await window.showCustomDialog('敗北報告', 'BO3の対戦で敗北を報告しますか？', true);
         if (confirmed) {
-            saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北`);
-            showCustomDialog('報告完了', '敗北を報告しました。');
+            const oldRate = currentRate;
+            currentRate -= 20; // 仮のレート減少
+            updateRateDisplay();
+            saveMatchHistory(`${new Date().toLocaleString()} - BO3 敗北 (レート: ${oldRate} -> ${currentRate})`);
+            window.showCustomDialog('報告完了', `敗北を報告しました。<br>レート: ${oldRate} → ${currentRate} (-20)`);
             if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
             if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
         }
     }
 
     async function handleCancelBattleButtonClick() {
-        const confirmed = await showCustomDialog('対戦中止', '対戦を中止しますか？', true);
+        const confirmed = await window.showCustomDialog('対戦中止', '対戦を中止しますか？', true);
         if (confirmed) {
-            showCustomDialog('完了', '対戦を中止しました。');
+            window.showCustomDialog('完了', '対戦を中止しました。');
             if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
             if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
         }
     }
 
+    updateRateDisplay(); // 初期レート表示
     loadMatchHistory();
 }; // End of initRateMatchSection

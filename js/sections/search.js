@@ -1,8 +1,12 @@
 // js/sections/search.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initSearchSection = function(allCards, showCustomDialog) {
+window.initSearchSection = async function() { // async を追加
     console.log("Search section initialized.");
+
+    // allCards は main.js でロードされ、グローバル変数として利用可能
+    // showCustomDialog も main.js でグローバル関数として定義されている
+    // 必要に応じて allCards や showCustomDialog を使用する
 
     // === 検索セクションのロジック ===
     // 各要素を関数内で取得
@@ -18,15 +22,18 @@ window.initSearchSection = function(allCards, showCustomDialog) {
     // 検索フィルターのセットオプションを動的に追加
     function populateSearchFilters() {
         const sets = new Set();
-        allCards.forEach(card => {
-            if (card.info && card.info.length > 0) {
-                const setInfo = card.info.find(info => info.startsWith('このカードの収録セットは、'));
-                if (setInfo) {
-                    const setName = setInfo.replace('このカードの収録セットは、', '').replace('です。', '');
-                    sets.add(setName);
+        // window.allCards を使用
+        if (window.allCards) {
+            window.allCards.forEach(card => {
+                if (card.info && card.info.length > 0) {
+                    const setInfo = card.info.find(info => info.startsWith('このカードの収録セットは、'));
+                    if (setInfo) {
+                        const setName = setInfo.replace('このカードの収録セットは、', '').replace('です。', '');
+                        sets.add(setName);
+                    }
                 }
-            }
-        });
+            });
+        }
         if (searchFilterSet) {
             searchFilterSet.innerHTML = '<option value="">全て</option>';
             Array.from(sets).sort().forEach(set => {
@@ -84,6 +91,7 @@ window.initSearchSection = function(allCards, showCustomDialog) {
                 );
             }
             // 検索クエリが長すぎる場合、パフォーマンスのために早期終了
+            const fuzzyThreshold = 2; // ここで定義
             if (dp[i][n] > fuzzyThreshold + 1) { // 閾値+1よりも大きければ、これ以上計算しても無駄
                 return Infinity;
             }
@@ -105,7 +113,7 @@ window.initSearchSection = function(allCards, showCustomDialog) {
         const normalizedQuery = normalizeText(query);
         const fuzzyThreshold = 2; // 許容する誤字脱字の閾値 (例: 2文字までの違いを許容)
 
-        let filteredCards = allCards.filter(card => {
+        let filteredCards = window.allCards.filter(card => { // window.allCards を使用
             // テキスト検索
             let textMatches = true;
             if (query) {
@@ -226,9 +234,9 @@ window.initSearchSection = function(allCards, showCustomDialog) {
 
     // カード詳細を表示するポップアップ
     function displayCardDetails(cardName) {
-        const card = allCards.find(c => c.name === cardName);
+        const card = window.allCards.find(c => c.name === cardName); // window.allCards を使用
         if (!card) {
-            showCustomDialog('エラー', 'カード詳細が見つかりませんでした。');
+            window.showCustomDialog('エラー', 'カード詳細が見つかりませんでした。');
             return;
         }
 
@@ -279,7 +287,7 @@ window.initSearchSection = function(allCards, showCustomDialog) {
         autocompleteSuggestions.innerHTML = '';
 
         if (query.length > 0) {
-            const suggestions = allCards.filter(card =>
+            const suggestions = window.allCards.filter(card => // window.allCards を使用
                 card.name.toLowerCase().includes(query)
             ).map(card => card.name);
 

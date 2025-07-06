@@ -1,8 +1,11 @@
 // js/sections/minigames.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initMinigamesSection = function(allCards, showCustomDialog) {
+window.initMinigamesSection = async function() { // async を追加
     console.log("Minigames section initialized.");
+
+    // allCards は main.js でロードされ、グローバル変数として利用可能
+    // showCustomDialog も main.js でグローバル関数として定義されている
 
     // 現在のクイズの状態を管理する変数
     let currentQuiz = {
@@ -74,8 +77,9 @@ window.initMinigamesSection = function(allCards, showCustomDialog) {
 
     // クイズ開始共通ロジック
     async function startQuiz(type) {
-        if (allCards.length === 0) {
-            await showCustomDialog('エラー', 'カードデータがロードされていません。');
+        // allCards が main.js でロードされていることを確認
+        if (!window.allCards || window.allCards.length === 0) {
+            await window.showCustomDialog('エラー', 'カードデータがロードされていません。拡張機能の初期化が完了しているか確認してください。');
             return;
         }
         resetQuiz();
@@ -84,7 +88,7 @@ window.initMinigamesSection = function(allCards, showCustomDialog) {
         let cardSelected = false;
         const maxAttemptsForImageLoad = 20;
         for (let i = 0; i < maxAttemptsForImageLoad; i++) {
-            currentQuiz.card = allCards[Math.floor(Math.random() * allCards.length)];
+            currentQuiz.card = window.allCards[Math.floor(Math.random() * window.allCards.length)]; // window.allCards を使用
             if (type !== 'cardName') {
                 const cardName = currentQuiz.card.name;
                 const imageUrl = chrome.runtime.getURL(`images/cards/${cardName}.png`);
@@ -123,7 +127,7 @@ window.initMinigamesSection = function(allCards, showCustomDialog) {
         }
 
         if (!cardSelected) {
-            await showCustomDialog('エラー', 'クイズに必要な画像が利用可能なカードが見つかりませんでした。別のクイズを試すか、画像ファイルが正しく配置されているか確認してください。');
+            await window.showCustomDialog('エラー', 'クイズに必要な画像が利用可能なカードが見つかりませんでした。別のクイズを試すか、画像ファイルが正しく配置されているか確認してください。');
             resetQuiz();
             return;
         }

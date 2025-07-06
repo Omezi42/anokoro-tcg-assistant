@@ -1,12 +1,22 @@
 // js/sections/deckAnalysis.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
+window.initDeckAnalysisSection = async function() { // async を追加
     console.log("DeckAnalysis section initialized.");
 
-    /**
-     * デッキ分析UIを初期化し、イベントリスナーを設定します。
-     */
+    // cards.jsonをロード (各セクションで必要に応じてロードする)
+    let allCards = [];
+    try {
+        const response = await fetch(chrome.runtime.getURL('json/cards.json'));
+        allCards = await response.json();
+        if (!Array.isArray(allCards) || allCards.length === 0) {
+            console.warn("DeckAnalysis section: カードデータが空または無効です。一部機能が制限される可能性があります。");
+        }
+    } catch (error) {
+        console.error("DeckAnalysis section: カードデータのロードに失敗しました:", error);
+    }
+
+    // === デッキ分析UIを初期化し、イベントリスナーを設定します。 ===
     // 各要素を関数内で取得
     const deckAnalysisImageUpload = document.getElementById('deck-analysis-image-upload');
     const recognizeDeckAnalysisButton = document.getElementById('recognize-deck-analysis-button');
@@ -65,12 +75,12 @@ window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
                 return;
             }
         }
-        showCustomDialog('貼り付け失敗', 'クリップボードに画像がありませんでした。');
+        window.showCustomDialog('貼り付け失敗', 'クリップボードに画像がありませんでした。');
     }
 
     async function handleRecognizeDeckAnalysisButtonClick() {
         if (!deckAnalysisImageUpload.files || deckAnalysisImageUpload.files.length === 0) {
-            showCustomDialog('エラー', 'デッキ画像をアップロードしてください。');
+            window.showCustomDialog('エラー', 'デッキ画像をアップロードしてください。');
             return;
         }
 
@@ -110,7 +120,7 @@ window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
             }
         };
 
-        const apiKey = "";
+        const apiKey = ""; // Canvas環境で自動提供
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
         try {
@@ -165,7 +175,7 @@ window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
 
         if (!deckAnalysisSummary || !suggestedCardsDiv) return;
 
-        const deckCards = allCards.filter(card => cardNames.includes(card.name));
+        const deckCards = window.allCards.filter(card => cardNames.includes(card.name)); // window.allCards を使用
 
         if (deckCards.length === 0) {
             deckAnalysisSummary.innerHTML = '<p>認識されたカードに対応するデータが見つかりませんでした。</p>';
@@ -248,11 +258,11 @@ window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
         if (speciesTypes.size > 0) {
             summaryHtml += `<h5>主要な種別:</h5><ul>`;
             Array.from(speciesTypes).sort().forEach(species => {
-                summaryHtml += `<li>${species}</li>`;
+                suggestedCardsDiv.innerHTML += `<li>${species}</li>`;
             });
-            summaryHtml += `</ul>`;
+            suggestedCardsDiv.innerHTML += `</ul>`;
         } else {
-            summaryHtml += `<p>主要な種別は見つかりませんでした。</p>`;
+            suggestedCardsDiv.innerHTML += `<p>主要な種別は見つかりませんでした。</p>`;
         }
 
         deckAnalysisSummary.innerHTML = summaryHtml;
@@ -287,7 +297,7 @@ window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
         // 例: モンスターが少ない場合
         if (monsterCount / totalCards < 0.4) { // モンスター比率が低い場合
             suggestions.push("より多くのモンスターカードを追加して、盤面展開力を高めることを検討してください。");
-            const monsterSuggestions = allCards.filter(card => 
+            const monsterSuggestions = window.allCards.filter(card => // window.allCards を使用
                 card.info.some(info => info.includes('このカードはモンスターです。')) &&
                 !deckCards.some(deckCard => deckCard.name === card.name) // デッキにないカード
             ).slice(0, 3).map(card => card.name);
@@ -300,7 +310,7 @@ window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
         const drawCards = deckCards.filter(card => card.info.some(info => info.includes('枚引く')));
         if (drawCards.length < 3) { // ドローソースが少ない場合
             suggestions.push("手札の補充を助けるドローソースカードの追加を検討してください。");
-            const drawSuggestions = allCards.filter(card => 
+            const drawSuggestions = window.allCards.filter(card => // window.allCards を使用
                 card.info.some(info => info.includes('枚引く')) &&
                 !deckCards.some(deckCard => deckCard.name === card.name)
             ).slice(0, 2).map(card => card.name);
@@ -312,7 +322,7 @@ window.initDeckAnalysisSection = function(allCards, showCustomDialog) {
         // 例: 特定の種別（属性）に特化している場合、その種別のサポートカードを提案
         if (deckSpeciesTypes.length > 0) {
             deckSpeciesTypes.forEach(species => {
-                const speciesSupportCards = allCards.filter(card => 
+                const speciesSupportCards = window.allCards.filter(card => // window.allCards を使用
                     card.info.some(info => info.includes(`[${species}]`)) && // その種別をサポートする効果
                     !deckCards.some(deckCard => deckCard.name === card.name) && // デッキにないカード
                     !card.info.some(info => info.includes('このカードはモンスターです。')) // モンスター以外のサポートカードを優先

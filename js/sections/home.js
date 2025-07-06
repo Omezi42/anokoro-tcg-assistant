@@ -1,8 +1,13 @@
 // js/sections/home.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initHomeSection = function(allCards, showCustomDialog) {
+window.initHomeSection = async function() { // async を追加
     console.log("Home section initialized.");
+
+    // allCards は main.js でロードされ、グローバル変数として利用可能
+    // showCustomDialog も main.js でグローバル関数として定義されている
+    // 必要に応じて allCards や showCustomDialog を使用する
+
     // ここにHomeセクション固有のJSロジックがあれば記述
     // 現在はHTMLに直接記述されているため、特別な要素操作は不要
 };

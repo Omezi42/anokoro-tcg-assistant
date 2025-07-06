@@ -1,7 +1,7 @@
 // js/sections/battleRecord.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initBattleRecordSection = function(allCards, showCustomDialog) {
+window.initBattleRecordSection = async function() { // async を追加
     console.log("BattleRecord section initialized.");
 
     // === 戦いの記録セクションのロジック ===
@@ -132,7 +132,9 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
                 battleRecordsList.innerHTML = '<li>まだ対戦記録がありません。</li>';
             } else {
                 battleRecordsList.innerHTML = '';
+                // 最新が上に来るように逆順に表示するが、data-indexは元の配列のインデックスを保持
                 [...records].reverse().forEach((record, reverseIndex) => {
+                    // 元の配列におけるインデックスを計算
                     const originalIndex = records.length - 1 - reverseIndex;
                     const listItem = document.createElement('li');
                     listItem.className = 'battle-record-item';
@@ -163,7 +165,7 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
             if (index > -1 && index < records.length) {
                 records.splice(index, 1);
                 chrome.storage.local.set({ battleRecords: records }, () => {
-                    showCustomDialog('削除完了', '対戦記録を削除しました。');
+                    window.showCustomDialog('削除完了', '対戦記録を削除しました。');
                     loadBattleRecords();
                 });
             }
@@ -223,7 +225,7 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
             if (index > -1 && index < decks.length) {
                 decks.splice(index, 1);
                 await chrome.storage.local.set({ registeredDecks: decks });
-                showCustomDialog('削除完了', 'デッキを削除しました。');
+                window.showCustomDialog('削除完了', 'デッキを削除しました。');
                 loadRegisteredDecks();
                 loadBattleRecords();
             }
@@ -331,13 +333,14 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
                 content.classList.remove('active');
             }
         });
+        // 各タブに切り替わった際にデータを再ロード
         if (tabId === 'stats-summary') {
-            loadBattleRecords();
-            updateSelectedDeckStatsDropdown();
+            loadBattleRecords(); // 勝率集計を再ロード
+            updateSelectedDeckStatsDropdown(); // デッキ選択ドロップダウンも更新
         } else if (tabId === 'deck-management') {
-            loadRegisteredDecks();
+            loadRegisteredDecks(); // デッキリストを再ロード
         } else if (tabId === 'past-records') {
-            loadBattleRecords();
+            loadBattleRecords(); // 過去の記録リストも更新 (集計は不要だがリスト表示のために)
         }
     }
 
@@ -355,7 +358,7 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
         const notes = notesTextarea.value.trim();
 
         if (!myDeck || !opponentDeck || !result || !firstSecond) {
-            showCustomDialog('エラー', '自分のデッキ名、相手のデッキ名、勝敗、先攻/後攻は必須です。');
+            window.showCustomDialog('エラー', '自分のデッキ名、相手のデッキ名、勝敗、先攻/後攻は必須です。');
             return;
         }
 
@@ -374,7 +377,7 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
             const records = res.battleRecords || [];
             records.push(newRecord);
             chrome.storage.local.set({ battleRecords: records }, () => {
-                showCustomDialog('保存完了', '対戦記録を保存しました！');
+                window.showCustomDialog('保存完了', '対戦記録を保存しました！');
                 if (myDeckSelect) myDeckSelect.value = '';
                 if (opponentDeckSelect) opponentDeckSelect.value = '';
                 if (winLossSelect) winLossSelect.value = 'win';
@@ -391,20 +394,20 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
         const deckType = newDeckTypeSelect.value;
 
         if (!deckName || !deckType) {
-            showCustomDialog('エラー', 'デッキ名とデッキタイプは必須です。');
+            window.showCustomDialog('エラー', 'デッキ名とデッキタイプは必須です。');
             return;
         }
 
         chrome.storage.local.get(['registeredDecks'], async (result) => {
             const decks = result.registeredDecks || [];
             if (decks.some(deck => deck.name === deckName)) {
-                showCustomDialog('エラー', '同じ名前のデッキが既に登録されています。');
+                window.showCustomDialog('エラー', '同じ名前のデッキが既に登録されています。');
                 return;
             }
 
             decks.push({ name: deckName, type: deckType });
             await chrome.storage.local.set({ registeredDecks: decks });
-            showCustomDialog('登録完了', `デッキ「${deckName}」を登録しました！`);
+            window.showCustomDialog('登録完了', `デッキ「${deckName}」を登録しました！`);
             if (newDeckNameInput) newDeckNameInput.value = '';
             if (newDeckTypeSelect) newDeckTypeSelect.value = '';
             loadRegisteredDecks();
@@ -413,7 +416,7 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
 
     async function handleDeleteBattleRecordClick(event) {
         const indexToDelete = parseInt(event.currentTarget.dataset.index);
-        const confirmed = await showCustomDialog('記録削除', 'この対戦記録を削除しますか？', true);
+        const confirmed = await window.showCustomDialog('記録削除', 'この対戦記録を削除しますか？', true);
         if (confirmed) {
             deleteBattleRecord(indexToDelete);
         }
@@ -421,7 +424,7 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
 
     async function handleDeleteRegisteredDeckClick(event) {
         const indexToDelete = parseInt(event.currentTarget.dataset.index);
-        const confirmed = await showCustomDialog('デッキ削除', 'このデッキを登録リストから削除しますか？', true);
+        const confirmed = await window.showCustomDialog('デッキ削除', 'このデッキを登録リストから削除しますか？', true);
         if (confirmed) {
             deleteRegisteredDeck(indexToDelete);
         }
@@ -457,12 +460,19 @@ window.initBattleRecordSection = function(allCards, showCustomDialog) {
         selectedDeckForStats.addEventListener('change', handleSelectedDeckForStatsChange);
     }
 
-    // タブボタンのイベントリスナーは、showBattleRecordTab関数内で処理されるため、ここでは不要。
-    // showBattleRecordTab関数が呼び出されるたびに、内部でDOM要素が再取得され、イベントリスナーが再適用される。
+    // タブボタンのイベントリスナーをここで設定
+    battleRecordTabButtons.forEach(button => {
+        button.removeEventListener('click', handleBattleRecordTabClick); // 既存のリスナーを削除
+        button.addEventListener('click', handleBattleRecordTabClick);
+    });
+
+    function handleBattleRecordTabClick(event) {
+        showBattleRecordTab(event.currentTarget.dataset.tab);
+    }
 
     // 初回ロード時に各データをロード
-    loadRegisteredDecks(); // これによりmyDeckSelectとopponentDeckSelectが初期化される
-    loadBattleRecords(); // これにより集計と過去の記録リストが初期化される
+    loadRegisteredDecks();
+    loadBattleRecords();
 
     // デフォルトで「新しい対戦記録」タブを表示
     showBattleRecordTab('new-record');

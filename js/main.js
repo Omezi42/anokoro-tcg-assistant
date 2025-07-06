@@ -6,7 +6,7 @@ link.rel = 'stylesheet';
 link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css';
 document.head.appendChild(link);
 
-// 全カードデータを格納する変数 (グローバルで保持し、各セクションに渡す)
+// 全カードデータを格納する変数 (グローバルで保持し、各セクションからアクセス可能にする)
 let allCards = [];
 
 // サイドバーの開閉状態を記憶するための変数
@@ -37,12 +37,13 @@ let uiInjected = false;
 
 /**
  * カスタムアラート/確認ダイアログを表示します。
+ * この関数はグローバルスコープ (window) に公開されます。
  * @param {string} title - ダイアログのタイトル。
  * @param {string} message - ダイアログに表示するメッセージ。
  * @param {boolean} isConfirm - 確認ダイアログかどうか (trueの場合、OKとキャンセルボタンが表示されます)。
  * @returns {Promise<boolean>} - OKがクリックされた場合はtrue、キャンセルがクリックされた場合はfalseを解決するPromise。
  */
-function showCustomDialog(title, message, isConfirm = false) {
+window.showCustomDialog = function(title, message, isConfirm = false) {
     return new Promise((resolve) => {
         const overlay = document.getElementById('tcg-custom-dialog-overlay');
         const dialogTitle = document.getElementById('tcg-dialog-title');
@@ -82,7 +83,7 @@ function showCustomDialog(title, message, isConfirm = false) {
         overlay.style.display = 'flex';
         setTimeout(() => overlay.classList.add('show'), 10);
     });
-}
+};
 
 
 /**
@@ -195,6 +196,11 @@ function createRightSideMenuAndAttachListeners() {
 // メニューアイコンクリックハンドラ
 function handleMenuIconClick(event) {
     const sectionId = event.currentTarget.dataset.section;
+    // アリーナボタンがクリックされたら新しいタブで開く
+    if (sectionId === 'arena') {
+        window.open('https://anokorotcg-arena.vercel.app/', '_blank');
+        return; // サイドバーは開かない
+    }
     toggleContentArea(sectionId);
 }
 
@@ -316,8 +322,7 @@ async function showSection(sectionId) {
             chrome.runtime.sendMessage({
                 action: "injectSectionScript",
                 scriptPath: jsPath,
-                initFunctionName: initFunctionName,
-                allCards: allCards // allCardsデータも渡す
+                initFunctionName: initFunctionName
             }, (response) => {
                 if (chrome.runtime.lastError) {
                     console.error("Error injecting script via background:", chrome.runtime.lastError.message);
@@ -339,7 +344,9 @@ async function showSection(sectionId) {
         setTimeout(() => {
             if (typeof window[initFunctionName] === 'function') {
                 console.log(`Re-calling ${initFunctionName} for already injected section ${sectionId}.`);
-                window[initFunctionName](allCards, showCustomDialog);
+                // allCards は main.js のグローバル変数としてアクセス可能
+                // showCustomDialog は main.js のグローバル関数としてアクセス可能
+                window[initFunctionName](); // 引数を削除
             } else {
                 console.error(`Initialization function ${initFunctionName} NOT found on window object for already injected script for section ${sectionId}. This indicates a scoping issue or the function is not exposed globally.`);
             }
@@ -367,6 +374,7 @@ function getSectionTitle(sectionId) {
         case 'minigames': return 'ミニゲーム';
         case 'battleRecord': return '戦いの記録';
         case 'deckAnalysis': return 'デッキ分析';
+        case 'arena': return 'アリーナ'; // アリーナセクションのタイトル
         default: return 'あの頃の自作TCGアシスタント';
     }
 }
@@ -393,6 +401,7 @@ async function injectUIIntoPage() {
                     <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
                     <button class="tcg-menu-icon" data-section="battleRecord" title="戦いの記録"><i class="fas fa-trophy"></i></button>
                     <button class="tcg-menu-icon" data-section="deckAnalysis" title="デッキ分析"><i class="fas fa-cube"></i></button>
+                    <!-- アリーナボタンはリンク集に移動するため、ここから削除 -->
                 </div>
                 <button class="tcg-menu-toggle-button" id="tcg-menu-toggle-button" title="メニューを隠す/表示">
                     <i class="fas fa-chevron-right"></i>
@@ -409,6 +418,7 @@ async function injectUIIntoPage() {
                     <div id="tcg-minigames-section" class="tcg-section"></div>
                     <div id="tcg-battleRecord-section" class="tcg-section"></div>
                     <div id="tcg-deckAnalysis-section" class="tcg-section"></div>
+                    <!-- アリーナセクションは直接表示しないため、ここから削除 -->
                 </div>
             </div>
 
@@ -484,7 +494,7 @@ async function injectUIIntoPage() {
  * ここでは、セクション固有ではない、グローバルな機能の初期化を行います。
  */
 async function initializeExtensionFeatures() {
-    // cards.jsonを読み込む
+    // cards.jsonを読み込む (main.jsで一度だけロード)
     try {
         const response = await fetch(chrome.runtime.getURL('json/cards.json'));
         allCards = await response.json();
@@ -585,7 +595,7 @@ async function initializeExtensionFeatures() {
 
             screenshotOverlay.style.display = 'none';
             startX = startY = endX = endY = undefined;
-            showCustomDialog('貼り付け完了', 'スクリーンショットがメモエリアに貼り付けられました。');
+            window.showCustomDialog('貼り付け完了', 'スクリーンショットがメモエリアに貼り付けられました。');
         });
     }
 
@@ -601,7 +611,7 @@ async function initializeExtensionFeatures() {
 
             screenshotOverlay.style.display = 'none';
             startX = startY = endX = endY = undefined;
-            showCustomDialog('貼り付け完了', 'スクリーンショットがメモエリアに貼り付けられました。');
+            window.showCustomDialog('貼り付け完了', 'スクリーンショットがメモエリアに貼り付けられました。');
         });
     }
 
@@ -609,14 +619,14 @@ async function initializeExtensionFeatures() {
         cancelCropButton.addEventListener('click', () => {
             if (screenshotOverlay) screenshotOverlay.style.display = 'none';
             startX = startY = endX = endY = undefined;
-            showCustomDialog('キャンセル', 'スクリーンショットのトリミングをキャンセルしました。');
+            window.showCustomDialog('キャンセル', 'スクリーンショットのトリミングをキャンセルしました。');
         });
     }
 }
 
 // DOMが完全にロードされるのを待ってから要素を注入し、機能を初期化します。
 // script要素がdefer属性を持つか、bodyの最後にある場合、DOMContentLoadedは不要かもしれませんが、
-// 念のためこのまかとします。
+// 念のためこのままとします。
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         injectUIIntoPage();
@@ -686,7 +696,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         chrome.runtime.sendMessage({ action: "captureScreenshot" }, (response) => {
             if (chrome.runtime.lastError) {
                 console.error("スクリーンショットのキャプチャに失敗しました:", chrome.runtime.lastError.message);
-                showCustomDialog('エラー', `スクリーンショットのキャプチャに失敗しました: ${chrome.runtime.lastError.message}<br>拡張機能に必要な権限が不足している可能性があります。`);
+                window.showCustomDialog('エラー', `スクリーンショットのキャプチャに失敗しました: ${chrome.runtime.lastError.message}<br>拡張機能に必要な権限が不足している可能性があります。`);
                 return;
             }
             if (response && response.success && response.screenshotUrl) {
@@ -694,7 +704,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 currentScreenshotImage.onload = () => {
                     // ここで screenshotCanvas が null でないことを確認
                     if (!screenshotCanvas || !screenshotCtx) {
-                        showCustomDialog('エラー', 'スクリーンショットの表示に必要な要素が見つかりません。');
+                        window.showCustomDialog('エラー', 'スクリーンショットの表示に必要な要素が見つかりません。');
                         return;
                     }
                     const maxWidth = window.innerWidth * 0.9;
@@ -724,12 +734,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 };
                 currentScreenshotImage.onerror = (e) => {
                     console.error("スクリーンショット画像のロードに失敗しました:", e);
-                    showCustomDialog('エラー', 'キャプチャした画像の表示に失敗しました。');
+                    window.showCustomDialog('エラー', 'キャプチャした画像の表示に失敗しました。');
                 };
                 currentScreenshotImage.src = response.screenshotUrl;
             } else {
                 console.error("スクリーンショットのキャプチャに失敗しました:", response ? response.error : "不明なエラー");
-                showCustomDialog('エラー', `スクリーンショットのキャプチャに失敗しました: ${response ? response.error : '不明なエラー'}<br>拡張機能に必要な権限が不足している可能性があります。`);
+                window.showCustomDialog('エラー', `スクリーンショットのキャプチャに失敗しました: ${response ? response.error : '不明なエラー'}<br>拡張機能に必要な権限が不足している可能性があります。`);
             }
         });
     }

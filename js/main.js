@@ -514,7 +514,7 @@ async function initializeExtensionFeatures() {
         } else {
             console.log(`main.js: ${window.allCards.length} cards loaded into window.allCards.`);
         }
-    } catch (error) {
+    } catch(error) {
         console.error("main.js: カードデータのロードに失敗しました:", error);
     }
 

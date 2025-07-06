@@ -94,7 +94,8 @@ window.initMemoSection = async function() { // async を追加
 
     // イベントハンドラ関数
     async function handleDeleteMemoClick(event) {
-        const originalIndexToDelete = parseInt(event.currentTarget.dataset.original-index);
+        // data-original-index を originalIndex に修正
+        const originalIndexToDelete = parseInt(event.currentTarget.dataset.originalIndex);
         const confirmed = await window.showCustomDialog('メモ削除', 'このメモを削除しますか？', true);
         if (confirmed) {
             deleteMemo(originalIndexToDelete);
@@ -102,7 +103,8 @@ window.initMemoSection = async function() { // async を追加
     }
 
     function handleEditMemoClick(event) {
-        const originalIndexToEdit = parseInt(event.currentTarget.dataset.original-index);
+        // data-original-index を originalIndex に修正
+        const originalIndexToEdit = parseInt(event.currentTarget.dataset.originalIndex);
         editMemo(originalIndexToEdit);
     }
 

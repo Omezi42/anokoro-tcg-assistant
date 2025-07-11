@@ -6,6 +6,11 @@ link.rel = 'stylesheet';
 link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css';
 document.head.appendChild(link);
 
+// Firefox互換性のためのbrowserオブジェクトのフォールバック
+if (typeof browser === 'undefined') {
+    var browser = chrome;
+}
+
 // 全カードデータを格納する変数 (グローバルで保持し、各セクションからアクセス可能にする)
 // window.allCards として公開
 window.allCards = [];
@@ -40,9 +45,9 @@ async function initializeFirebase() {
              console.error("Firebase: Firebase SDKs are not loaded. Attempting to inject them via background script.");
              // SDKがロードされていない場合は、動的に注入を試みる
              await new Promise((resolve, reject) => {
-                chrome.runtime.sendMessage({ action: "injectFirebaseSDKs" }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        reject(new Error(chrome.runtime.lastError.message));
+                browser.runtime.sendMessage({ action: "injectFirebaseSDKs" }, (response) => {
+                    if (browser.runtime.lastError) {
+                        reject(new Error(browser.runtime.lastError.message));
                     } else if (response && response.success) {
                         resolve();
                     } else {
@@ -216,13 +221,13 @@ function createRightSideMenuAndAttachListeners() {
     toggleButton.addEventListener('click', handleMenuToggleButtonClick);
 
     // メニューアイコンの表示状態をロードし、初期状態を適用
-    chrome.storage.local.get(['isMenuIconsVisible'], (result) => {
+    browser.storage.local.get(['isMenuIconsVisible'], (result) => {
         isMenuIconsVisible = result.isMenuIconsVisible !== undefined ? result.isMenuIconsVisible : true;
         updateMenuIconsVisibility();
     });
 
     // サイドバーの開閉状態とアクティブなセクションをロードし、UIを初期化
-    chrome.storage.local.get(['isSidebarOpen', 'activeSection', 'isMenuIconsVisible'], (result) => {
+    browser.storage.local.get(['isSidebarOpen', 'activeSection', 'isMenuIconsVisible'], (result) => {
         isSidebarOpen = result.isSidebarOpen !== undefined ? result.isSidebarOpen : false;
         const activeSection = result.activeSection || 'home'; // デフォルトはホーム
         isMenuIconsVisible = result.isMenuIconsVisible !== undefined ? result.isMenuIconsVisible : isSidebarOpen;
@@ -282,7 +287,7 @@ function handleMenuIconClick(event) {
 function handleMenuToggleButtonClick() {
     isMenuIconsVisible = !isMenuIconsVisible;
     updateMenuIconsVisibility();
-    chrome.storage.local.set({ isMenuIconsVisible: isMenuIconsVisible });
+    browser.storage.local.set({ isMenuIconsVisible: isMenuIconsVisible });
 }
 
 
@@ -317,7 +322,7 @@ function toggleContentArea(sectionId, forceOpenSidebar = false) {
         if (gameCanvas) gameCanvas.style.display = 'block';
         document.body.classList.remove('game-focused-mode');
         isSidebarOpen = false;
-        chrome.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
+        browser.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
     } else {
         // サイドバーを開く、または別のセクションに切り替える
         contentArea.classList.add('active');
@@ -327,7 +332,7 @@ function toggleContentArea(sectionId, forceOpenSidebar = false) {
         if (gameCanvas) gameCanvas.style.display = 'block';
         document.body.classList.remove('game-focused-mode');
         isSidebarOpen = true;
-        chrome.storage.local.set({ isSidebarOpen: isSidebarOpen, activeSection: sectionId, isMenuIconsVisible: isMenuIconsVisible });
+        browser.storage.local.set({ isSidebarOpen: isSidebarOpen, activeSection: sectionId, isMenuIconsVisible: isMenuIconsVisible });
 
         showSection(sectionId); // ターゲットセクションのコンテンツを表示
 
@@ -380,7 +385,7 @@ async function showSection(sectionId) {
 
     // セクションのHTMLをロード
     try {
-        const htmlPath = chrome.runtime.getURL(`html/sections/${sectionId}.html`);
+        const htmlPath = browser.runtime.getURL(`html/sections/${sectionId}.html`);
         const response = await fetch(htmlPath);
         if (!response.ok) {
             throw new Error(`Failed to load HTML for ${sectionId}: ${response.statusText} (${response.status})`);
@@ -402,13 +407,13 @@ async function showSection(sectionId) {
     if (!window._injectedSectionScripts.has(jsPath)) {
         try {
             // background.js にメッセージを送信してスクリプト注入を依頼
-            chrome.runtime.sendMessage({
+            browser.runtime.sendMessage({
                 action: "injectSectionScript",
                 scriptPath: jsPath,
                 initFunctionName: initFunctionName
             }, (response) => {
-                if (chrome.runtime.lastError) {
-                    console.error("Error injecting script via background:", chrome.runtime.lastError.message);
+                if (browser.runtime.lastError) {
+                    console.error("Error injecting script via background:", browser.runtime.lastError.message);
                     return;
                 }
                 if (response && response.success) {
@@ -440,7 +445,7 @@ async function showSection(sectionId) {
     targetSection.classList.add('active');
 
     // アクティブなセクションを保存
-    chrome.storage.local.set({ activeSection: sectionId });
+    browser.storage.local.set({ activeSection: sectionId });
 }
 
 /**
@@ -535,7 +540,7 @@ async function injectUIIntoPage() {
         createRightSideMenuAndAttachListeners();
         initializeExtensionFeatures();
 
-        chrome.storage.local.get(['activeSection'], (result) => {
+        browser.storage.local.get(['activeSection'], (result) => {
             const activeSection = result.activeSection || 'home';
             showSection(activeSection);
         });
@@ -552,7 +557,7 @@ async function injectUIIntoPage() {
 async function initializeExtensionFeatures() {
     console.log("main.js: Initializing extension features...");
     try {
-        const response = await fetch(chrome.runtime.getURL('json/cards.json'));
+        const response = await fetch(browser.runtime.getURL('json/cards.json'));
         window.allCards = await response.json();
         if (!Array.isArray(window.allCards) || window.allCards.length === 0) {
             console.warn("main.js: カードデータが空または無効です。一部機能が制限される可能性があります。");
@@ -575,7 +580,7 @@ if (document.readyState === 'loading') {
 }
 
 // popup.jsからのメッセージを受け取るリスナー
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "showSection") {
         toggleContentArea(request.section, request.forceOpenSidebar);
     } else if (request.action === "toggleSidebar") {
@@ -598,7 +603,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             isMenuIconsVisible = true;
             updateMenuIconsVisibility();
 
-            chrome.storage.local.get(['activeSection'], (result) => {
+            browser.storage.local.get(['activeSection'], (result) => {
                 const activeSection = result.activeSection || 'home';
                 const initialActiveIcon = rightMenuContainer.querySelector(`.tcg-menu-icon[data-section="${activeSection}"]`);
                 rightMenuContainer.querySelectorAll('.tcg-menu-icon').forEach(btn => btn.classList.remove('active'));
@@ -608,7 +613,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 showSection(activeSection);
             });
         }
-        chrome.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
+        browser.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
     } else if (request.action === "matchFound") {
         console.log("main.js: Match found message received from background. Triggering dialog and sidebar.");
         // ルームIDは表示しない

@@ -1,11 +1,16 @@
 // background.js
 
+// Firefox互換性のためのbrowserオブジェクトのフォールバック
+if (typeof browser === 'undefined') {
+    var browser = chrome;
+}
+
 // 拡張機能がインストールされたときにメッセージをコンソールに出力します。
-chrome.runtime.onInstalled.addListener((details) => {
+browser.runtime.onInstalled.addListener((details) => {
   console.log("あの頃の自作TCGアシスタントがインストールされました。");
   // 初回インストール時にオプションページを開く（任意）
-  if (details.reason === chrome.runtime.OnInstalledReason.INSTALL) {
-    // chrome.runtime.openOptionsPage(); // 設定ページを自動で開く場合
+  if (details.reason === browser.runtime.OnInstalledReason.INSTALL) {
+    // browser.runtime.openOptionsPage(); // 設定ページを自動で開く場合
   }
 });
 
@@ -16,7 +21,7 @@ let isUserMatching = false; // ユーザーがマッチング中かどうか
 let currentMatchInfo = null; // 成立したマッチの情報 (roomIdは不要になったが、nullでないことでマッチ成立を示す)
 
 // popup.jsやcontent.jsからのメッセージを受け取り、content.jsに転送したり、通知を作成したりします。
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // 非同期処理のレスポンスを返すために sendResponse を保持
   // sendResponse は一度しか呼び出せないため、フラグで制御
   let responded = false;
@@ -29,13 +34,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === "showSection" && sender.tab) {
     // 特定のセクションを表示するリクエスト
-    chrome.tabs.sendMessage(sender.tab.id, {
+    browser.tabs.sendMessage(sender.tab.id, {
       action: "showSection",
       section: request.section
     });
   } else if (request.action === "matchFoundNotification") {
     // 対戦相手が見つかった通知を作成します。
-    chrome.notifications.create('matchFound', {
+    browser.notifications.create('matchFound', {
       type: 'basic',
       iconUrl: 'images/icon128.png', // 拡張機能のアイコン
       title: '対戦相手が見つかりました！',
@@ -59,16 +64,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.log("Background: Match found!");
 
         // アクティブなタブにマッチング完了を通知
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs[0] && tabs[0].id) {
-                chrome.tabs.sendMessage(tabs[0].id, {
+                browser.tabs.sendMessage(tabs[0].id, {
                     action: "matchFound",
                     // roomIdは不要になったため削除
                 });
             }
         });
         // 通知も作成
-        chrome.notifications.create('matchFound', {
+        browser.notifications.create('matchFound', {
             type: 'basic',
             iconUrl: 'images/icon128.png', // 拡張機能のアイコン
             title: '対戦相手が見つかりました！',
@@ -104,18 +109,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   else if (request.action === "injectSectionScript") {
       // content.js からのスクリプト注入リクエスト
       if (sender.tab && sender.tab.id && request.scriptPath && request.initFunctionName) {
-          chrome.scripting.executeScript({
+          browser.scripting.executeScript({
               target: { tabId: sender.tab.id },
               files: [request.scriptPath] // 相対パスを直接使用
           }, () => {
-              if (chrome.runtime.lastError) {                  
-                  console.error(`Failed to execute script ${request.scriptPath}:`, chrome.runtime.lastError.message);
-                  sendAsyncResponse({ success: false, error: chrome.runtime.lastError.message });
+              if (browser.runtime.lastError) {                  
+                  console.error(`Failed to execute script ${request.scriptPath}:`, browser.runtime.lastError.message);
+                  sendAsyncResponse({ success: false, error: browser.runtime.lastError.message });
                   return;
               }
               // スクリプトが注入された後、その中の初期化関数を呼び出す
               // allCards と showCustomDialog は content.js のグローバルスコープからアクセスできることを前提とする
-              chrome.scripting.executeScript({
+              browser.scripting.executeScript({
                   target: { tabId: sender.tab.id },
                   // function を文字列として渡すことで、シリアライズの問題を回避
                   function: (funcName) => {
@@ -128,9 +133,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                   },
                   args: [request.initFunctionName] // initFunctionName のみ渡す
               }, () => {
-                  if (chrome.runtime.lastError) {
-                      console.error(`Failed to call init function ${request.initFunctionName}:`, chrome.runtime.lastError.message);
-                      sendAsyncResponse({ success: false, error: chrome.runtime.lastError.message });
+                  if (browser.runtime.lastError) {
+                      console.error(`Failed to call init function ${request.initFunctionName}:`, browser.runtime.lastError.message);
+                      sendAsyncResponse({ success: false, error: browser.runtime.lastError.message });
                       return;
                   }
                   sendAsyncResponse({ success: true });
@@ -152,12 +157,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       const loadScript = (relativePath) => {
           return new Promise((res, rej) => {
-              chrome.scripting.executeScript({
+              browser.scripting.executeScript({
                   target: { tabId: tabId },
                   files: [relativePath]
               }, (results) => {
-                  if (chrome.runtime.lastError) {
-                      rej(new Error(chrome.runtime.lastError.message));
+                  if (browser.runtime.lastError) {
+                      rej(new Error(browser.runtime.lastError.message));
                   } else if (results && results[0] && results[0].result === false) {
                       rej(new Error(`Script injection failed for ${relativePath}`));
                   } else {
@@ -181,20 +186,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // manifest.jsonで定義されたコマンドを処理します。
-chrome.commands.onCommand.addListener((command) => {
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+browser.commands.onCommand.addListener((command) => {
+  browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (tabs[0] && tabs[0].url && tabs[0].url.startsWith('https://unityroom.com/games/anokorotcg')) {
       if (command === "open-home-section") {
-        chrome.tabs.sendMessage(tabs[0].id, { action: "showSection", section: "home" });
+        browser.tabs.sendMessage(tabs[0].id, { action: "showSection", section: "home" });
       } else if (command === "open-memo-section") {
-        chrome.tabs.sendMessage(tabs[0].id, { action: "showSection", section: "memo" });
+        browser.tabs.sendMessage(tabs[0].id, { action: "showSection", section: "memo" });
       } else if (command === "toggle-sidebar") {
-        chrome.tabs.sendMessage(tabs[0].id, { action: "toggleSidebar" });
+        browser.tabs.sendMessage(tabs[0].id, { action: "toggleSidebar" });
       }
     } else {
       // ゲームページでない場合はユーザーに通知（content.jsのカスタムダイアログをトリガー）
       if (tabs[0] && tabs[0].id) {
-          chrome.scripting.executeScript({
+          browser.scripting.executeScript({
               target: { tabId: tabs[0].id },
               function: () => {
                 function showCustomAlertDialog(title, message) {

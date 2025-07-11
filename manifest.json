@@ -1,5 +1,5 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 2,
   "name": "あの頃の自作TCGアシスタント",
   "version": "1.6",
   "description": "unityroomの『あの頃の自作TCG』の体験を向上させるための拡張機能です。",
@@ -8,14 +8,15 @@
     "storage",
     "scripting",
     "notifications",
-    "tabs"
-  ],
-  "host_permissions": [
-    "https://unityroom.com/games/anokorotcg*",
+    "tabs",
     "<all_urls>"
   ],
+  "host_permissions": [
+    "https://unityroom.com/games/anokorotcg*"
+  ],
   "background": {
-    "service_worker": "js/background.js"
+    "scripts": ["js/background.js"],
+    "persistent": false
   },
   "content_scripts": [
     {
@@ -25,7 +26,7 @@
       "run_at": "document_idle"
     }
   ],
-  "action": {
+  "browser_action": {
     "default_popup": "html/popup.html",
     "default_icon": {
       "16": "images/icon16.png",
@@ -43,26 +44,21 @@
     "128": "images/icon128.png"
   },
   "web_accessible_resources": [
-    {
-      "resources": [
-        "json/cards.json",
-        "images/cards/*.png",
-        "css/style.css",
-        "html/index.html",
-        "html/sections/*.html",
-        "js/main.js",
-        "js/sections/*.js",
-        "images/*.png",
-        "js/lib/firebase/firebase-app.js",    
-        "js/lib/firebase/firebase-auth.js",   
-        "js/lib/firebase/firebase-firestore.js"
-      ],
-      "matches": ["<all_urls>"]
-    }
+    "json/cards.json",
+    "images/cards/*.png",
+    "css/style.css",
+    "html/index.html",
+    "html/sections/*.html",
+    "js/main.js",
+    "js/sections/*.js",
+    "images/*.png",
+    "js/lib/firebase/firebase-app.js",    
+    "js/lib/firebase/firebase-auth.js",   
+    "js/lib/firebase/firebase-firestore.js"
   ],
   "options_page": "html/options.html",
   "commands": {
-    "_execute_action": {
+    "_execute_browser_action": {
       "suggested_key": {
         "default": "Ctrl+Shift+F",
         "mac": "MacCtrl+Shift+F"

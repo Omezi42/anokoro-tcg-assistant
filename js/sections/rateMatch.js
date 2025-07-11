@@ -49,7 +49,7 @@ window.initRateMatchSection = async function() {
     let currentUserId = null; // ログイン中のユーザーID (Replitサーバーが発行)
 
     // --- WebSocket & WebRTC Variables ---
-    const REPLIT_WS_URL = 'wss://your-repl-name.your-username.repl.co'; // ★★★ ここをReplitのURLに置き換える ★★★
+    const REPLIT_WS_URL = 'https://8b8f6d6b-0ed0-4b33-9c7f-a5f4fa7b86f7-00-u0oyrmlyl7jd.pike.replit.dev/'; // ★★★ ここをReplitのURLに置き換える ★★★
 
     let ws = null; // WebSocket接続
     let peerConnection = null; // WebRTC PeerConnection

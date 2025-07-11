@@ -34,103 +34,13 @@ const TOGGLE_BUTTON_SIZE = 50; // px (メニュー開閉ボタンのサイズ)
 // UIが既に挿入されたかどうかを追跡するフラグ
 let uiInjected = false;
 
-// Firebase関連のグローバル変数
-window.firebaseApp = null;
-window.db = null;
-window.auth = null;
-window.currentUserId = null; // Authenticated user ID
-
-/**
- * Firebaseを初期化し、認証リスナーを設定します。
- */
-async function initializeFirebase() {
-    console.log("Firebase: Initializing Firebase...");
-    try {
-        // Firebase SDKがロードされていることを確認
-        if (typeof firebase === 'undefined' || !firebase.app || !firebase.auth || !firebase.firestore) {
-             console.error("Firebase: Firebase SDKs are not loaded. Attempting to inject them via background script.");
-             // SDKがロードされていない場合は、動的に注入を試みる
-             await new Promise((resolve, reject) => {
-                browser.runtime.sendMessage({ action: "injectFirebaseSDKs" }, (response) => {
-                    if (browser.runtime.lastError) {
-                        console.error("Firebase: Error from runtime.sendMessage (injectFirebaseSDKs):", browser.runtime.lastError.message);
-                        reject(new Error(browser.runtime.lastError.message));
-                    } else if (response && response.success) {
-                        console.log("Firebase: Firebase SDKs injection message sent successfully.");
-                        resolve();
-                    } else {
-                        console.error("Firebase: Firebase SDKs injection message failed:", response ? response.error : 'Unknown error');
-                        reject(new Error(response.error || "Unknown error injecting Firebase SDKs."));
-                    }
-                });
-             });
-             // 再度チェック
-             if (typeof firebase === 'undefined' || !firebase.app || !firebase.auth || !firebase.firestore) {
-                 console.error("Firebase: Firebase SDKs still not loaded after injection attempt.");
-                 if (window.showCustomDialog) {
-                    window.showCustomDialog('エラー', 'Firebase SDKのロードに失敗しました。拡張機能のファイルを確認してください。');
-                 }
-                 return;
-             }
-             console.log("Firebase: Firebase SDKs detected after injection attempt.");
-        } else {
-            console.log("Firebase: Firebase SDKs already loaded.");
-        }
-
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-
-        if (Object.keys(firebaseConfig).length === 0) {
-            console.error("Firebase: Firebase config is empty. Cannot initialize Firebase.");
-            return;
-        }
-        console.log("Firebase: Firebase config loaded.");
-
-        // Firebaseアプリが既に初期化されているかチェック
-        if (!window.firebaseApp) {
-            window.firebaseApp = firebase.initializeApp(firebaseConfig); // firebase名前空間からinitializeAppを呼び出す
-            window.db = firebase.firestore(); // firebase名前空間からfirestoreを呼び出す (appインスタンスは不要)
-            window.auth = firebase.auth(); // firebase名前空間からauthを呼び出す (appインスタンスは不要)
-            console.log("Firebase: App, Firestore, Auth initialized.");
-        } else {
-            console.log("Firebase: App already initialized.");
-        }
-
-        // 認証状態の変更をリッスン
-        firebase.auth().onAuthStateChanged(async (user) => { // firebase.auth().onAuthStateChanged を呼び出す
-            if (user) {
-                window.currentUserId = user.uid;
-                console.log("Firebase: User signed in:", user.uid);
-            } else {
-                console.log("Firebase: No user signed in. Attempting anonymous or custom token sign-in.");
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await firebase.auth().signInWithCustomToken(__initial_auth_token); // signInWithCustomTokenを呼び出す
-                        window.currentUserId = firebase.auth().currentUser.uid;
-                        console.log("Firebase: Signed in with custom token:", window.currentUserId);
-                    } else {
-                        await firebase.auth().signInAnonymously(); // signInAnonymouslyを呼び出す
-                        window.currentUserId = firebase.auth().currentUser.uid;
-                        console.log("Firebase: Signed in anonymously:", window.currentUserId);
-                    }
-                } catch (error) {
-                    console.error("Firebase: Anonymous or custom token sign-in failed:", error);
-                    // 認証失敗時のフォールバックとしてランダムなIDを使用
-                    window.currentUserId = crypto.randomUUID();
-                    console.warn("Firebase: Using random UUID as userId due to auth failure:", window.currentUserId);
-                }
-            }
-            // 認証が準備できたことを通知するカスタムイベントを発火
-            document.dispatchEvent(new CustomEvent('firebaseAuthReady'));
-            console.log("Firebase: Auth state changed. Dispatching firebaseAuthReady event.");
-        });
-    } catch (error) {
-        console.error("Firebase: Failed to initialize Firebase:", error);
-        if (window.showCustomDialog) {
-            window.showCustomDialog('エラー', `Firebase初期化中にエラーが発生しました: ${error.message}`);
-        }
-    }
-}
+// Firebase関連のグローバル変数は、rateMatchセクションではReplit DBに移行したため、
+// ここでは宣言せず、他のセクションで必要であれば各セクション内でFirebaseを初期化するか、
+// popup.htmlで読み込まれたFirebase SDKを直接利用してください。
+// window.firebaseApp = null;
+// window.db = null;
+// window.auth = null;
+// window.currentUserId = null;
 
 
 /**
@@ -197,7 +107,7 @@ function updateMenuIconsVisibility() {
     const toggleButton = document.getElementById('tcg-menu-toggle-button');
     const toggleIcon = toggleButton ? toggleButton.querySelector('i') : null;
 
-    if (!menuContainer || !menuIconsWrapper || !toggleIcon) {
+    if (!menuContainer || !menuIconsWrapper || !toggleButton) {
         console.warn("updateMenuIconsVisibility: Menu visibility elements not found for update. UI might not be fully loaded yet.");
         return;
     }
@@ -584,9 +494,10 @@ async function injectUIIntoPage() {
         uiInjected = true;
         console.log("main.js: UI injected into page. Elements referenced.");
 
-        // Firebase初期化をここで行う
-        await initializeFirebase(); // Firebaseの初期化が完了するのを待つ
-        console.log("main.js: Firebase initialization triggered.");
+        // Firebase初期化はここでは行いません。Replit DBに移行したため。
+        // もし他のセクションでFirebaseが必要な場合は、各セクションのinit関数内で個別に初期化してください。
+        // await initializeFirebase(); // Firebaseの初期化が完了するのを待つ
+        // console.log("main.js: Firebase initialization triggered (skipped for Replit DB flow).");
 
         createRightSideMenuAndAttachListeners();
         console.log("main.js: Right side menu listeners attached.");

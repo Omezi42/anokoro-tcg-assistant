@@ -64,7 +64,7 @@ window.initRateMatchSection = async function() {
 
     // --- WebSocket & WebRTC Variables ---
     // RenderサーバーのWebSocket URLに置き換えてください！
-    const RENDER_WS_URL = 'wss://anokoro-api.onrender.com'; // ★★★ ここをあなたのRenderのURLに置き換える ★★★
+    const RENDER_WS_URL = 'wss://anokoro-tcg-api.onrender.com'; // ★★★ ここをあなたのRenderのURLに置き換える ★★★
 
     let peerConnection = null; // WebRTC PeerConnection
     let dataChannel = null; // WebRTC DataChannel for chat

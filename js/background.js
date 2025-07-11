@@ -110,8 +110,26 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
       // content.js からのスクリプト注入リクエスト
       if (sender.tab && sender.tab.id && request.scriptPath && request.initFunctionName) {
           // Manifest V2: browser.tabs.executeScript を使用
+          // code文字列の生成をより堅牢な形式に修正
+          const scriptCode = `
+              (function() {
+                  // 既にスクリプトがロードされているかチェックするフラグ (initFunctionNameがwindowに存在するかで判断)
+                  // ただし、initFunctionNameがwindowに存在しても、DOMが再ロードされている場合があるので、
+                  // init関数内でイベントリスナーの重複登録防止は引き続き重要。
+                  if (typeof window['${request.initFunctionName}'] === 'function' && window._injectedSectionScripts.has('${request.scriptPath}')) {
+                      console.log('Background: Script ${request.scriptPath} already loaded, re-calling init function.');
+                      window['${request.initFunctionName}']();
+                  } else {
+                      console.log('Background: Injecting script ${request.scriptPath} and calling init function.');
+                      // スクリプトファイルを直接読み込む (fetchはcontent scriptからでは不可なので、backgroundから注入)
+                      // この部分はbackground.jsが直接ファイルを注入する形式に変更
+                      // browser.tabs.executeScript の file プロパティで直接注入
+                  }
+              })();
+          `;
+          
           browser.tabs.executeScript(sender.tab.id, {
-              file: request.scriptPath // Manifest V2では 'file' プロパティ
+              file: request.scriptPath // Manifest V2では 'file' プロパティで直接スクリプトファイルを指定
           }, () => {
               if (browser.runtime.lastError) {                  
                   console.error(`Failed to execute script ${request.scriptPath}:`, browser.runtime.lastError.message);
@@ -119,17 +137,15 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
                   return;
               }
               // スクリプトが注入された後、その中の初期化関数を呼び出す
-              // Manifest V2では、関数を文字列として渡す
-              // 関数名を文字列として渡し、IIFE (Immediately Invoked Function Expression) で呼び出すことで、
-              // 文字列の不正な解釈を防ぐ
+              // initFunctionName を直接呼び出すコードを注入
               browser.tabs.executeScript(sender.tab.id, {
-                  code: `(function(funcName) {
-                      if (typeof window[funcName] === 'function') {
-                          window[funcName]();
+                  code: `
+                      if (typeof window.${request.initFunctionName} === 'function') {
+                          window.${request.initFunctionName}(); 
                       } else {
-                          console.error('Background: Initialization function ' + funcName + ' not found on window object after script injection.');
+                          console.error('Background: Initialization function ${request.initFunctionName} not found on window object after script injection.');
                       }
-                  })('${request.initFunctionName}');` // ここを修正
+                  `
               }, () => {
                   if (browser.runtime.lastError) {
                       console.error(`Failed to call init function ${request.initFunctionName}:`, browser.runtime.lastError.message);

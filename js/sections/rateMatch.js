@@ -69,8 +69,8 @@ window.initRateMatchSection = async function() {
 
 
     // --- WebSocket & WebRTC Variables ---
-    // RailwayサーバーのWebSocket URLに置き換えてください！
-    const RAILWAY_WS_URL = 'wss://anokoro-tcg-backend-production.up.railway.app'; // ★★★ ここをあなたのRailwayのURLに置き換える ★★★
+    // RenderサーバーのWebSocket URLに置き換えてください！
+    const RENDER_WS_URL = 'wss://anokoro-tcg-api.onrender.com'; // ★★★ ここをあなたのRenderのURLに置き換える ★★★
 
     let peerConnection = null; // WebRTC PeerConnection
     let dataChannel = null; // WebRTC DataChannel for chat
@@ -203,10 +203,10 @@ window.initRateMatchSection = async function() {
             console.log("WebSocket already open or connecting (global instance).");
             return;
         }
-        window.ws = new WebSocket(RAILWAY_WS_URL);
+        window.ws = new WebSocket(RENDER_WS_URL); // ★★★ URLをRender用に変更 ★★★
 
         window.ws.onopen = () => {
-            console.log("WebSocket connected to Railway server.");
+            console.log("WebSocket connected to Render server.");
             // 接続後、ローカルストレージに保存されたログイン情報があれば自動ログインを試みる
             browser.storage.local.get(['loggedInUserId', 'loggedInUsername'], (result) => {
                 if (result.loggedInUserId && result.loggedInUsername) {
@@ -306,6 +306,7 @@ window.initRateMatchSection = async function() {
                         dataChannel = null;
                     }
                     opponentPlayerId = null;
+                    opponentUsername = null; // 相手ユーザー名もクリア
                     isWebRTCOfferInitiator = false;
                     break;
                 case 'queue_status':
@@ -391,7 +392,7 @@ window.initRateMatchSection = async function() {
 
         window.ws.onerror = (error) => {
             console.error("WebSocket error:", error);
-            window.showCustomDialog('エラー', 'マッチングサーバーへの接続に失敗しました。Railwayサーバーが起動しているか確認してください。');
+            window.showCustomDialog('エラー', 'マッチングサーバーへの接続に失敗しました。Renderサーバーが起動しているか確認してください。');
         };
     };
     // --- End WebSocket Connection Setup ---

@@ -172,9 +172,11 @@ function createRightSideMenuAndAttachListeners() {
     });
 
     // サイドバーの開閉状態とアクティブなセクションをロードし、UIを初期化
+    // ここから showSection の呼び出しを削除し、injectUIIntoPage の最後に一元化
     browser.storage.local.get(['isSidebarOpen', 'activeSection', 'isMenuIconsVisible'], (result) => {
         isSidebarOpen = result.isSidebarOpen !== undefined ? result.isSidebarOpen : false;
-        const activeSection = result.activeSection || 'home'; // デフォルトはホーム
+        // const activeSection = result.activeSection || 'home'; // activeSectionの初期ロードはinjectUIIntoPageで行う
+
         isMenuIconsVisible = result.isMenuIconsVisible !== undefined ? result.isMenuIconsVisible : isSidebarOpen;
 
         const contentArea = document.getElementById('tcg-content-area');
@@ -187,7 +189,7 @@ function createRightSideMenuAndAttachListeners() {
         updateMenuIconsVisibility();
 
         if (isSidebarOpen) {
-            console.log(`createRightSideMenuAndAttachListeners: Sidebar is open. Showing section: ${activeSection}`);
+            console.log(`createRightSideMenuAndAttachListeners: Sidebar is open.`);
             if (contentArea) {
                 contentArea.classList.add('active');
                 contentArea.style.right = '0px';
@@ -196,11 +198,11 @@ function createRightSideMenuAndAttachListeners() {
                 gameCanvas.style.display = 'block';
             }
             document.body.classList.remove('game-focused-mode');
-            window.showSection(activeSection); // グローバル関数として呼び出し
-            const initialActiveIcon = menuContainer.querySelector(`.tcg-menu-icon[data-section="${activeSection}"]`);
-            if (initialActiveIcon) {
-                initialActiveIcon.classList.add('active');
-            }
+            // showSection(activeSection); // ここでの showSection 呼び出しを削除
+            // const initialActiveIcon = menuContainer.querySelector(`.tcg-menu-icon[data-section="${activeSection}"]`);
+            // if (initialActiveIcon) {
+            //     initialActiveIcon.classList.add('active');
+            // }
         } else {
             console.log("createRightSideMenuAndAttachListeners: Sidebar is closed.");
             if (contentArea) {
@@ -211,10 +213,10 @@ function createRightSideMenuAndAttachListeners() {
                 gameCanvas.style.display = 'block';
             }
             document.body.classList.remove('game-focused-mode');
-            const initialActiveIcon = menuContainer.querySelector(`.tcg-menu-icon[data-section="${activeSection}"]`);
-            if (initialActiveIcon) {
-                initialActiveIcon.classList.add('active');
-            }
+            // const initialActiveIcon = menuContainer.querySelector(`.tcg-menu-icon[data-section="${activeSection}"]`);
+            // if (initialActiveIcon) {
+            //     initialActiveIcon.classList.add('active');
+            // }
         }
     });
 }
@@ -359,7 +361,7 @@ window.showSection = async function(sectionId) {
     // 各セクションのJavaScriptを動的に注入
     // jsPath は background.js に渡すための相対パス
     const jsPath = `js/sections/${sectionId}.js`; 
-    const initFunctionName = `init${sectionId.charAt(0).toUpperCase().toUpperCase() + sectionId.slice(1).replace(/-([a-z])/g, (g) => g[1].toUpperCase())}Section`;
+    const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace(/-([a-z])/g, (g) => g[1].toUpperCase())}Section`;
     console.log(`showSection: Preparing to inject script: ${jsPath} with init function: ${initFunctionName}`);
 
     // スクリプトがまだ注入されていない場合のみ注入
@@ -499,11 +501,6 @@ async function injectUIIntoPage() {
         uiInjected = true;
         console.log("main.js: UI injected into page. Elements referenced.");
 
-        // Firebase初期化はここでは行いません。Replit DBに移行したため。
-        // もし他のセクションでFirebaseが必要な場合は、各セクションのinit関数内で個別に初期化してください。
-        // await initializeFirebase(); // Firebaseの初期化が完了するのを待つ
-        // console.log("main.js: Firebase initialization triggered (skipped for Replit DB flow).");
-
         createRightSideMenuAndAttachListeners();
         console.log("main.js: Right side menu listeners attached.");
         initializeExtensionFeatures();
@@ -580,7 +577,6 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
             isMenuIconsVisible = false;
             updateMenuIconsVisibility();
         } else {
-            console.log("main.js: toggleSidebar: Sidebar is inactive, opening.");
             contentArea.classList.add('active');
             contentArea.style.right = '0px';
             isSidebarOpen = true;

@@ -34,14 +34,15 @@ const TOGGLE_BUTTON_SIZE = 50; // px (メニュー開閉ボタンのサイズ)
 // UIが既に挿入されたかどうかを追跡するフラグ
 let uiInjected = false;
 
-// Firebase関連のグローバル変数は、rateMatchセクションではReplit DBに移行したため、
-// ここでは宣言せず、他のセクションで必要であれば各セクション内でFirebaseを初期化するか、
-// popup.htmlで読み込まれたFirebase SDKを直接利用してください。
-// window.firebaseApp = null;
-// window.db = null;
-// window.auth = null;
-// window.currentUserId = null;
-
+// グローバルなログイン状態変数 (rateMatch.jsで設定される)
+window.currentRate = window.currentRate || 1500;
+window.currentUsername = window.currentUsername || null;
+window.currentUserId = window.currentUserId || null;
+window.userMatchHistory = window.userMatchHistory || [];
+window.userMemos = window.userMemos || [];
+window.userBattleRecords = window.userBattleRecords || [];
+window.userRegisteredDecks = window.userRegisteredDecks || [];
+window.ws = window.ws || null; // WebSocketインスタンスもグローバルに
 
 /**
  * カスタムアラート/確認ダイアログを表示します。
@@ -107,7 +108,7 @@ function updateMenuIconsVisibility() {
     const toggleButton = document.getElementById('tcg-menu-toggle-button');
     const toggleIcon = toggleButton ? toggleButton.querySelector('i') : null;
 
-    if (!menuContainer || !menuIconsWrapper || !toggleButton) {
+    if (!menuContainer || !menuIconsWrapper || !toggleIcon) {
         console.warn("updateMenuIconsVisibility: Menu visibility elements not found for update. UI might not be fully loaded yet.");
         return;
     }
@@ -225,7 +226,7 @@ function handleMenuIconClick(event) {
         window.open('https://anokorotcg-arena.vercel.app/', '_blank');
         return; // サイドバーは開かない
     }
-    toggleContentArea(sectionId);
+    window.toggleContentArea(sectionId); // グローバル関数として呼び出し
 }
 
 // メニュー開閉トグルボタンクリックハンドラ
@@ -239,10 +240,11 @@ function handleMenuToggleButtonClick() {
 
 /**
  * コンテンツエリアの表示/非表示を切り替えます。
+ * この関数はグローバルスコープ (window) に公開されます。
  * @param {string} sectionId - 表示するセクションのID。
  * @param {boolean} forceOpenSidebar - サイドバーが閉じている場合でも強制的に開くかどうか
  */
-function toggleContentArea(sectionId, forceOpenSidebar = false) {
+window.toggleContentArea = function(sectionId, forceOpenSidebar = false) {
     console.log(`toggleContentArea: Toggling content area for section "${sectionId}". Force open: ${forceOpenSidebar}`);
     const contentArea = document.getElementById('tcg-content-area');
     const rightMenuContainer = document.getElementById('tcg-right-menu-container');
@@ -291,7 +293,7 @@ function toggleContentArea(sectionId, forceOpenSidebar = false) {
             clickedIcon.classList.add('active');
         }
     }
-}
+};
 
 // 各セクションのJavaScriptファイルを追跡するためのセット
 // これにより同じスクリプトが複数回注入されるのを防ぐ
@@ -506,7 +508,7 @@ async function injectUIIntoPage() {
 
         browser.storage.local.get(['activeSection'], (result) => {
             const activeSection = result.activeSection || 'home';
-            showSection(activeSection);
+            window.showSection(activeSection); // グローバル関数として呼び出し
             console.log(`main.js: Initial section "${activeSection}" shown.`);
         });
 
@@ -556,7 +558,7 @@ if (document.readyState === 'loading') {
 browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log(`main.js: Message received - Action: ${request.action}`);
     if (request.action === "showSection") {
-        toggleContentArea(request.section, request.forceOpenSidebar);
+        window.toggleContentArea(request.section, request.forceOpenSidebar); // グローバル関数として呼び出し
     } else if (request.action === "toggleSidebar") {
         const contentArea = document.getElementById('tcg-content-area');
         const rightMenuContainer = document.getElementById('tcg-right-menu-container');
@@ -589,7 +591,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 if (initialActiveIcon) {
                     initialActiveIcon.classList.add('active');
                 }
-                showSection(activeSection);
+                window.showSection(activeSection); // グローバル関数として呼び出し
             });
         }
         browser.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
@@ -601,6 +603,6 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
         } else {
             console.error("main.js: showCustomDialog is not available.");
         }
-        toggleContentArea('rateMatch', true);
+        window.toggleContentArea('rateMatch', true); // グローバル関数として呼び出し
     }
 });

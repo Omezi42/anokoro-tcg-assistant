@@ -4,6 +4,11 @@
 window.initBattleRecordSection = async function() { // async を追加
     console.log("BattleRecord section initialized.");
 
+    // Firefox互換性のためのbrowserオブジェクトのフォールバック
+    if (typeof browser === 'undefined') {
+        var browser = chrome;
+    }
+
     // === 戦いの記録セクションのロジック ===
     // 各要素を関数内で取得
     const myDeckSelect = document.getElementById('my-deck-select');
@@ -23,302 +28,401 @@ window.initBattleRecordSection = async function() { // async を追加
     let battleRecordTabButtons = document.querySelectorAll('.battle-record-tab-button');
     let battleRecordTabContents = document.querySelectorAll('.battle-record-tab-content');
 
-    // Chart.jsのインスタンスを保持する変数を削除
-    // let winRateChartInstance = null;
+    // ユーザーのデータ (rateMatch.jsからログイン時にセットされることを期待)
+    window.userBattleRecords = window.userBattleRecords || [];
+    window.userRegisteredDecks = window.userRegisteredDecks || [];
 
-    // 戦績をロードして集計を更新する関数
+    // 戦績をロードして集計を更新する関数 (サーバーから)
     const loadBattleRecords = () => {
-        chrome.storage.local.get(['battleRecords'], (result) => {
-            const records = result.battleRecords || [];
-            const battleRecordsList = document.getElementById('battle-records-list');
-            const totalGamesSpan = document.getElementById('total-games');
-            const totalWinsSpan = document.getElementById('total-wins');
-            const totalLossesSpan = document.getElementById('total-losses');
-            const winRateSpan = document.getElementById('win-rate');
-            const firstWinRateSpan = document.getElementById('first-win-rate');
-            const secondWinRateSpan = document.getElementById('second-win-rate');
-            const myDeckTypeWinRatesDiv = document.getElementById('my-deck-type-win-rates');
-            const opponentDeckTypeWinRatesDiv = document.getElementById('opponent-deck-type-win-rates');
-            // Chart.jsのCanvas要素の取得を削除
-            // const winRateChartCanvas = document.getElementById('win-rate-chart'); 
+        const battleRecordsList = document.getElementById('battle-records-list');
+        const totalGamesSpan = document.getElementById('total-games');
+        const totalWinsSpan = document.getElementById('total-wins');
+        const totalLossesSpan = document.getElementById('total-losses');
+        const winRateSpan = document.getElementById('win-rate');
+        const firstWinRateSpan = document.getElementById('first-win-rate');
+        const secondWinRateSpan = document.getElementById('second-win-rate');
+        const myDeckTypeWinRatesDiv = document.getElementById('my-deck-type-win-rates');
+        const opponentDeckTypeWinRatesDiv = document.getElementById('opponent-deck-type-win-rates');
 
-            if (!battleRecordsList) return; // winRateChartCanvas のチェックを削除
+        if (!battleRecordsList) return;
 
-            battleRecordsList.innerHTML = '';
+        // ログインしていない場合はローカルストレージから読み込むか、表示を切り替える
+        if (!window.currentUserId) {
+            console.log("BattleRecord: Not logged in. Displaying local battle record data (if any).");
+            browser.storage.local.get(['battleRecordsLocal'], (result) => {
+                const records = result.battleRecordsLocal || [];
+                displayBattleRecords(records, false); // ローカルストレージからの表示
+            });
+            // 統計情報もローカルから計算して表示
+            calculateAndDisplayStats(window.userBattleRecords || [], window.userRegisteredDecks || []);
+            return;
+        }
 
-            let totalGames = records.length;
-            let totalWins = 0;
-            let totalLosses = 0;
-            let firstGames = 0;
-            let firstWins = 0;
-            let secondGames = 0;
-            let secondWins = 0;
-            const myDeckTypeStats = {};
-            const opponentDeckTypeStats = {};
+        console.log("BattleRecord: Logged in. Loading battle records from server data.");
+        const records = window.userBattleRecords || []; // ログイン時にrateMatch.jsからセットされたデータを使用
+        displayBattleRecords(records, true); // サーバーからの表示
+        calculateAndDisplayStats(records, window.userRegisteredDecks || []);
+    };
 
-            records.forEach(record => {
-                if (record.result === 'win') {
-                    totalWins++;
-                } else {
-                    totalLosses++;
-                }
+    // 戦績をUIに表示するヘルパー関数
+    const displayBattleRecords = (records, isServerData) => {
+        const battleRecordsList = document.getElementById('battle-records-list');
+        if (!battleRecordsList) return;
 
-                if (record.firstSecond === 'first') {
-                    firstGames++;
-                    if (record.result === 'win') {
-                        firstWins++;
-                    }
-                } else if (record.firstSecond === 'second') {
-                    secondGames++;
-                    if (record.result === 'win') {
-                        secondWins++;
-                    }
-                }
+        battleRecordsList.innerHTML = '';
 
-                if (record.myDeckType) {
-                    if (!myDeckTypeStats[record.myDeckType]) {
-                        myDeckTypeStats[record.myDeckType] = { total: 0, wins: 0 };
-                    }
-                    myDeckTypeStats[record.myDeckType].total++;
-                    if (record.result === 'win') {
-                        myDeckTypeStats[record.myDeckType].wins++;
-                    }
-                }
-
-                if (record.opponentDeckType) {
-                    if (!opponentDeckTypeStats[record.opponentDeckType]) {
-                        opponentDeckTypeStats[record.opponentDeckType] = { total: 0, wins: 0 };
-                    }
-                    opponentDeckTypeStats[record.opponentDeckType].total++;
-                    if (record.result === 'win') {
-                        opponentDeckTypeStats[record.opponentDeckType].wins++;
-                    }
-                }
+        if (records.length === 0) {
+            battleRecordsList.innerHTML = `<li>まだ対戦記録がありません。${isServerData ? '(ログイン済み)' : '(ローカル)'}</li>`;
+        } else {
+            // 最新が上に来るように逆順に表示するが、data-indexは元の配列のインデックスを保持
+            [...records].reverse().forEach((record, reverseIndex) => {
+                // 元の配列におけるインデックスを計算
+                const originalIndex = records.length - 1 - reverseIndex;
+                const listItem = document.createElement('li');
+                listItem.className = 'battle-record-item';
+                listItem.innerHTML = `
+                        <strong>${record.timestamp}</strong><br>
+                        自分のデッキ: ${record.myDeck} (${record.myDeckType || '不明'})<br>
+                        相手のデッキ: ${record.opponentDeck} (${record.opponentDeckType || '不明'})<br>
+                        結果: ${record.result === 'win' ? '勝利' : '敗北'} (${record.firstSecond === 'first' ? '先攻' : record.firstSecond === 'second' ? '後攻' : '不明'})<br>
+                        ${record.notes ? `メモ: ${record.notes}<br>` : ''}
+                        <button class="delete-button" data-index="${originalIndex}" title="削除"><i class="fas fa-trash-alt"></i></button>
+                    `;
+                battleRecordsList.appendChild(listItem);
             });
 
-            if (totalGamesSpan) totalGamesSpan.textContent = totalGames;
-            if (totalWinsSpan) totalWinsSpan.textContent = totalWins;
-            if (totalLossesSpan) totalLossesSpan.textContent = totalLosses;
-            if (winRateSpan) winRateSpan.textContent = totalGames > 0 ? `${(totalWins / totalGames * 100).toFixed(2)}%` : '0.00%';
-            if (firstWinRateSpan) firstWinRateSpan.textContent = firstGames > 0 ? `${(firstWins / firstGames * 100).toFixed(2)}%` : '0.00%';
-            if (secondWinRateSpan) secondWinRateSpan.textContent = secondGames > 0 ? `${(secondWins / secondGames * 100).toFixed(2)}%` : '0.00%';
-
-            let myDeckTypeHtml = '<ul>';
-            const sortedMyDeckTypes = Object.keys(myDeckTypeStats).sort();
-            if (sortedMyDeckTypes.length === 0) {
-                myDeckTypeHtml += '<li>データがありません。</li>';
-            } else {
-                sortedMyDeckTypes.forEach(type => {
-                    const stats = myDeckTypeStats[type];
-                    const rate = stats.total > 0 ? ((stats.wins / stats.total) * 100).toFixed(2) : '0.00';
-                    myDeckTypeHtml += `<li>${type}: ${rate}% (${stats.wins} / ${stats.total})</li>`;
-                });
-            }
-            myDeckTypeHtml += '</ul>';
-            if (myDeckTypeWinRatesDiv) myDeckTypeWinRatesDiv.innerHTML = myDeckTypeHtml;
-
-            let opponentDeckTypeHtml = '<ul>';
-            const sortedOpponentDeckTypes = Object.keys(opponentDeckTypeStats).sort();
-            if (sortedOpponentDeckTypes.length === 0) {
-                opponentDeckTypeHtml += '<li>データがありません。</li>';
-            } else {
-                sortedOpponentDeckTypes.forEach(type => {
-                    const stats = opponentDeckTypeStats[type];
-                    const rate = stats.total > 0 ? ((stats.wins / stats.total) * 100).toFixed(2) : '0.00';
-                    opponentDeckTypeHtml += `<li>${type}: ${rate}% (${stats.wins} / ${stats.total})</li>`;
-                });
-            }
-            opponentDeckTypeHtml += '</ul>';
-            if (opponentDeckTypeWinRatesDiv) opponentDeckTypeWinRatesDiv.innerHTML = opponentDeckTypeHtml;
-
-
-            if (records.length === 0) {
-                battleRecordsList.innerHTML = '<li>まだ対戦記録がありません。</li>';
-            } else {
-                battleRecordsList.innerHTML = '';
-                // 最新が上に来るように逆順に表示するが、data-indexは元の配列のインデックスを保持
-                [...records].reverse().forEach((record, reverseIndex) => {
-                    // 元の配列におけるインデックスを計算
-                    const originalIndex = records.length - 1 - reverseIndex;
-                    const listItem = document.createElement('li');
-                    listItem.className = 'battle-record-item';
-                    listItem.innerHTML = `
-                            <strong>${record.timestamp}</strong><br>
-                            自分のデッキ: ${record.myDeck} (${record.myDeckType || '不明'})<br>
-                            相手のデッキ: ${record.opponentDeck} (${record.opponentDeckType || '不明'})<br>
-                            結果: ${record.result === 'win' ? '勝利' : '敗北'} (${record.firstSecond === 'first' ? '先攻' : record.firstSecond === 'second' ? '後攻' : '不明'})<br>
-                            ${record.notes ? `メモ: ${record.notes}<br>` : ''}
-                            <button class="delete-button" data-index="${originalIndex}" title="削除"><i class="fas fa-trash-alt"></i></button>
-                        `;
-                    battleRecordsList.appendChild(listItem);
-                });
-
-                battleRecordsList.querySelectorAll('.delete-button').forEach(button => {
-                    button.removeEventListener('click', handleDeleteBattleRecordClick); // 既存のリスナーを削除
-                    button.addEventListener('click', handleDeleteBattleRecordClick);
-                });
-            }
-            updateSelectedDeckStatsDropdown();
-            // グラフ描画の呼び出しを削除
-            // renderWinRateChart(totalWins, totalLosses, winRateChartCanvas);
-        });
+            battleRecordsList.querySelectorAll('.delete-button').forEach(button => {
+                button.removeEventListener('click', handleDeleteBattleRecordClick); // 既存のリスナーを削除
+                button.addEventListener('click', handleDeleteBattleRecordClick);
+            });
+        }
     };
 
-    // 勝率グラフを描画する関数を削除
-    // const renderWinRateChart = (wins, losses, canvasElement) => { /* ... */ };
+    // 統計情報を計算して表示する関数
+    const calculateAndDisplayStats = (records, registeredDecks) => {
+        const totalGamesSpan = document.getElementById('total-games');
+        const totalWinsSpan = document.getElementById('total-wins');
+        const totalLossesSpan = document.getElementById('total-losses');
+        const winRateSpan = document.getElementById('win-rate');
+        const firstWinRateSpan = document.getElementById('first-win-rate');
+        const secondWinRateSpan = document.getElementById('second-win-rate');
+        const myDeckTypeWinRatesDiv = document.getElementById('my-deck-type-win-rates');
+        const opponentDeckTypeWinRatesDiv = document.getElementById('opponent-deck-type-win-rates');
 
+        let totalGames = records.length;
+        let totalWins = 0;
+        let totalLosses = 0;
+        let firstGames = 0;
+        let firstWins = 0;
+        let secondGames = 0;
+        let secondWins = 0;
+        const myDeckTypeStats = {};
+        const opponentDeckTypeStats = {};
+
+        records.forEach(record => {
+            if (record.result === 'win') {
+                totalWins++;
+            } else {
+                totalLosses++;
+            }
+
+            if (record.firstSecond === 'first') {
+                firstGames++;
+                if (record.result === 'win') {
+                    firstWins++;
+                }
+            } else if (record.firstSecond === 'second') {
+                secondGames++;
+                if (record.result === 'win') {
+                    secondWins++;
+                }
+            }
+
+            if (record.myDeckType) {
+                if (!myDeckTypeStats[record.myDeckType]) {
+                    myDeckTypeStats[record.myDeckType] = { total: 0, wins: 0 };
+                }
+                myDeckTypeStats[record.myDeckType].total++;
+                if (record.result === 'win') {
+                    myDeckTypeStats[record.myDeckType].wins++;
+                }
+            }
+
+            if (record.opponentDeckType) {
+                if (!opponentDeckTypeStats[record.opponentDeckType]) {
+                    opponentDeckTypeStats[record.opponentDeckType] = { total: 0, wins: 0 };
+                }
+                opponentDeckTypeStats[record.opponentDeckType].total++;
+                if (record.result === 'win') {
+                    opponentDeckTypeStats[record.opponentDeckType].wins++;
+                }
+            }
+        });
+
+        if (totalGamesSpan) totalGamesSpan.textContent = totalGames;
+        if (totalWinsSpan) totalWinsSpan.textContent = totalWins;
+        if (totalLossesSpan) totalLossesSpan.textContent = totalLosses;
+        if (winRateSpan) winRateSpan.textContent = totalGames > 0 ? `${(totalWins / totalGames * 100).toFixed(2)}%` : '0.00%';
+        if (firstWinRateSpan) firstWinRateSpan.textContent = firstGames > 0 ? `${(firstWins / firstGames * 100).toFixed(2)}%` : '0.00%';
+        if (secondWinRateSpan) secondWinRateSpan.textContent = secondGames > 0 ? `${(secondWins / secondGames * 100).toFixed(2)}%` : '0.00%';
+
+        let myDeckTypeHtml = '<ul>';
+        const sortedMyDeckTypes = Object.keys(myDeckTypeStats).sort();
+        if (sortedMyDeckTypes.length === 0) {
+            myDeckTypeHtml += '<li>データがありません。</li>';
+        } else {
+            sortedMyDeckTypes.forEach(type => {
+                const stats = myDeckTypeStats[type];
+                const rate = stats.total > 0 ? ((stats.wins / stats.total) * 100).toFixed(2) : '0.00';
+                myDeckTypeHtml += `<li>${type}: ${rate}% (${stats.wins} / ${stats.total})</li>`;
+            });
+        }
+        myDeckTypeHtml += '</ul>';
+        if (myDeckTypeWinRatesDiv) myDeckTypeWinRatesDiv.innerHTML = myDeckTypeHtml;
+
+        let opponentDeckTypeHtml = '<ul>';
+        const sortedOpponentDeckTypes = Object.keys(opponentDeckTypeStats).sort();
+        if (sortedOpponentDeckTypes.length === 0) {
+            opponentDeckTypeHtml += '<li>データがありません。</li>';
+        } else {
+            sortedOpponentDeckTypes.forEach(type => {
+                const stats = opponentDeckTypeStats[type];
+                const rate = stats.total > 0 ? ((stats.wins / stats.total) * 100).toFixed(2) : '0.00';
+                opponentDeckTypeHtml += `<li>${type}: ${rate}% (${stats.wins} / ${stats.total})</li>`;
+            });
+        }
+        opponentDeckTypeHtml += '</ul>';
+        if (opponentDeckTypeWinRatesDiv) opponentDeckTypeWinRatesDiv.innerHTML = opponentDeckTypeHtml;
+        
+        updateSelectedDeckStatsDropdown(registeredDecks); // ドロップダウンも更新
+    };
+
+    // 戦績をサーバーに保存する関数
+    const saveBattleRecordsToServer = async (recordsToSave) => {
+        if (!window.currentUserId || !window.ws || window.ws.readyState !== WebSocket.OPEN) {
+            console.warn("BattleRecord: Not logged in or WebSocket not open. Cannot save battle records to server.");
+            await window.showCustomDialog('エラー', 'ログインしていないか、サーバーに接続していません。対戦記録は保存されませんでした。');
+            return;
+        }
+        window.userBattleRecords = recordsToSave; // グローバルデータを更新
+        window.ws.send(JSON.stringify({
+            type: 'update_user_data',
+            userId: window.currentUserId,
+            battleRecords: window.userBattleRecords
+        }));
+        await window.showCustomDialog('保存完了', '対戦記録をサーバーに保存しました！');
+        loadBattleRecords(); // UIを再ロード
+    };
+
+    // 戦績をローカルストレージに保存する関数 (未ログイン時用)
+    const saveBattleRecordsLocally = (recordsToSave) => {
+        browser.storage.local.set({ battleRecordsLocal: recordsToSave }, () => {
+            window.showCustomDialog('保存完了', '対戦記録をローカルに保存しました！');
+            loadBattleRecords();
+        });
+    };
 
     // 戦績を削除する関数
-    const deleteBattleRecord = (index) => {
-        chrome.storage.local.get(['battleRecords'], (result) => {
-            let records = result.battleRecords || [];
-            if (index > -1 && index < records.length) {
-                records.splice(index, 1);
-                chrome.storage.local.set({ battleRecords: records }, () => {
-                    window.showCustomDialog('削除完了', '対戦記録を削除しました。');
-                    loadBattleRecords();
-                });
+    const deleteBattleRecord = async (index) => {
+        let records = window.userBattleRecords || []; // サーバーデータ優先
+
+        if (!window.currentUserId) {
+            const result = await browser.storage.local.get(['battleRecordsLocal']);
+            records = result.battleRecordsLocal || [];
+        }
+
+        if (index > -1 && index < records.length) {
+            records.splice(index, 1);
+            if (window.currentUserId) {
+                await saveBattleRecordsToServer(records);
+            } else {
+                saveBattleRecordsLocally(records);
             }
-        });
+            window.showCustomDialog('削除完了', '対戦記録を削除しました。');
+        }
     };
 
-    // 登録済みデッキをロードして表示する関数
+    // 登録済みデッキをロードして表示する関数 (サーバーから)
     const loadRegisteredDecks = () => {
-        chrome.storage.local.get(['registeredDecks'], (result) => {
-            const decks = result.registeredDecks || [];
-            const registeredDecksList = document.getElementById('registered-decks-list');
-            const myDeckSelect = document.getElementById('my-deck-select');
-            const opponentDeckSelect = document.getElementById('opponent-deck-select');
+        const registeredDecksList = document.getElementById('registered-decks-list');
+        const myDeckSelect = document.getElementById('my-deck-select');
+        const opponentDeckSelect = document.getElementById('opponent-deck-select');
 
-            if (!registeredDecksList || !myDeckSelect || !opponentDeckSelect) return;
+        if (!registeredDecksList || !myDeckSelect || !opponentDeckSelect) return;
 
-            registeredDecksList.innerHTML = '';
+        // ログインしていない場合はローカルストレージから読み込むか、表示を切り替える
+        if (!window.currentUserId) {
+            console.log("BattleRecord: Not logged in. Displaying local registered decks (if any).");
+            browser.storage.local.get(['registeredDecksLocal'], (result) => {
+                const decks = result.registeredDecksLocal || [];
+                displayRegisteredDecks(decks, myDeckSelect, opponentDeckSelect, false);
+            });
+            return;
+        }
 
-            myDeckSelect.innerHTML = '<option value="">登録済みデッキから選択</option>';
-            opponentDeckSelect.innerHTML = '<option value="">登録済みデッキから選択</option>';
+        console.log("BattleRecord: Logged in. Loading registered decks from server data.");
+        const decks = window.userRegisteredDecks || []; // ログイン時にrateMatch.jsからセットされたデータを使用
+        displayRegisteredDecks(decks, myDeckSelect, opponentDeckSelect, true);
+    };
 
-            if (decks.length === 0) {
-                registeredDecksList.innerHTML = '<li>まだ登録されたデッキがありません。</li>';
-            } else {
-                decks.sort((a, b) => a.name.localeCompare(b.name)).forEach((deck, index) => {
-                    const listItem = document.createElement('li');
-                    listItem.innerHTML = `
-                        ${deck.name} (${deck.type}) 
-                        <button class="delete-registered-deck-button" data-index="${index}" title="削除"><i class="fas fa-trash-alt"></i></button>
-                    `;
-                    registeredDecksList.appendChild(listItem);
+    // 登録済みデッキをUIに表示するヘルパー関数
+    const displayRegisteredDecks = (decks, myDeckSelect, opponentDeckSelect, isServerData) => {
+        const registeredDecksList = document.getElementById('registered-decks-list');
+        if (!registeredDecksList || !myDeckSelect || !opponentDeckSelect) return;
 
-                    const optionMy = document.createElement('option');
-                    optionMy.value = deck.name;
-                    optionMy.textContent = `${deck.name} (${deck.type})`;
-                    myDeckSelect.appendChild(optionMy);
+        registeredDecksList.innerHTML = '';
+        myDeckSelect.innerHTML = '<option value="">登録済みデッキから選択</option>';
+        opponentDeckSelect.innerHTML = '<option value="">登録済みデッキから選択</option>';
 
-                    const optionOpponent = document.createElement('option');
-                    optionOpponent.value = deck.name;
-                    optionOpponent.textContent = `${deck.name} (${deck.type})`;
-                    opponentDeckSelect.appendChild(optionOpponent);
-                });
+        if (decks.length === 0) {
+            registeredDecksList.innerHTML = `<li>まだ登録されたデッキがありません。${isServerData ? '(ログイン済み)' : '(ローカル)'}</li>`;
+        } else {
+            decks.sort((a, b) => a.name.localeCompare(b.name)).forEach((deck, index) => {
+                const listItem = document.createElement('li');
+                listItem.innerHTML = `
+                    ${deck.name} (${deck.type}) 
+                    <button class="delete-registered-deck-button" data-index="${index}" title="削除"><i class="fas fa-trash-alt"></i></button>
+                `;
+                registeredDecksList.appendChild(listItem);
 
-                registeredDecksList.querySelectorAll('.delete-registered-deck-button').forEach(button => {
-                    button.removeEventListener('click', handleDeleteRegisteredDeckClick); // 既存のリスナーを削除
-                    button.addEventListener('click', handleDeleteRegisteredDeckClick);
-                });
-            }
-            updateSelectedDeckStatsDropdown();
+                const optionMy = document.createElement('option');
+                optionMy.value = deck.name;
+                optionMy.textContent = `${deck.name} (${deck.type})`;
+                myDeckSelect.appendChild(optionMy);
+
+                const optionOpponent = document.createElement('option');
+                optionOpponent.value = deck.name;
+                optionOpponent.textContent = `${deck.name} (${deck.type})`;
+                opponentDeckSelect.appendChild(optionOpponent);
+            });
+
+            registeredDecksList.querySelectorAll('.delete-registered-deck-button').forEach(button => {
+                button.removeEventListener('click', handleDeleteRegisteredDeckClick); // 既存のリスナーを削除
+                button.addEventListener('click', handleDeleteRegisteredDeckClick);
+            });
+        }
+        updateSelectedDeckStatsDropdown(decks); // デッキ選択ドロップダウンも更新
+    };
+
+
+    // 登録済みデッキをサーバーに保存する関数
+    const saveRegisteredDecksToServer = async (decksToSave) => {
+        if (!window.currentUserId || !window.ws || window.ws.readyState !== WebSocket.OPEN) {
+            console.warn("BattleRecord: Not logged in or WebSocket not open. Cannot save registered decks to server.");
+            await window.showCustomDialog('エラー', 'ログインしていないか、サーバーに接続していません。デッキは保存されませんでした。');
+            return;
+        }
+        window.userRegisteredDecks = decksToSave; // グローバルデータを更新
+        window.ws.send(JSON.stringify({
+            type: 'update_user_data',
+            userId: window.currentUserId,
+            registeredDecks: window.userRegisteredDecks
+        }));
+        await window.showCustomDialog('登録完了', 'デッキをサーバーに登録しました！');
+        loadRegisteredDecks(); // UIを再ロード
+    };
+
+    // 登録済みデッキをローカルストレージに保存する関数 (未ログイン時用)
+    const saveRegisteredDecksLocally = (decksToSave) => {
+        browser.storage.local.set({ registeredDecksLocal: decksToSave }, () => {
+            window.showCustomDialog('登録完了', 'デッキをローカルに登録しました！');
+            loadRegisteredDecks();
         });
     };
 
     // 登録済みデッキを削除する関数
-    const deleteRegisteredDeck = (index) => {
-        chrome.storage.local.get(['registeredDecks'], async (result) => {
-            let decks = result.registeredDecks || [];
-            if (index > -1 && index < decks.length) {
-                decks.splice(index, 1);
-                await chrome.storage.local.set({ registeredDecks: decks });
-                window.showCustomDialog('削除完了', 'デッキを削除しました。');
-                loadRegisteredDecks();
-                loadBattleRecords();
+    const deleteRegisteredDeck = async (index) => {
+        let decks = window.userRegisteredDecks || []; // サーバーデータ優先
+
+        if (!window.currentUserId) {
+            const result = await browser.storage.local.get(['registeredDecksLocal']);
+            decks = result.registeredDecksLocal || [];
+        }
+
+        if (index > -1 && index < decks.length) {
+            decks.splice(index, 1);
+            if (window.currentUserId) {
+                await saveRegisteredDecksToServer(decks);
+            } else {
+                saveRegisteredDecksLocally(decks);
             }
-        });
+            window.showCustomDialog('削除完了', 'デッキを削除しました。');
+            loadBattleRecords(); // 統計情報も更新されるように
+        }
     };
 
     // デッキ別詳細分析のドロップダウンを更新
-    const updateSelectedDeckStatsDropdown = () => {
+    const updateSelectedDeckStatsDropdown = (registeredDecks) => {
         const selectedDeckForStats = document.getElementById('selected-deck-for-stats');
         if (!selectedDeckForStats) return;
 
-        chrome.storage.local.get(['registeredDecks'], (result) => {
-            const decks = result.registeredDecks || [];
-            selectedDeckForStats.innerHTML = '<option value="">全てのデッキ</option>';
-            decks.sort((a, b) => a.name.localeCompare(b.name)).forEach(deck => {
-                const option = document.createElement('option');
-                option.value = deck.name;
-                option.textContent = `${deck.name} (${deck.type})`;
-                selectedDeckForStats.appendChild(option);
-            });
-            displaySelectedDeckStats(selectedDeckForStats.value);
+        selectedDeckForStats.innerHTML = '<option value="">全てのデッキ</option>';
+        registeredDecks.sort((a, b) => a.name.localeCompare(b.name)).forEach(deck => {
+            const option = document.createElement('option');
+            option.value = deck.name;
+            option.textContent = `${deck.name} (${deck.type})`;
+            selectedDeckForStats.appendChild(option);
         });
+        displaySelectedDeckStats(selectedDeckForStats.value);
     };
 
     // 選択されたデッキの詳細な勝率を表示
     const displaySelectedDeckStats = (deckName) => {
-        chrome.storage.local.get(['battleRecords'], (result) => {
-            const records = result.battleRecords || [];
-            const selectedDeckStatsDetail = document.getElementById('selected-deck-stats-detail');
-            if (!selectedDeckStatsDetail) return;
+        const records = window.userBattleRecords || []; // サーバーデータ優先
+        const selectedDeckStatsDetail = document.getElementById('selected-deck-stats-detail');
+        if (!selectedDeckStatsDetail) return;
 
-            let html = '';
+        let html = '';
 
-            if (!deckName) {
-                selectedDeckStatsDetail.innerHTML = '<p>デッキを選択して詳細な勝率を表示します。</p>';
-                return;
-            }
+        if (!deckName) {
+            selectedDeckStatsDetail.innerHTML = '<p>デッキを選択して詳細な勝率を表示します。</p>';
+            return;
+        }
 
-            const gamesAsMyDeck = records.filter(record => record.myDeck === deckName);
-            const gamesAsOpponentDeck = records.filter(record => record.opponentDeck === deckName);
+        const gamesAsMyDeck = records.filter(record => record.myDeck === deckName);
+        const gamesAsOpponentDeck = records.filter(record => record.opponentDeck === deckName);
 
-            let myDeckTotal = gamesAsMyDeck.length;
-            let myDeckWins = gamesAsMyDeck.filter(record => record.result === 'win').length;
-            let myDeckWinRate = myDeckTotal > 0 ? ((myDeckWins / myDeckTotal) * 100).toFixed(2) : '0.00';
+        let myDeckTotal = gamesAsMyDeck.length;
+        let myDeckWins = gamesAsMyDeck.filter(record => record.result === 'win').length;
+        let myDeckWinRate = myDeckTotal > 0 ? ((myDeckWins / myDeckTotal) * 100).toFixed(2) : '0.00';
 
-            html += `<h4>「${deckName}」の統計 (自分のデッキとして使用時)</h4>`;
-            html += `<p>総対戦数: ${myDeckTotal}</p>`;
-            html += `<p>勝利数: ${myDeckWins}</p>`;
-            html += `<p>勝率: ${myDeckWinRate}%</p>`;
+        html += `<h4>「${deckName}」の統計 (自分のデッキとして使用時)</h4>`;
+        html += `<p>総対戦数: ${myDeckTotal}</p>`;
+        html += `<p>勝利数: ${myDeckWins}</p>`;
+        html += `<p>勝率: ${myDeckWinRate}%</p>`;
 
-            if (myDeckTotal > 0) {
-                html += `<h5>相手デッキタイプ別勝率</h5><ul>`;
-                const opponentTypes = {};
-                gamesAsMyDeck.forEach(record => {
-                    if (!opponentTypes[record.opponentDeckType]) {
-                        opponentTypes[record.opponentDeckType] = { total: 0, wins: 0 };
-                    }
-                    opponentTypes[record.opponentDeckType].total++;
-                    if (record.result === 'win') {
-                        opponentTypes[record.opponentDeckType].wins++;
-                    }
-                });
-                for (const type in opponentTypes) {
-                    const stats = opponentTypes[type];
-                    const rate = stats.total > 0 ? ((stats.wins / stats.total) * 100).toFixed(2) : '0.00';
-                    html += `<li>vs ${type}: ${rate}% (${stats.wins}勝 / ${stats.total}戦)</li>`;
+        if (myDeckTotal > 0) {
+            html += `<h5>相手デッキタイプ別勝率</h5><ul>`;
+            const opponentTypes = {};
+            gamesAsMyDeck.forEach(record => {
+                if (!opponentTypes[record.opponentDeckType]) {
+                    opponentTypes[record.opponentDeckType] = { total: 0, wins: 0 };
                 }
-                html += `</ul>`;
+                opponentTypes[record.opponentDeckType].total++;
+                if (record.result === 'win') {
+                    opponentTypes[record.opponentDeckType].wins++;
+                }
+            });
+            for (const type in opponentTypes) {
+                const stats = opponentTypes[type];
+                const rate = stats.total > 0 ? ((stats.wins / stats.total) * 100).toFixed(2) : '0.00';
+                html += `<li>vs ${type}: ${rate}% (${stats.wins}勝 / ${stats.total}戦)</li>`;
             }
+            html += `</ul>`;
+        }
 
-            let opponentDeckTotal = gamesAsOpponentDeck.length;
-            let opponentDeckWins = gamesAsOpponentDeck.filter(record => record.result === 'win').length; // 相手が勝った数 (自分が負けた数)
-            let opponentDeckLosses = gamesAsOpponentDeck.filter(record => record.result === 'lose').length; // 相手が負けた数 (自分が勝った数)
-            let opponentDeckWinRate = opponentDeckTotal > 0 ? ((opponentDeckWins / opponentDeckTotal) * 100).toFixed(2) : '0.00';
+        let opponentDeckTotal = gamesAsOpponentDeck.length;
+        let opponentDeckWins = gamesAsOpponentDeck.filter(record => record.result === 'win').length; // 相手が勝った数 (自分が負けた数)
+        let opponentDeckLosses = gamesAsOpponentDeck.filter(record => record.result === 'lose').length; // 相手が負けた数 (自分が勝った数)
+        let opponentDeckWinRate = opponentDeckTotal > 0 ? ((opponentDeckWins / opponentDeckTotal) * 100).toFixed(2) : '0.00';
 
-            html += `<h4>「${deckName}」の統計 (相手のデッキとして使用時)</h4>`;
-            html += `<p>総対戦数: ${opponentDeckTotal}</p>`;
-            html += `<p>相手勝利数: ${opponentDeckWins} (自分が負けた数)</p>`;
-            html += `<p>相手勝率: ${opponentDeckWinRate}%</p>`;
-            // ここにさらに詳細な分析を追加することも可能
+        html += `<h4>「${deckName}」の統計 (相手のデッキとして使用時)</h4>`;
+        html += `<p>総対戦数: ${opponentDeckTotal}</p>`;
+        html += `<p>相手勝利数: ${opponentDeckWins} (自分が負けた数)</p>`;
+        html += `<p>相手勝率: ${opponentDeckWinRate}%</p>`;
+        // ここにさらに詳細な分析を追加することも可能
 
-            selectedDeckStatsDetail.innerHTML = html;
-        });
+        selectedDeckStatsDetail.innerHTML = html;
     };
 
     // タブ切り替え関数
@@ -346,11 +450,13 @@ window.initBattleRecordSection = async function() { // async を追加
         // 各タブに切り替わった際にデータを再ロード
         if (tabId === 'stats-summary') {
             loadBattleRecords(); // 勝率集計を再ロード (グラフはなし)
-            updateSelectedDeckStatsDropdown(); // デッキ選択ドロップダウンも更新
+            loadRegisteredDecks(); // デッキ選択ドロップダウンも更新
         } else if (tabId === 'deck-management') {
             loadRegisteredDecks(); // デッキリストを再ロード
         } else if (tabId === 'past-records') {
             loadBattleRecords(); // 過去の記録リストも更新 (集計は不要だがリスト表示のために)
+        } else if (tabId === 'new-record') {
+            loadRegisteredDecks(); // 新規記録時もデッキ選択肢を更新
         }
     }
 
@@ -383,19 +489,25 @@ window.initBattleRecordSection = async function() { // async を追加
             notes: notes
         };
 
-        chrome.storage.local.get(['battleRecords'], (res) => {
-            const records = res.battleRecords || [];
-            records.push(newRecord);
-            chrome.storage.local.set({ battleRecords: records }, () => {
-                window.showCustomDialog('保存完了', '対戦記録を保存しました！');
-                if (myDeckSelect) myDeckSelect.value = '';
-                if (opponentDeckSelect) opponentDeckSelect.value = '';
-                if (winLossSelect) winLossSelect.value = 'win';
-                if (firstSecondSelect) firstSecondSelect.value = '';
-                if (notesTextarea) notesTextarea.value = '';
-                loadBattleRecords();
-            });
-        });
+        let records = window.userBattleRecords || []; // サーバーデータ優先
+
+        if (!window.currentUserId) {
+            const res = await browser.storage.local.get(['battleRecordsLocal']);
+            records = res.battleRecordsLocal || [];
+        }
+        records.push(newRecord);
+
+        if (window.currentUserId) {
+            await saveBattleRecordsToServer(records);
+        } else {
+            saveBattleRecordsLocally(records);
+        }
+
+        if (myDeckSelect) myDeckSelect.value = '';
+        if (opponentDeckSelect) opponentDeckSelect.value = '';
+        if (winLossSelect) winLossSelect.value = 'win';
+        if (firstSecondSelect) firstSecondSelect.value = '';
+        if (notesTextarea) notesTextarea.value = '';
     }
 
     async function handleRegisterDeckClick() {
@@ -408,27 +520,35 @@ window.initBattleRecordSection = async function() { // async を追加
             return;
         }
 
-        chrome.storage.local.get(['registeredDecks'], async (result) => {
-            const decks = result.registeredDecks || [];
-            if (decks.some(deck => deck.name === deckName)) {
-                window.showCustomDialog('エラー', '同じ名前のデッキが既に登録されています。');
-                return;
-            }
+        let decks = window.userRegisteredDecks || []; // サーバーデータ優先
 
-            decks.push({ name: deckName, type: deckType });
-            await chrome.storage.local.set({ registeredDecks: decks });
-            window.showCustomDialog('登録完了', `デッキ「${deckName}」を登録しました！`);
-            if (newDeckNameInput) newDeckNameInput.value = '';
-            if (newDeckTypeSelect) newDeckTypeSelect.value = '';
-            loadRegisteredDecks();
-        });
+        if (!window.currentUserId) {
+            const res = await browser.storage.local.get(['registeredDecksLocal']);
+            decks = res.registeredDecksLocal || [];
+        }
+
+        if (decks.some(deck => deck.name === deckName)) {
+            window.showCustomDialog('エラー', '同じ名前のデッキが既に登録されています。');
+            return;
+        }
+
+        decks.push({ name: deckName, type: deckType });
+
+        if (window.currentUserId) {
+            await saveRegisteredDecksToServer(decks);
+        } else {
+            saveRegisteredDecksLocally(decks);
+        }
+
+        if (newDeckNameInput) newDeckNameInput.value = '';
+        if (newDeckTypeSelect) newDeckTypeSelect.value = '';
     }
 
     async function handleDeleteBattleRecordClick(event) {
         const indexToDelete = parseInt(event.currentTarget.dataset.index);
         const confirmed = await window.showCustomDialog('記録削除', 'この対戦記録を削除しますか？', true);
         if (confirmed) {
-            deleteBattleRecord(indexToDelete);
+            await deleteBattleRecord(indexToDelete);
         }
     }
 
@@ -436,14 +556,14 @@ window.initBattleRecordSection = async function() { // async を追加
         const indexToDelete = parseInt(event.currentTarget.dataset.index);
         const confirmed = await window.showCustomDialog('デッキ削除', 'このデッキを登録リストから削除しますか？', true);
         if (confirmed) {
-            deleteRegisteredDeck(indexToDelete);
+            await deleteRegisteredDeck(indexToDelete);
         }
     }
 
     function handleMyDeckSelectChange(event) { /* ... */ }
     function handleOpponentDeckSelectChange(event) { /* ... */ }
     function handleSelectedDeckForStatsChange(event) {
-        displaySelectedDeckStats(event.target.value);
+        displaySelectedDeckStats(window.userRegisteredDecks || []); // サーバーデータ優先
     }
 
     // イベントリスナーを再アタッチ
@@ -480,11 +600,21 @@ window.initBattleRecordSection = async function() { // async を追加
         showBattleRecordTab(event.currentTarget.dataset.tab);
     }
 
+    // ログイン状態が変更されたときにデータを再ロード
+    document.removeEventListener('loginStateChanged', () => {
+        loadRegisteredDecks();
+        loadBattleRecords();
+    });
+    document.addEventListener('loginStateChanged', () => {
+        loadRegisteredDecks();
+        loadBattleRecords();
+    });
+
     // 初回ロード時に各データをロード
     loadRegisteredDecks();
     loadBattleRecords();
 
     // デフォルトで「新しい対戦記録」タブを表示}
     showBattleRecordTab('new-record');
-}; // End of initBattleRecordSection
+}
 void 0; // Explicitly return undefined for Firefox compatibility

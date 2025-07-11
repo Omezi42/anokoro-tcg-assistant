@@ -42,17 +42,26 @@ window.initRateMatchSection = async function() {
     const logoutButton = document.getElementById('logout-button');
     // --- End 新しい認証UI要素 ---
 
-    let currentRate = 1500; // 仮の初期レート
-    let currentUsername = null; // ログイン中のユーザー名
-    let currentUserId = null; // ログイン中のユーザーID (サーバーが発行)
+    // グローバルなログイン状態変数 (main.jsからアクセスされる)
+    window.currentRate = window.currentRate || 1500; // ログイン中のユーザーのレート
+    window.currentUsername = window.currentUsername || null; // ログイン中のユーザー名
+    window.currentUserId = window.currentUserId || null; // ログイン中のユーザーID (サーバーが発行)
+    window.userMatchHistory = window.userMatchHistory || []; // ログイン中のユーザーの対戦履歴
+    window.userMemos = window.userMemos || []; // ログイン中のユーザーのメモ
+    window.userBattleRecords = window.userBattleRecords || []; // ログイン中のユーザーの対戦記録
+    window.userRegisteredDecks = window.userRegisteredDecks || []; // ログイン中のユーザーの登録デッキ
+
+    // WebSocketインスタンスをグローバルに保持
+    window.ws = window.ws || null;
+
 
     // --- WebSocket & WebRTC Variables ---
     // RailwayサーバーのWebSocket URLに置き換えてください！
-    const RAILWAY_WS_URL = 'production-asia-southeast1-eqsg3a.railway-registry.com/46a7cf96-56a6-4cff-865b-53cac7ec1a08:43282ad0-59d8-4770-8c7c-ccb2fcf0d60b'; // ★★★ ここをあなたのRailwayのURLに置き換える ★★★
+    const RAILWAY_WS_URL = 'wss://your-service-name-xxxx.up.railway.app'; // ★★★ ここをあなたのRailwayのURLに置き換える ★★★
 
-    let ws = null; // WebSocket接続
     let peerConnection = null; // WebRTC PeerConnection
     let dataChannel = null; // WebRTC DataChannel for chat
+    let opponentPlayerId = null; // 相手のユーザーID
     let isWebRTCOfferInitiator = false; // WebRTCのOfferを作成する側かどうかのフラグ
 
     // STUNサーバーの設定 (P2P接続を助けるための無料サーバー)
@@ -67,12 +76,12 @@ window.initRateMatchSection = async function() {
 
     // UIの表示状態を更新する関数
     const updateUIState = () => {
-        if (currentUserId && currentUsername) {
+        if (window.currentUserId && window.currentUsername) {
             // ログイン済み
             if (authSection) authSection.style.display = 'none';
             if (loggedInUi) loggedInUi.style.display = 'block';
-            if (usernameDisplay) usernameDisplay.textContent = currentUsername;
-            if (userIdDisplay) userIdDisplay.textContent = currentUserId.substring(0, 8) + '...'; // IDの一部を表示
+            if (usernameDisplay) usernameDisplay.textContent = window.currentUsername;
+            if (userIdDisplay) userIdDisplay.textContent = window.currentUserId.substring(0, 8) + '...'; // IDの一部を表示
 
             // マッチングUIの表示
             if (opponentPlayerId) { // マッチング成立後
@@ -106,12 +115,14 @@ window.initRateMatchSection = async function() {
         }
         updateRateDisplay();
         loadMatchHistory(); // ログイン状態に応じて履歴をロード
+        // ログイン状態変更イベントを発火
+        document.dispatchEvent(new CustomEvent('loginStateChanged'));
     };
 
     // レート表示を更新する関数
     const updateRateDisplay = () => {
         if (rateDisplay) {
-            rateDisplay.textContent = currentRate;
+            rateDisplay.textContent = window.currentRate;
         }
     };
 
@@ -120,7 +131,7 @@ window.initRateMatchSection = async function() {
         if (!matchHistoryList) return;
         // ログインしている場合はサーバーから取得した履歴を表示
         // 未ログインの場合は「履歴なし」を表示
-        if (currentUserId && window.userMatchHistory) {
+        if (window.currentUserId && window.userMatchHistory) {
             const history = window.userMatchHistory;
             matchHistoryList.innerHTML = ''; // クリア
             if (history.length === 0) {
@@ -139,7 +150,7 @@ window.initRateMatchSection = async function() {
 
     // 対戦履歴をサーバーに保存する関数
     const saveMatchHistoryToServer = async (record) => {
-        if (!currentUserId || !ws || ws.readyState !== WebSocket.OPEN) {
+        if (!window.currentUserId || !window.ws || window.ws.readyState !== WebSocket.OPEN) {
             console.warn("Not logged in or WebSocket not open. Cannot save match history.");
             return;
         }
@@ -148,9 +159,9 @@ window.initRateMatchSection = async function() {
         history.unshift(record); // 最新のものを先頭に追加
         window.userMatchHistory = history.slice(0, 10); // 最新10件に制限
 
-        ws.send(JSON.stringify({
+        window.ws.send(JSON.stringify({
             type: 'update_user_data',
-            userId: currentUserId,
+            userId: window.currentUserId,
             matchHistory: window.userMatchHistory
         }));
         loadMatchHistory(); // UIを更新
@@ -160,7 +171,7 @@ window.initRateMatchSection = async function() {
     const displayChatMessage = (senderId, message) => {
         if (!chatMessagesDiv) return;
         const messageElement = document.createElement('p');
-        const displaySender = senderId === currentUserId ? 'あなた' : '相手プレイヤー'; 
+        const displaySender = senderId === window.currentUserId ? 'あなた' : '相手プレイヤー'; 
         messageElement.innerHTML = `<strong>[${displaySender}]:</strong> ${message}`;
         chatMessagesDiv.appendChild(messageElement);
         chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight; // スクロールを一番下へ
@@ -168,19 +179,20 @@ window.initRateMatchSection = async function() {
 
     // --- WebSocket Connection Setup ---
     const connectWebSocket = () => {
-        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-            console.log("WebSocket already open or connecting.");
+        // グローバルなwsインスタンスが既に存在し、接続中またはオープンであれば再接続しない
+        if (window.ws && (window.ws.readyState === WebSocket.OPEN || window.ws.readyState === WebSocket.CONNECTING)) {
+            console.log("WebSocket already open or connecting (global instance).");
             return;
         }
-        ws = new WebSocket(RAILWAY_WS_URL);
+        window.ws = new WebSocket(RAILWAY_WS_URL);
 
-        ws.onopen = () => {
+        window.ws.onopen = () => {
             console.log("WebSocket connected to Railway server.");
             // 接続後、ローカルストレージに保存されたログイン情報があれば自動ログインを試みる
             browser.storage.local.get(['loggedInUserId', 'loggedInUsername'], (result) => {
                 if (result.loggedInUserId && result.loggedInUsername) {
                     // サーバーに自動ログインリクエストを送信
-                    ws.send(JSON.stringify({
+                    window.ws.send(JSON.stringify({
                         type: 'auto_login',
                         userId: result.loggedInUserId,
                         username: result.loggedInUsername
@@ -192,7 +204,7 @@ window.initRateMatchSection = async function() {
             });
         };
 
-        ws.onmessage = async (event) => {
+        window.ws.onmessage = async (event) => {
             const message = JSON.parse(event.data);
             console.log("WebSocket message received:", message.type);
 
@@ -208,13 +220,16 @@ window.initRateMatchSection = async function() {
                     break;
                 case 'login_response':
                     if (message.success) {
-                        currentUserId = message.userId;
-                        currentUsername = message.username;
-                        currentRate = message.rate;
-                        window.userMatchHistory = message.matchHistory || []; // グローバルに履歴を保存
+                        window.currentUserId = message.userId;
+                        window.currentUsername = message.username;
+                        window.currentRate = message.rate;
+                        window.userMatchHistory = message.matchHistory || [];
+                        window.userMemos = message.memos || [];
+                        window.userBattleRecords = message.battleRecords || [];
+                        window.userRegisteredDecks = message.registeredDecks || [];
                         await window.showCustomDialog('ログイン成功', message.message);
                         // ログイン情報をローカルストレージに保存 (タブ/ブラウザ再起動時の自動ログイン用)
-                        browser.storage.local.set({ loggedInUserId: currentUserId, loggedInUsername: currentUsername });
+                        browser.storage.local.set({ loggedInUserId: window.currentUserId, loggedInUsername: window.currentUsername });
                     } else {
                         await window.showCustomDialog('ログイン失敗', message.message);
                     }
@@ -222,10 +237,13 @@ window.initRateMatchSection = async function() {
                     break;
                 case 'auto_login_response': // 自動ログインの応答
                     if (message.success) {
-                        currentUserId = message.userId;
-                        currentUsername = message.username;
-                        currentRate = message.rate;
+                        window.currentUserId = message.userId;
+                        window.currentUsername = message.username;
+                        window.currentRate = message.rate;
                         window.userMatchHistory = message.matchHistory || [];
+                        window.userMemos = message.memos || [];
+                        window.userBattleRecords = message.battleRecords || [];
+                        window.userRegisteredDecks = message.registeredDecks || [];
                         console.log("Auto-login successful.");
                     } else {
                         console.log("Auto-login failed:", message.message);
@@ -235,10 +253,13 @@ window.initRateMatchSection = async function() {
                     break;
                 case 'logout_response':
                     if (message.success) {
-                        currentUserId = null;
-                        currentUsername = null;
-                        currentRate = 1500; // 初期レートに戻す
+                        window.currentUserId = null;
+                        window.currentUsername = null;
+                        window.currentRate = 1500; // 初期レートに戻す
                         window.userMatchHistory = [];
+                        window.userMemos = [];
+                        window.userBattleRecords = [];
+                        window.userRegisteredDecks = [];
                         await window.showCustomDialog('ログアウト完了', message.message);
                         browser.storage.local.remove(['loggedInUserId', 'loggedInUsername']); // ローカルストレージから削除
                     } else {
@@ -247,10 +268,13 @@ window.initRateMatchSection = async function() {
                     updateUIState();
                     break;
                 case 'logout_forced':
-                    currentUserId = null;
-                    currentUsername = null;
-                    currentRate = 1500;
+                    window.currentUserId = null;
+                    window.currentUsername = null;
+                    window.currentRate = 1500;
                     window.userMatchHistory = [];
+                    window.userMemos = [];
+                    window.userBattleRecords = [];
+                    window.userRegisteredDecks = [];
                     browser.storage.local.remove(['loggedInUserId', 'loggedInUsername']);
                     await window.showCustomDialog('切断されました', message.message);
                     updateUIState();
@@ -262,6 +286,7 @@ window.initRateMatchSection = async function() {
                     if (dataChannel) {
                         dataChannel = null;
                     }
+                    opponentPlayerId = null;
                     isWebRTCOfferInitiator = false;
                     break;
                 case 'queue_status':
@@ -289,7 +314,7 @@ window.initRateMatchSection = async function() {
                                     // Offerを受け取った側はAnswerを作成して送信
                                     const answer = await peerConnection.createAnswer();
                                     await peerConnection.setLocalDescription(answer);
-                                    ws.send(JSON.stringify({ type: 'webrtc_signal', signal: peerConnection.localDescription }));
+                                    window.ws.send(JSON.stringify({ type: 'webrtc_signal', signal: peerConnection.localDescription }));
                                     console.log("WebRTC: Answer created and sent.");
                                 }
                             } else if (message.signal.candidate) {
@@ -306,10 +331,14 @@ window.initRateMatchSection = async function() {
                     if (message.success) {
                         console.log("User data updated on server.");
                         // サーバーから返された最新のデータでローカルを更新
-                        currentRate = message.userData.rate;
+                        window.currentRate = message.userData.rate;
                         window.userMatchHistory = message.userData.matchHistory;
+                        window.userMemos = message.userData.memos;
+                        window.userBattleRecords = message.userData.battleRecords;
+                        window.userRegisteredDecks = message.userData.registeredDecks;
                         updateRateDisplay();
-                        loadMatchHistory();
+                        loadMatchHistory(); // レート戦の履歴を更新
+                        document.dispatchEvent(new CustomEvent('loginStateChanged')); // 他のセクションにデータ更新を通知
                     } else {
                         console.error("Failed to update user data on server:", message.message);
                     }
@@ -322,7 +351,7 @@ window.initRateMatchSection = async function() {
             }
         };
 
-        ws.onclose = () => {
+        window.ws.onclose = () => {
             console.log("WebSocket disconnected.");
             // ログアウト状態にはしないが、マッチング関連の状態はリセット
             opponentPlayerId = null;
@@ -336,10 +365,10 @@ window.initRateMatchSection = async function() {
             }
             updateUIState();
             // 切断されたら自動再接続を試みる（任意）
-            // setTimeout(connectWebSocket, 5000);
+            // setTimeout(connectWebSocket, 5000); 
         };
 
-        ws.onerror = (error) => {
+        window.ws.onerror = (error) => {
             console.error("WebSocket error:", error);
             window.showCustomDialog('エラー', 'マッチングサーバーへの接続に失敗しました。Railwayサーバーが起動しているか確認してください。');
         };
@@ -354,7 +383,7 @@ window.initRateMatchSection = async function() {
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
                 // ICE候補をWebSocketサーバー経由で相手に送信
-                ws.send(JSON.stringify({ type: 'webrtc_signal', signal: event.candidate }));
+                window.ws.send(JSON.stringify({ type: 'webrtc_signal', signal: event.candidate }));
                 console.log("WebRTC: Sending ICE candidate.");
             }
         };
@@ -365,7 +394,7 @@ window.initRateMatchSection = async function() {
                     // Offerを作成して送信
                     const offer = await peerConnection.createOffer();
                     await peerConnection.setLocalDescription(offer);
-                    ws.send(JSON.stringify({ type: 'webrtc_signal', signal: peerConnection.localDescription }));
+                    window.ws.send(JSON.stringify({ type: 'webrtc_signal', signal: peerConnection.localDescription }));
                     console.log("WebRTC: Offer created and sent.");
                 } catch (e) {
                     console.error("WebRTC: Error creating or sending offer:", e);
@@ -433,6 +462,9 @@ window.initRateMatchSection = async function() {
         logoutButton.removeEventListener('click', handleLogoutButtonClick);
         logoutButton.addEventListener('click', handleLogoutButtonClick);
     }
+    // home.jsから呼び出せるようにグローバルに公開
+    window.handleLogoutButtonClickFromRateMatch = handleLogoutButtonClick;
+
 
     // マッチング関連
     if (matchingButton) {
@@ -481,8 +513,8 @@ window.initRateMatchSection = async function() {
             await window.showCustomDialog('エラー', 'ユーザー名とパスワードを入力してください。');
             return;
         }
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'register', username, password }));
+        if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+            window.ws.send(JSON.stringify({ type: 'register', username, password }));
         } else {
             await window.showCustomDialog('エラー', 'サーバーに接続していません。ページをリロードしてください。');
         }
@@ -495,8 +527,8 @@ window.initRateMatchSection = async function() {
             await window.showCustomDialog('エラー', 'ユーザー名とパスワードを入力してください。');
             return;
         }
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'login', username, password }));
+        if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+            window.ws.send(JSON.stringify({ type: 'login', username, password }));
         } else {
             await window.showCustomDialog('エラー', 'サーバーに接続していません。ページをリロードしてください。');
         }
@@ -505,8 +537,8 @@ window.initRateMatchSection = async function() {
     async function handleLogoutButtonClick() {
         const confirmed = await window.showCustomDialog('ログアウト', 'ログアウトしますか？', true);
         if (confirmed) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'logout' }));
+            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                window.ws.send(JSON.stringify({ type: 'logout' }));
             } else {
                 await window.showCustomDialog('エラー', 'サーバーに接続していません。');
             }
@@ -514,15 +546,15 @@ window.initRateMatchSection = async function() {
     }
 
     async function handleMatchingButtonClick() {
-        if (!currentUserId) {
+        if (!window.currentUserId) {
             await window.showCustomDialog('エラー', 'レート戦を開始するにはログインしてください。');
             return;
         }
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
+        if (!window.ws || window.ws.readyState !== WebSocket.OPEN) {
             await window.showCustomDialog('エラー', 'サーバーに接続していません。ページをリロードしてください。');
             return;
         }
-        ws.send(JSON.stringify({ type: 'join_queue', userId: currentUserId }));
+        window.ws.send(JSON.stringify({ type: 'join_queue', userId: window.currentUserId }));
         matchingStatusDiv.textContent = '対戦相手を検索中です...';
         if (matchingButton) matchingButton.disabled = true;
         if (cancelMatchingButton) cancelMatchingButton.disabled = false;
@@ -532,8 +564,8 @@ window.initRateMatchSection = async function() {
     async function handleCancelMatchingButtonClick() {
         const confirmed = await window.showCustomDialog('マッチングキャンセル', 'マッチングをキャンセルしますか？', true);
         if (confirmed) {
-            if (ws && ws.readyState === WebSocket.OPEN && currentUserId) {
-                ws.send(JSON.stringify({ type: 'leave_queue', userId: currentUserId }));
+            if (window.ws && window.ws.readyState === WebSocket.OPEN && window.currentUserId) {
+                window.ws.send(JSON.stringify({ type: 'leave_queue', userId: window.currentUserId }));
             } else {
                 await window.showCustomDialog('エラー', 'サーバーに接続していません。');
             }
@@ -559,7 +591,7 @@ window.initRateMatchSection = async function() {
         const message = chatInput.value.trim();
         if (message) {
             dataChannel.send(message); // DataChannel経由で送信
-            displayChatMessage(currentUserId, message); // 自分のメッセージは即座に表示
+            displayChatMessage(window.currentUserId, message); // 自分のメッセージは即座に表示
             chatInput.value = '';
         }
     }
@@ -580,16 +612,16 @@ window.initRateMatchSection = async function() {
     async function handleWinButtonClick() {
         const confirmed = await window.showCustomDialog('勝利報告', 'BO3の対戦で勝利を報告しますか？', true);
         if (confirmed) {
-            const oldRate = currentRate;
-            currentRate += 30; // 仮のレート増加
+            const oldRate = window.currentRate;
+            window.currentRate += 30; // 仮のレート増加
             updateRateDisplay();
-            await saveMatchHistoryToServer(`${new Date().toLocaleString()} - BO3 勝利 (レート: ${oldRate} → ${currentRate})`);
-            await window.showCustomDialog('報告完了', `勝利を報告しました！<br>レート: ${oldRate} → ${currentRate} (+30)`);
+            await saveMatchHistoryToServer(`${new Date().toLocaleString()} - BO3 勝利 (レート: ${oldRate} → ${window.currentRate})`);
+            await window.showCustomDialog('報告完了', `勝利を報告しました！<br>レート: ${oldRate} → ${window.currentRate} (+30)`);
 
             // サーバーにレート更新を通知
-            if (ws && ws.readyState === WebSocket.OPEN && currentUserId) {
-                ws.send(JSON.stringify({ type: 'update_user_data', userId: currentUserId, rate: currentRate }));
-                ws.send(JSON.stringify({ type: 'clear_match_info' })); // マッチ情報をクリア
+            if (window.ws && window.ws.readyState === WebSocket.OPEN && window.currentUserId) {
+                window.ws.send(JSON.stringify({ type: 'update_user_data', userId: window.currentUserId, rate: window.currentRate }));
+                window.ws.send(JSON.stringify({ type: 'clear_match_info' })); // マッチ情報をクリア
             }
             // WebRTC接続もクリーンアップ
             if (peerConnection) {
@@ -608,16 +640,16 @@ window.initRateMatchSection = async function() {
     async function handleLoseButtonClick() {
         const confirmed = await window.showCustomDialog('敗北報告', 'BO3の対戦で敗北を報告しますか？', true);
         if (confirmed) {
-            const oldRate = currentRate;
-            currentRate -= 20; // 仮のレート減少
+            const oldRate = window.currentRate;
+            window.currentRate -= 20; // 仮のレート減少
             updateRateDisplay();
-            await saveMatchHistoryToServer(`${new Date().toLocaleString()} - BO3 敗北 (レート: ${oldRate} → ${currentRate})`);
-            await window.showCustomDialog('報告完了', `敗北を報告しました。<br>レート: ${oldRate} → ${currentRate} (-20)`);
+            await saveMatchHistoryToServer(`${new Date().toLocaleString()} - BO3 敗北 (レート: ${oldRate} → ${window.currentRate})`);
+            await window.showCustomDialog('報告完了', `敗北を報告しました。<br>レート: ${oldRate} → ${window.currentRate} (-20)`);
 
             // サーバーにレート更新を通知
-            if (ws && ws.readyState === WebSocket.OPEN && currentUserId) {
-                ws.send(JSON.stringify({ type: 'update_user_data', userId: currentUserId, rate: currentRate }));
-                ws.send(JSON.stringify({ type: 'clear_match_info' })); // マッチ情報をクリア
+            if (window.ws && window.ws.readyState === WebSocket.OPEN && window.currentUserId) {
+                window.ws.send(JSON.stringify({ type: 'update_user_data', userId: window.currentUserId, rate: window.currentRate }));
+                window.ws.send(JSON.stringify({ type: 'clear_match_info' })); // マッチ情報をクリア
             }
             // WebRTC接続もクリーンアップ
             if (peerConnection) {
@@ -639,9 +671,9 @@ window.initRateMatchSection = async function() {
             await window.showCustomDialog('完了', '対戦を中止しました。');
 
             // サーバーにレート更新を通知
-            if (ws && ws.readyState === WebSocket.OPEN && currentUserId) {
+            if (window.ws && window.ws.readyState === WebSocket.OPEN && window.currentUserId) {
                 // レート変更なしでユーザーデータを更新（履歴は保存済み）
-                ws.send(JSON.stringify({ type: 'clear_match_info' })); // マッチ情報をクリア
+                window.ws.send(JSON.stringify({ type: 'clear_match_info' })); // マッチ情報をクリア
             }
             // WebRTC接続もクリーンアップ
             if (peerConnection) {
@@ -659,18 +691,7 @@ window.initRateMatchSection = async function() {
 
     // 初期ロード時の処理
     connectWebSocket(); // WebSocket接続を開始
-
-    // ページロード時にローカルストレージからログイン情報を読み込み、自動ログインを試みる
-    // WebSocket接続が確立された後にサーバーにauto_loginリクエストを送信するように変更
-    // browser.storage.local.get(['loggedInUserId', 'loggedInUsername'], (result) => {
-    //     if (result.loggedInUserId && result.loggedInUsername) {
-    //         currentUserId = result.loggedInUserId;
-    //         currentUsername = result.loggedInUsername;
-    //         console.log("Found cached login info. Will attempt auto-login after WS connection.");
-    //     } else {
-    //         updateUIState(); // 未ログイン状態のUIを表示
-    //     }
-    // });
+    updateUIState(); // 初期UI状態を更新
 
     // Firebase Auth ReadyイベントはReplit DB認証では不要になるが、
     // 他のセクションでFirebase Authを使用している場合は残す。

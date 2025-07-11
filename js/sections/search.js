@@ -1,11 +1,16 @@
 // js/sections/search.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initSearchSection = async function() { // async を維持
+window.initSearchSection = async function() {
     console.log("Search section initialized.");
 
+    // Firefox互換性のためのbrowserオブジェクトのフォールバック
+    if (typeof browser === 'undefined') {
+        var browser = chrome;
+    }
+
     // === 検索セクションのロジック ===
-    // 各要素を関数内で取得
+    // 各UI要素を関数内で取得
     const searchInput = document.getElementById('search-input');
     const performSearchButton = document.getElementById('perform-search-button');
     const searchResults = document.getElementById('search-results');
@@ -15,14 +20,16 @@ window.initSearchSection = async function() { // async を維持
 
     const autocompleteSuggestions = document.getElementById('autocomplete-suggestions');
 
-    // fuzzyThreshold を initSearchSection のスコープ内で定義
-    const fuzzyThreshold = 2; // 許容する誤字脱字の閾値 (例: 2文字までの違いを許容)
+    // あいまい検索の許容誤字脱字閾値
+    const fuzzyThreshold = 2; // 例: 2文字までの違いを許容
 
-    // 検索フィルターのセットオプションを動的に追加
+    /**
+     * 検索フィルターのセットオプションを動的に追加します。
+     * window.allCardsから利用可能なセット名を抽出し、ドロップダウンに設定します。
+     */
     function populateSearchFilters() {
         const sets = new Set();
-        // window.allCards を使用
-        if (window.allCards) {
+        if (window.allCards) { // window.allCards がロードされていることを確認
             window.allCards.forEach(card => {
                 if (card.info && card.info.length > 0) {
                     const setInfo = card.info.find(info => info.startsWith('このカードの収録セットは、'));
@@ -34,7 +41,7 @@ window.initSearchSection = async function() { // async を維持
             });
         }
         if (searchFilterSet) {
-            searchFilterSet.innerHTML = '<option value="">全て</option>';
+            searchFilterSet.innerHTML = '<option value="">全て</option>'; // デフォルトオプション
             Array.from(sets).sort().forEach(set => {
                 const option = document.createElement('option');
                 option.value = set;
@@ -45,9 +52,10 @@ window.initSearchSection = async function() { // async を維持
     }
 
     /**
-     * カード情報を正規化するヘルパー関数
-     * @param {string} text - 正規化する文字列
-     * @returns {string} 正規化された文字列
+     * カード情報を正規化するヘルパー関数。
+     * 半角カタカナ、ひらがなを全角カタカナに変換し、スペースを削除します。
+     * @param {string} text - 正規化する文字列。
+     * @returns {string} 正規化された文字列。
      */
     function normalizeText(text) {
         // 半角カタカナを全角カタカナに変換
@@ -64,10 +72,11 @@ window.initSearchSection = async function() { // async を維持
     }
 
     /**
-     * レーベンシュタイン距離を計算する関数 (あいまい検索用)
-     * @param {string} s1 - 文字列1
-     * @param {string} s2 - 文字列2
-     * @returns {number} レーベンシュタイン距離
+     * レーベンシュタイン距離を計算する関数 (あいまい検索用)。
+     * 2つの文字列間の編集距離を返します。
+     * @param {string} s1 - 文字列1。
+     * @param {string} s2 - 文字列2。
+     * @returns {number} レーベンシュタイン距離。
      */
     function levenshteinDistance(s1, s2) {
         s1 = normalizeText(s1);
@@ -90,7 +99,7 @@ window.initSearchSection = async function() { // async を維持
                 );
             }
             // 検索クエリが長すぎる場合、パフォーマンスのために早期終了
-            if (dp[i][n] > fuzzyThreshold + 1) { // fuzzyThreshold は外側のスコープで定義されている
+            if (dp[i][n] > fuzzyThreshold + 1) { 
                 return Infinity;
             }
         }
@@ -98,18 +107,18 @@ window.initSearchSection = async function() { // async を維持
     }
 
     /**
-     * カード検索を実行する関数
-     * @param {string} query - 検索クエリ
-     * @param {string} textTarget - テキスト検索対象 ('all', 'name', 'effect', 'lore')
-     * @param {string} typeFilter - カードタイプフィルター
-     * @param {string} setFilter - 収録セットフィルター
+     * カード検索を実行する関数。
+     * 検索クエリとフィルターに基づいてカードを検索し、結果をUIに表示します。
+     * @param {string} query - 検索クエリ。
+     * @param {string} textTarget - テキスト検索対象 ('all', 'name', 'effect', 'lore')。
+     * @param {string} typeFilter - カードタイプフィルター。
+     * @param {string} setFilter - 収録セットフィルター。
      */
     async function performCardSearch(query, textTarget, typeFilter, setFilter) {
         if (!searchResults) return;
         searchResults.innerHTML = '<p><div class="spinner"></div> 検索中...</p>'; // ローディングスピナー表示
 
         const normalizedQuery = normalizeText(query);
-        // fuzzyThreshold は initSearchSection のスコープで定義されているため、ここで再定義は不要
 
         let filteredCards = window.allCards.filter(card => { // window.allCards を使用
             // テキスト検索
@@ -121,17 +130,25 @@ window.initSearchSection = async function() { // async を維持
                         cardText = card.name;
                         break;
                     case 'effect':
-                        cardText = card.info.find(info => info.startsWith("このカードの効果は、「")) || '';
+                        // カード効果情報を見つけて抽出
+                        const effectInfo = card.info.find(info => info.startsWith("このカードの効果は、「"));
+                        cardText = effectInfo ? effectInfo.replace("このカードの効果は、「", "").replace("」です。", "") : '';
                         break;
                     case 'lore':
-                        cardText = card.info.find(info => info.startsWith("このカードの世界観は、「")) || '';
+                        // カード世界観情報を見つけて抽出
+                        const loreInfo = card.info.find(info => info.startsWith("このカードの世界観は、「"));
+                        cardText = loreInfo ? loreInfo.replace("このカードの世界観は、「", "").replace("」です。", "") : '';
                         break;
                     case 'all':
                     default:
-                        cardText = card.name + ' ' + card.info.join(' ');
+                        // カード名、効果、世界観を結合して検索
+                        const nameInfo = card.name;
+                        const allEffectInfo = card.info.find(info => info.startsWith("このカードの効果は、「"));
+                        const allLoreInfo = card.info.find(info => info.startsWith("このカードの世界観は、「"));
+                        cardText = `${nameInfo} ${allEffectInfo || ''} ${allLoreInfo || ''}`;
                         break;
                 }
-                // レーベンシュタイン距離を使ったあいまい検索
+                // レーベンシュタイン距離を使ったあいまい検索、または部分文字列検索
                 textMatches = levenshteinDistance(cardText, normalizedQuery) <= fuzzyThreshold || normalizeText(cardText).includes(normalizedQuery);
             }
 
@@ -146,7 +163,7 @@ window.initSearchSection = async function() { // async を維持
 
         if (filteredCards.length > 0) {
             let resultsHtml = `<p>「<strong>${query || '全てのカード'}</strong>」の検索結果 (${filteredCards.length}件):</p><ul>`;
-            filteredCards.forEach(card => { // すべて表示するためにsliceを削除
+            filteredCards.forEach(card => {
                 resultsHtml += `<li><a href="#" class="card-name-link" data-card-name="${card.name}"><strong>${card.name}</strong></a><br>`;
                 card.info.forEach(info => {
                     if (info.startsWith("このカードの効果は、「")) {
@@ -167,7 +184,7 @@ window.initSearchSection = async function() { // async を維持
             });
 
         } else {
-            // Gemini APIを呼び出して架空のカードを生成
+            // Gemini APIを呼び出して架空のカードを生成 (検索結果がない場合のみ)
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: `TCGカードの検索機能です。以下の条件に合致する架空のカード名、効果、世界観の情報をJSON形式で3つ生成してください。もし情報が見つからない場合は「見つかりませんでした」と返してください。
             フォーマット：
@@ -224,13 +241,16 @@ window.initSearchSection = async function() { // async を維持
                     searchResults.innerHTML = '<p>検索結果が見つかりませんでした。</p>';
                 }
             } catch (error) {
-                console.error("Gemini API呼び出しエラー:", error);
+                console.error("Search: Gemini API呼び出しエラー:", error);
                 searchResults.innerHTML = '<p>検索中にエラーが発生しました。</p>';
             }
         }
     }
 
-    // カード詳細を表示するポップアップ
+    /**
+     * カード詳細を表示するポップアップを生成します。
+     * @param {string} cardName - 表示するカードの名前。
+     */
     function displayCardDetails(cardName) {
         const card = window.allCards.find(c => c.name === cardName); // window.allCards を使用
         if (!card) {
@@ -251,19 +271,20 @@ window.initSearchSection = async function() { // async を維持
         popup.innerHTML = detailHtml;
         document.body.appendChild(popup);
 
-        popup.querySelector('#close-card-detail-popup').removeEventListener('click', handleCloseCardDetailPopupClick); // 既存のリスナーを削除
+        // イベントリスナーを再アタッチ
+        popup.querySelector('#close-card-detail-popup').removeEventListener('click', handleCloseCardDetailPopupClick);
         popup.querySelector('#close-card-detail-popup').addEventListener('click', handleCloseCardDetailPopupClick);
     }
 
-    // イベントハンドラ関数
+    // --- イベントハンドラ関数 ---
     function handleCardNameLinkClick(e) {
-        e.preventDefault();
+        e.preventDefault(); // デフォルトのリンク動作を防止
         const cardName = e.target.dataset.cardName;
         displayCardDetails(cardName);
     }
 
     function handleCloseCardDetailPopupClick(e) {
-        e.target.closest('.card-detail-popup').remove();
+        e.target.closest('.card-detail-popup').remove(); // ポップアップを閉じる
     }
 
     function handlePerformSearchButtonClick() {
@@ -282,7 +303,7 @@ window.initSearchSection = async function() { // async を維持
 
     function handleSearchInputInput() {
         const query = searchInput.value.trim().toLowerCase();
-        autocompleteSuggestions.innerHTML = '';
+        autocompleteSuggestions.innerHTML = ''; // サジェストリストをクリア
 
         if (query.length > 0) {
             const suggestions = window.allCards.filter(card => // window.allCards を使用
@@ -291,7 +312,7 @@ window.initSearchSection = async function() { // async を維持
 
             if (suggestions.length > 0) {
                 autocompleteSuggestions.style.display = 'block';
-                suggestions.slice(0, 5).forEach(suggestion => {
+                suggestions.slice(0, 5).forEach(suggestion => { // 最大5件表示
                     const div = document.createElement('div');
                     div.textContent = suggestion;
                     div.removeEventListener('click', handleAutocompleteSuggestionClick); // 既存のリスナーを削除
@@ -307,18 +328,19 @@ window.initSearchSection = async function() { // async を維持
     }
 
     function handleAutocompleteSuggestionClick(event) {
-        searchInput.value = event.currentTarget.textContent;
-        autocompleteSuggestions.style.display = 'none';
+        searchInput.value = event.currentTarget.textContent; // 選択されたサジェストを入力フィールドに設定
+        autocompleteSuggestions.style.display = 'none'; // サジェストリストを非表示に
         performSearchButton.click(); // オートコンプリート選択後、検索を実行
     }
 
     function handleSearchInputBlur() {
+        // blurイベントはclickイベントより先に発火することがあるため、少し遅延させてリストを非表示にする
         setTimeout(() => {
             if (autocompleteSuggestions) autocompleteSuggestions.style.display = 'none';
-        }, 100); // クリックイベントが発火するのを待つ
+        }, 100); 
     }
 
-    // イベントリスナーを再アタッチ
+    // --- イベントリスナーの再アタッチ ---
     if (performSearchButton) {
         performSearchButton.removeEventListener('click', handlePerformSearchButtonClick);
         performSearchButton.addEventListener('click', handlePerformSearchButtonClick);
@@ -331,7 +353,7 @@ window.initSearchSection = async function() { // async を維持
         searchInput.addEventListener('blur', handleSearchInputBlur);
     }
 
-    // 検索フィルターを初期化
+    // 検索フィルターを初期化（初回ロード時）
     populateSearchFilters();
-}; // End of initSearchSection
+};
 void 0; // Explicitly return undefined for Firefox compatibility

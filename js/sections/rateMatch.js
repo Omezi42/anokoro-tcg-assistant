@@ -12,8 +12,9 @@ window.initRateMatchSection = async function() {
     // === レート戦セクションのロジック ===
     // 各要素を関数内で取得
     const matchingButton = document.getElementById('matching-button');
-    const cancelMatchingButtonInStatus = document.getElementById('cancel-matching-button-in-status'); // 新しいキャンセルボタン
+    const cancelMatchingButtonInStatus = document.getElementById('cancel-matching-button-in-status'); // マッチング待機中のキャンセルボタン
     const matchingStatusDiv = document.getElementById('matching-status');
+    const matchingStatusTextSpan = document.getElementById('matching-status-text'); // 新しいテキスト表示用span
     const preMatchUiDiv = document.getElementById('pre-match-ui');
     const postMatchUiDiv = document.getElementById('post-match-ui');
     const matchHistoryList = document.getElementById('match-history-list');
@@ -64,7 +65,7 @@ window.initRateMatchSection = async function() {
 
     // --- WebSocket & WebRTC Variables ---
     // RenderサーバーのWebSocket URLに置き換えてください！
-    const RENDER_WS_URL = 'wss://anokoro-tcg-api.onrender.com'; // ★★★ ここをあなたのRenderのURLに置き換える ★★★
+    const RENDER_WS_URL = 'wss://anokoro-tcg-backend-production.onrender.com'; // ★★★ ここをあなたのRenderのURLに置き換える ★★★
 
     let peerConnection = null; // WebRTC PeerConnection
     let dataChannel = null; // WebRTC DataChannel for chat
@@ -82,52 +83,67 @@ window.initRateMatchSection = async function() {
     };
     // --- End WebSocket & WebRTC Variables ---
 
-    // UIの表示状態を更新する関数
+    /**
+     * UIの表示状態を更新するメイン関数
+     * ログイン状態、マッチング状態に応じてUIを切り替える
+     */
     const updateUIState = () => {
+        // ログイン状態に応じて認証UIとメインUIを切り替え
         if (window.currentUserId && window.currentUsername) {
-            // ログイン済み
             if (authSection) authSection.style.display = 'none';
             if (loggedInUi) loggedInUi.style.display = 'block';
             if (usernameDisplay) usernameDisplay.textContent = window.currentUsername;
+            if (logoutButton) logoutButton.style.display = 'block'; // ログアウトボタンを表示
+        } else {
+            if (authSection) authSection.style.display = 'block';
+            if (loggedInUi) loggedInUi.style.display = 'none';
+            if (logoutButton) logoutButton.style.display = 'none'; // ログアウトボタンを非表示
+        }
 
-            // マッチングUIの表示
+        // マッチング状態に応じてレート戦UIを切り替え
+        if (window.currentUserId && window.currentUsername) { // ログインしている場合のみ
             if (currentMatchId) { // マッチング成立後 (currentMatchIdがある場合)
-                 if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
-                 if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
-                 if (postMatchUiDiv) postMatchUiDiv.style.display = 'block';
-                 
-                 // 対戦相手情報を表示
-                 if (opponentUsernameDisplay) opponentUsernameDisplay.textContent = opponentUsername || '不明';
-
-                 if (chatMessagesDiv && chatMessagesDiv.dataset.initialized !== 'true') {
-                     chatMessagesDiv.innerHTML = `
-                         <p><strong>[システム]:</strong> 対戦が始まりました！</p>
-                         <p><strong>[システム]:</strong> WebRTC接続を確立中...</p>
-                     `;
-                     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-                     chatMessagesDiv.dataset.initialized = 'true';
-                 }
-            } else if (matchingStatusDiv && matchingStatusDiv.style.display === 'flex') { // マッチング待機中
-                // 既にマッチング待機中UIが表示されている場合、そのまま維持
                 if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
+                if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
+                if (postMatchUiDiv) postMatchUiDiv.style.display = 'block';
+                
+                // 対戦相手情報を表示
+                if (opponentUsernameDisplay) opponentUsernameDisplay.textContent = opponentUsername || '不明';
+
+                // チャットエリアの初期化（一度だけ行う）
+                if (chatMessagesDiv && chatMessagesDiv.dataset.initialized !== 'true') {
+                    chatMessagesDiv.innerHTML = `
+                        <p><strong>[システム]:</strong> 対戦が始まりました！</p>
+                        <p><strong>[システム]:</strong> WebRTC接続を確立中...</p>
+                    `;
+                    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                    chatMessagesDiv.dataset.initialized = 'true';
+                }
+                // チャット入力と送信ボタンの有効化はDataChannelオープン時に行う
+                if (chatInput) chatInput.disabled = true;
+                if (sendChatButton) sendChatButton.disabled = true;
+
+            } else if (matchingStatusDiv && matchingStatusDiv.style.display === 'flex') { // マッチング待機中
+                // マッチングボタンを押した直後にこの状態になる
+                if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
+                if (matchingStatusDiv) matchingStatusDiv.style.display = 'flex'; // マッチング中UIを表示
                 if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
+                if (matchingButton) matchingButton.disabled = true; // マッチング中は無効
+                if (cancelMatchingButtonInStatus) cancelMatchingButtonInStatus.disabled = false; // キャンセルボタンは有効
+                matchingStatusTextSpan.textContent = '対戦相手を検索中...'; // テキストを確実に設定
             }
             else { // マッチング前 (デフォルト状態)
                 if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
                 if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
                 if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
+                if (matchingButton) matchingButton.disabled = false; // マッチングボタンを有効
+                if (cancelMatchingButtonInStatus) cancelMatchingButtonInStatus.disabled = true; // キャンセルボタンは無効
             }
-            // マッチングボタンの有効/無効はhandleMatchingButtonClick/handleCancelMatchingButtonClickで制御
-            // ここではUIの表示状態のみを制御し、ボタンのdisabled状態はイベントハンドラに任せる
-            if (chatMessagesDiv) chatMessagesDiv.dataset.initialized = 'false'; // リセット
-        } else {
-            // 未ログイン
-            if (authSection) authSection.style.display = 'block';
-            if (loggedInUi) loggedInUi.style.display = 'none';
+            if (chatMessagesDiv) chatMessagesDiv.dataset.initialized = 'false'; // チャットエリアの初期化フラグリセット
+        } else { // 未ログインの場合、すべてのマッチングUIを非表示
             if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
             if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
             if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
-            if (chatMessagesDiv) chatMessagesDiv.dataset.initialized = 'false'; // リセット
         }
         updateRateDisplay();
         loadMatchHistory(); // ログイン状態に応じて履歴をロード
@@ -308,7 +324,7 @@ window.initRateMatchSection = async function() {
                     break;
                 case 'queue_status':
                     console.log("Queue status:", message.message);
-                    matchingStatusDiv.textContent = message.message; // ステータス表示を更新
+                    if (matchingStatusTextSpan) matchingStatusTextSpan.textContent = message.message; // spanを更新
                     // UI更新はupdateUIStateでまとめて行う
                     break;
                 case 'match_found':
@@ -318,7 +334,7 @@ window.initRateMatchSection = async function() {
                     isWebRTCOfferInitiator = message.isInitiator;
                     console.log(`Match found! Opponent: ${opponentPlayerId} (${opponentUsername}), Initiator: ${isWebRTCOfferInitiator}, MatchId: ${currentMatchId}`);
                     await window.showCustomDialog('対戦相手決定', `対戦相手が見つかりました！対戦を開始しましょう！`);
-                    updateUIState();
+                    updateUIState(); // マッチ成立後のUIに切り替え
                     await setupPeerConnection(); // WebRTC接続のセットアップを開始
                     break;
                 case 'webrtc_signal':
@@ -660,7 +676,7 @@ window.initRateMatchSection = async function() {
         // UIをマッチング待機中に即座に更新
         if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
         if (matchingStatusDiv) matchingStatusDiv.style.display = 'flex'; // マッチング中UIを表示
-        matchingStatusDiv.textContent = '対戦相手を検索中です...'; // テキストも更新
+        if (matchingStatusTextSpan) matchingStatusTextSpan.textContent = '対戦相手を検索中です...'; // テキストも更新
         if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
         if (matchingButton) matchingButton.disabled = true;
         if (cancelMatchingButtonInStatus) cancelMatchingButtonInStatus.disabled = false; // 新しいキャンセルボタンを有効化

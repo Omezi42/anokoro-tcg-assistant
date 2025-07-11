@@ -1,7 +1,7 @@
 // js/sections/battleRecord.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initBattleRecordSection = async function() { // async を追加
+window.initBattleRecordSection = async function() {
     console.log("BattleRecord section initialized.");
 
     // Firefox互換性のためのbrowserオブジェクトのフォールバック
@@ -29,42 +29,37 @@ window.initBattleRecordSection = async function() { // async を追加
     let battleRecordTabContents = document.querySelectorAll('.battle-record-tab-content');
 
     // ユーザーのデータ (rateMatch.jsからログイン時にセットされることを期待)
-    window.userBattleRecords = window.userBattleRecords || [];
-    window.userRegisteredDecks = window.userRegisteredDecks || [];
+    // window.userBattleRecords と window.userRegisteredDecks は main.js で初期化される
 
-    // 戦績をロードして集計を更新する関数 (サーバーから)
+    /**
+     * 戦績をロードして集計を更新する関数 (サーバーから、または未ログイン時はローカルから)
+     */
     const loadBattleRecords = () => {
         const battleRecordsList = document.getElementById('battle-records-list');
-        const totalGamesSpan = document.getElementById('total-games');
-        const totalWinsSpan = document.getElementById('total-wins');
-        const totalLossesSpan = document.getElementById('total-losses');
-        const winRateSpan = document.getElementById('win-rate');
-        const firstWinRateSpan = document.getElementById('first-win-rate');
-        const secondWinRateSpan = document.getElementById('second-win-rate');
-        const myDeckTypeWinRatesDiv = document.getElementById('my-deck-type-win-rates');
-        const opponentDeckTypeWinRatesDiv = document.getElementById('opponent-deck-type-win-rates');
-
         if (!battleRecordsList) return;
 
-        // ログインしていない場合はローカルストレージから読み込むか、表示を切り替える
+        let records;
         if (!window.currentUserId) {
             console.log("BattleRecord: Not logged in. Displaying local battle record data (if any).");
             browser.storage.local.get(['battleRecordsLocal'], (result) => {
-                const records = result.battleRecordsLocal || [];
+                records = result.battleRecordsLocal || [];
                 displayBattleRecords(records, false); // ローカルストレージからの表示
+                calculateAndDisplayStats(records, window.userRegisteredDecks || []); // ローカルデータで統計も更新
             });
-            // 統計情報もローカルから計算して表示
-            calculateAndDisplayStats(window.userBattleRecords || [], window.userRegisteredDecks || []);
             return;
         }
 
         console.log("BattleRecord: Logged in. Loading battle records from server data.");
-        const records = window.userBattleRecords || []; // ログイン時にrateMatch.jsからセットされたデータを使用
+        records = window.userBattleRecords || []; // ログイン時にrateMatch.jsからセットされたデータを使用
         displayBattleRecords(records, true); // サーバーからの表示
-        calculateAndDisplayStats(records, window.userRegisteredDecks || []);
+        calculateAndDisplayStats(records, window.userRegisteredDecks || []); // サーバーデータで統計も更新
     };
 
-    // 戦績をUIに表示するヘルパー関数
+    /**
+     * 戦績をUIに表示するヘルパー関数
+     * @param {Array<Object>} records - 表示する対戦記録の配列
+     * @param {boolean} isServerData - サーバーデータかどうか (表示メッセージ用)
+     */
     const displayBattleRecords = (records, isServerData) => {
         const battleRecordsList = document.getElementById('battle-records-list');
         if (!battleRecordsList) return;
@@ -98,7 +93,11 @@ window.initBattleRecordSection = async function() { // async を追加
         }
     };
 
-    // 統計情報を計算して表示する関数
+    /**
+     * 統計情報を計算して表示する関数
+     * @param {Array<Object>} records - 対戦記録の配列
+     * @param {Array<Object>} registeredDecks - 登録済みデッキの配列
+     */
     const calculateAndDisplayStats = (records, registeredDecks) => {
         const totalGamesSpan = document.getElementById('total-games');
         const totalWinsSpan = document.getElementById('total-wins');
@@ -197,8 +196,12 @@ window.initBattleRecordSection = async function() { // async を追加
         updateSelectedDeckStatsDropdown(registeredDecks); // ドロップダウンも更新
     };
 
-    // 戦績をサーバーに保存する関数
+    /**
+     * 戦績データをサーバーに保存します。
+     * @param {Array<Object>} recordsToSave - 保存する対戦記録の配列。
+     */
     const saveBattleRecordsToServer = async (recordsToSave) => {
+        // ログイン状態とWebSocket接続を確認
         if (!window.currentUserId || !window.ws || window.ws.readyState !== WebSocket.OPEN) {
             console.warn("BattleRecord: Not logged in or WebSocket not open. Cannot save battle records to server.");
             await window.showCustomDialog('エラー', 'ログインしていないか、サーバーに接続していません。対戦記録は保存されませんでした。');
@@ -214,7 +217,10 @@ window.initBattleRecordSection = async function() { // async を追加
         loadBattleRecords(); // UIを再ロード
     };
 
-    // 戦績をローカルストレージに保存する関数 (未ログイン時用)
+    /**
+     * 戦績データをローカルストレージに保存します (未ログイン時用)。
+     * @param {Array<Object>} recordsToSave - 保存する対戦記録の配列。
+     */
     const saveBattleRecordsLocally = (recordsToSave) => {
         browser.storage.local.set({ battleRecordsLocal: recordsToSave }, () => {
             window.showCustomDialog('保存完了', '対戦記録をローカルに保存しました！');
@@ -222,11 +228,15 @@ window.initBattleRecordSection = async function() { // async を追加
         });
     };
 
-    // 戦績を削除する関数
+    /**
+     * 対戦記録を削除します (ログイン状態に応じてサーバーまたはローカル)。
+     * @param {number} index - 削除する記録のインデックス。
+     */
     const deleteBattleRecord = async (index) => {
-        let records = window.userBattleRecords || []; // サーバーデータ優先
-
-        if (!window.currentUserId) {
+        let records;
+        if (window.currentUserId) {
+            records = window.userBattleRecords || []; // サーバーデータ優先
+        } else {
             const result = await browser.storage.local.get(['battleRecordsLocal']);
             records = result.battleRecordsLocal || [];
         }
@@ -238,11 +248,13 @@ window.initBattleRecordSection = async function() { // async を追加
             } else {
                 saveBattleRecordsLocally(records);
             }
-            window.showCustomDialog('削除完了', '対戦記録を削除しました。');
+            // showCustomDialog は saveBattleRecordsToServer/Locally から呼ばれる
         }
     };
 
-    // 登録済みデッキをロードして表示する関数 (サーバーから)
+    /**
+     * 登録済みデッキをロードして表示する関数 (サーバーから、または未ログイン時はローカルから)
+     */
     const loadRegisteredDecks = () => {
         const registeredDecksList = document.getElementById('registered-decks-list');
         const myDeckSelect = document.getElementById('my-deck-select');
@@ -250,22 +262,28 @@ window.initBattleRecordSection = async function() { // async を追加
 
         if (!registeredDecksList || !myDeckSelect || !opponentDeckSelect) return;
 
-        // ログインしていない場合はローカルストレージから読み込むか、表示を切り替える
+        let decks;
         if (!window.currentUserId) {
             console.log("BattleRecord: Not logged in. Displaying local registered decks (if any).");
             browser.storage.local.get(['registeredDecksLocal'], (result) => {
-                const decks = result.registeredDecksLocal || [];
+                decks = result.registeredDecksLocal || [];
                 displayRegisteredDecks(decks, myDeckSelect, opponentDeckSelect, false);
             });
             return;
         }
 
         console.log("BattleRecord: Logged in. Loading registered decks from server data.");
-        const decks = window.userRegisteredDecks || []; // ログイン時にrateMatch.jsからセットされたデータを使用
+        decks = window.userRegisteredDecks || []; // ログイン時にrateMatch.jsからセットされたデータを使用
         displayRegisteredDecks(decks, myDeckSelect, opponentDeckSelect, true);
     };
 
-    // 登録済みデッキをUIに表示するヘルパー関数
+    /**
+     * 登録済みデッキをUIに表示するヘルパー関数
+     * @param {Array<Object>} decks - 表示するデッキの配列。
+     * @param {HTMLElement} myDeckSelect - 自分のデッキ選択ドロップダウン。
+     * @param {HTMLElement} opponentDeckSelect - 相手のデッキ選択ドロップダウン。
+     * @param {boolean} isServerData - サーバーデータかどうか (表示メッセージ用)。
+     */
     const displayRegisteredDecks = (decks, myDeckSelect, opponentDeckSelect, isServerData) => {
         const registeredDecksList = document.getElementById('registered-decks-list');
         if (!registeredDecksList || !myDeckSelect || !opponentDeckSelect) return;
@@ -304,9 +322,12 @@ window.initBattleRecordSection = async function() { // async を追加
         updateSelectedDeckStatsDropdown(decks); // デッキ選択ドロップダウンも更新
     };
 
-
-    // 登録済みデッキをサーバーに保存する関数
+    /**
+     * 登録済みデッキデータをサーバーに保存します。
+     * @param {Array<Object>} decksToSave - 保存する登録デッキの配列。
+     */
     const saveRegisteredDecksToServer = async (decksToSave) => {
+        // ログイン状態とWebSocket接続を確認
         if (!window.currentUserId || !window.ws || window.ws.readyState !== WebSocket.OPEN) {
             console.warn("BattleRecord: Not logged in or WebSocket not open. Cannot save registered decks to server.");
             await window.showCustomDialog('エラー', 'ログインしていないか、サーバーに接続していません。デッキは保存されませんでした。');
@@ -322,7 +343,10 @@ window.initBattleRecordSection = async function() { // async を追加
         loadRegisteredDecks(); // UIを再ロード
     };
 
-    // 登録済みデッキをローカルストレージに保存する関数 (未ログイン時用)
+    /**
+     * 登録済みデッキデータをローカルストレージに保存します (未ログイン時用)。
+     * @param {Array<Object>} decksToSave - 保存する登録デッキの配列。
+     */
     const saveRegisteredDecksLocally = (decksToSave) => {
         browser.storage.local.set({ registeredDecksLocal: decksToSave }, () => {
             window.showCustomDialog('登録完了', 'デッキをローカルに登録しました！');
@@ -330,11 +354,15 @@ window.initBattleRecordSection = async function() { // async を追加
         });
     };
 
-    // 登録済みデッキを削除する関数
+    /**
+     * 登録済みデッキを削除します (ログイン状態に応じてサーバーまたはローカル)。
+     * @param {number} index - 削除するデッキのインデックス。
+     */
     const deleteRegisteredDeck = async (index) => {
-        let decks = window.userRegisteredDecks || []; // サーバーデータ優先
-
-        if (!window.currentUserId) {
+        let decks;
+        if (window.currentUserId) {
+            decks = window.userRegisteredDecks || []; // サーバーデータ優先
+        } else {
             const result = await browser.storage.local.get(['registeredDecksLocal']);
             decks = result.registeredDecksLocal || [];
         }
@@ -346,12 +374,15 @@ window.initBattleRecordSection = async function() { // async を追加
             } else {
                 saveRegisteredDecksLocally(decks);
             }
-            window.showCustomDialog('削除完了', 'デッキを削除しました。');
+            // showCustomDialog は saveRegisteredDecksToServer/Locally から呼ばれる
             loadBattleRecords(); // 統計情報も更新されるように
         }
     };
 
-    // デッキ別詳細分析のドロップダウンを更新
+    /**
+     * デッキ別詳細分析のドロップダウンを更新
+     * @param {Array<Object>} registeredDecks - 登録済みデッキの配列。
+     */
     const updateSelectedDeckStatsDropdown = (registeredDecks) => {
         const selectedDeckForStats = document.getElementById('selected-deck-for-stats');
         if (!selectedDeckForStats) return;
@@ -366,7 +397,10 @@ window.initBattleRecordSection = async function() { // async を追加
         displaySelectedDeckStats(selectedDeckForStats.value);
     };
 
-    // 選択されたデッキの詳細な勝率を表示
+    /**
+     * 選択されたデッキの詳細な勝率を表示
+     * @param {string} deckName - 選択されたデッキ名。
+     */
     const displaySelectedDeckStats = (deckName) => {
         const records = window.userBattleRecords || []; // サーバーデータ優先
         const selectedDeckStatsDetail = document.getElementById('selected-deck-stats-detail');
@@ -461,9 +495,12 @@ window.initBattleRecordSection = async function() { // async を追加
     }
 
 
-    // イベントハンドラ関数
+    // --- イベントハンドラ関数 ---
     async function handleSaveBattleRecordClick() {
-        if (!myDeckSelect || !opponentDeckSelect || !winLossSelect || !firstSecondSelect || !notesTextarea) return;
+        if (!myDeckSelect || !opponentDeckSelect || !winLossSelect || !firstSecondSelect || !notesTextarea) {
+            await window.showCustomDialog('エラー', '自分のデッキ名、相手のデッキ名、勝敗、先攻/後攻は必須です。');
+            return;
+        }
         const myDeck = myDeckSelect.value;
         const opponentDeck = opponentDeckSelect.value;
         const myDeckType = myDeckSelect.value ? myDeckSelect.options[myDeckSelect.selectedIndex].textContent.match(/\((.*?)\)/)?.[1] || '' : '';
@@ -472,11 +509,6 @@ window.initBattleRecordSection = async function() { // async を追加
         const result = winLossSelect.value;
         const firstSecond = firstSecondSelect.value;
         const notes = notesTextarea.value.trim();
-
-        if (!myDeck || !opponentDeck || !result || !firstSecond) {
-            window.showCustomDialog('エラー', '自分のデッキ名、相手のデッキ名、勝敗、先攻/後攻は必須です。');
-            return;
-        }
 
         const newRecord = {
             timestamp: new Date().toLocaleString(),
@@ -489,9 +521,10 @@ window.initBattleRecordSection = async function() { // async を追加
             notes: notes
         };
 
-        let records = window.userBattleRecords || []; // サーバーデータ優先
-
-        if (!window.currentUserId) {
+        let records;
+        if (window.currentUserId) {
+            records = window.userBattleRecords || []; // サーバーデータ優先
+        } else {
             const res = await browser.storage.local.get(['battleRecordsLocal']);
             records = res.battleRecordsLocal || [];
         }
@@ -503,6 +536,7 @@ window.initBattleRecordSection = async function() { // async を追加
             saveBattleRecordsLocally(records);
         }
 
+        // UIをリセット
         if (myDeckSelect) myDeckSelect.value = '';
         if (opponentDeckSelect) opponentDeckSelect.value = '';
         if (winLossSelect) winLossSelect.value = 'win';
@@ -511,18 +545,17 @@ window.initBattleRecordSection = async function() { // async を追加
     }
 
     async function handleRegisterDeckClick() {
-        if (!newDeckNameInput || !newDeckTypeSelect) return;
+        if (!newDeckNameInput || !newDeckTypeSelect) {
+            await window.showCustomDialog('エラー', 'デッキ名とデッキタイプは必須です。');
+            return;
+        }
         const deckName = newDeckNameInput.value.trim();
         const deckType = newDeckTypeSelect.value;
 
-        if (!deckName || !deckType) {
-            window.showCustomDialog('エラー', 'デッキ名とデッキタイプは必須です。');
-            return;
-        }
-
-        let decks = window.userRegisteredDecks || []; // サーバーデータ優先
-
-        if (!window.currentUserId) {
+        let decks;
+        if (window.currentUserId) {
+            decks = window.userRegisteredDecks || []; // サーバーデータ優先
+        } else {
             const res = await browser.storage.local.get(['registeredDecksLocal']);
             decks = res.registeredDecksLocal || [];
         }
@@ -540,6 +573,7 @@ window.initBattleRecordSection = async function() { // async を追加
             saveRegisteredDecksLocally(decks);
         }
 
+        // UIをリセット
         if (newDeckNameInput) newDeckNameInput.value = '';
         if (newDeckTypeSelect) newDeckTypeSelect.value = '';
     }
@@ -560,13 +594,19 @@ window.initBattleRecordSection = async function() { // async を追加
         }
     }
 
-    function handleMyDeckSelectChange(event) { /* ... */ }
-    function handleOpponentDeckSelectChange(event) { /* ... */ }
+    function handleMyDeckSelectChange(event) { /* 特に何もしない */ }
+    function handleOpponentDeckSelectChange(event) { /* 特に何もしない */ }
     function handleSelectedDeckForStatsChange(event) {
-        displaySelectedDeckStats(window.userRegisteredDecks || []); // サーバーデータ優先
+        // ログイン状態に応じて適切なデッキリストを渡す
+        const decks = window.currentUserId ? (window.userRegisteredDecks || []) : (browser.storage.local.get(['registeredDecksLocal']).then(res => res.registeredDecksLocal || []));
+        if (decks.then) { // Promiseの場合
+            decks.then(d => displaySelectedDeckStats(event.target.value, d));
+        } else { // 配列の場合
+            displaySelectedDeckStats(event.target.value, decks);
+        }
     }
 
-    // イベントリスナーを再アタッチ
+    // --- イベントリスナーの再アタッチ ---
     if (saveBattleRecordButton) {
         saveBattleRecordButton.removeEventListener('click', handleSaveBattleRecordClick);
         saveBattleRecordButton.addEventListener('click', handleSaveBattleRecordClick);
@@ -614,7 +654,7 @@ window.initBattleRecordSection = async function() { // async を追加
     loadRegisteredDecks();
     loadBattleRecords();
 
-    // デフォルトで「新しい対戦記録」タブを表示}
+    // デフォルトで「新しい対戦記録」タブを表示
     showBattleRecordTab('new-record');
-}
+};
 void 0; // Explicitly return undefined for Firefox compatibility

@@ -1,7 +1,7 @@
 // js/sections/memo.js
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initMemoSection = async function() { // async を追加
+window.initMemoSection = async function() {
     console.log("Memo section initialized.");
 
     // Firefox互換性のためのbrowserオブジェクトのフォールバック
@@ -10,6 +10,7 @@ window.initMemoSection = async function() { // async を追加
     }
 
     // === メモセクションのロジック ===
+    // 各要素を関数内で取得
     const saveMemoButton = document.getElementById('save-memo-button');
     const memoTextArea = document.getElementById('memo-text-area');
     const savedMemosList = document.getElementById('saved-memos-list');
@@ -18,15 +19,18 @@ window.initMemoSection = async function() { // async を追加
     const memoSearchButton = document.getElementById('memo-search-button');
     let editingMemoIndex = -1; // 編集中のメモのインデックス
 
-    // ユーザーのメモデータを保持するグローバル変数
-    // rateMatch.jsからログイン時にセットされることを期待
-    window.userMemos = window.userMemos || [];
+    // ユーザーのメモデータを保持するグローバル変数 (rateMatch.jsからログイン時にセットされることを期待)
+    // window.userMemos は main.js で初期化される
+    // window.currentUserId は main.js で初期化される
 
-    // 保存されたメモを読み込む関数 (サーバーから)
+    /**
+     * 保存されたメモを読み込む関数 (サーバーから、または未ログイン時はローカルから)
+     * @param {string} filterQuery - 検索クエリ
+     */
     const loadMemos = (filterQuery = '') => {
         if (!savedMemosList) return;
 
-        // ログインしていない場合はローカルストレージから読み込むか、表示を切り替える
+        // ログインしていない場合はローカルストレージから読み込む
         if (!window.currentUserId) {
             console.log("Memo: Not logged in. Displaying local memo data (if any).");
             browser.storage.local.get(['savedMemosLocal'], (result) => {
@@ -36,12 +40,18 @@ window.initMemoSection = async function() { // async を追加
             return;
         }
 
+        // ログイン済みの場合はグローバル変数 (サーバーから取得されたデータ) を使用
         console.log("Memo: Logged in. Loading memos from server data.");
-        const memos = window.userMemos || []; // ログイン時にrateMatch.jsからセットされたデータを使用
+        const memos = window.userMemos || []; 
         displayMemos(memos, filterQuery, true); // サーバーからの表示
     };
 
-    // メモをUIに表示するヘルパー関数
+    /**
+     * メモをUIに表示するヘルパー関数
+     * @param {Array<Object>} memos - 表示するメモの配列
+     * @param {string} filterQuery - フィルタリング文字列
+     * @param {boolean} isServerData - サーバーデータかどうか (表示メッセージ用)
+     */
     const displayMemos = (memos, filterQuery, isServerData) => {
         if (!savedMemosList) return;
         savedMemosList.innerHTML = ''; // リストをクリア
@@ -56,7 +66,10 @@ window.initMemoSection = async function() { // async を追加
         } else {
             // 新しいメモが常に先頭に来るように逆順に表示
             [...filteredMemos].reverse().forEach((memo) => {
-                const originalIndex = memos.findIndex(m => m.timestamp === memo.timestamp && m.content === memo.content); // 元の配列のインデックス
+                // 元の配列におけるインデックスを正確に取得
+                const originalIndex = memos.findIndex(m => m.timestamp === memo.timestamp && m.content === memo.content);
+                if (originalIndex === -1) return; // 見つからない場合はスキップ（フィルタリングで発生しうる）
+
                 const memoItem = document.createElement('li');
                 memoItem.className = 'saved-memo-item';
 
@@ -81,8 +94,12 @@ window.initMemoSection = async function() { // async を追加
         }
     };
 
-    // メモをサーバーに保存する関数
+    /**
+     * メモデータをサーバーに保存します。
+     * @param {Array<Object>} memosToSave - 保存するメモの配列。
+     */
     const saveMemosToServer = async (memosToSave) => {
+        // ログイン状態とWebSocket接続を確認
         if (!window.currentUserId || !window.ws || window.ws.readyState !== WebSocket.OPEN) {
             console.warn("Memo: Not logged in or WebSocket not open. Cannot save memos to server.");
             await window.showCustomDialog('エラー', 'ログインしていないか、サーバーに接続していません。メモは保存されませんでした。');
@@ -98,7 +115,10 @@ window.initMemoSection = async function() { // async を追加
         loadMemos(memoSearchInput ? memoSearchInput.value.trim() : ''); // UIを再ロード
     };
 
-    // メモをローカルストレージに保存する関数 (未ログイン時用)
+    /**
+     * メモデータをローカルストレージに保存します (未ログイン時用)。
+     * @param {Array<Object>} memosToSave - 保存するメモの配列。
+     */
     const saveMemosLocally = (memosToSave) => {
         browser.storage.local.set({ savedMemosLocal: memosToSave }, () => {
             window.showCustomDialog('保存完了', 'メモをローカルに保存しました！');
@@ -106,14 +126,17 @@ window.initMemoSection = async function() { // async を追加
         });
     };
 
-    // メモを削除する関数 (サーバーまたはローカル)
+    /**
+     * メモを削除します (ログイン状態に応じてサーバーまたはローカル)。
+     * @param {number} originalIndex - 削除するメモの元の配列インデックス。
+     */
     const deleteMemo = async (originalIndex) => {
         if (!memoTextArea) return;
         
-        let memos = window.userMemos || []; // サーバーデータ優先
-
-        if (!window.currentUserId) {
-            // 未ログイン時はローカルストレージから取得
+        let memos;
+        if (window.currentUserId) {
+            memos = window.userMemos || []; // サーバーデータ優先
+        } else {
             const result = await browser.storage.local.get(['savedMemosLocal']);
             memos = result.savedMemosLocal || [];
         }
@@ -125,17 +148,21 @@ window.initMemoSection = async function() { // async を追加
             } else {
                 saveMemosLocally(memos); // ローカルに保存
             }
-            window.showCustomDialog('削除完了', 'メモを削除しました。');
+            // showCustomDialog は saveMemosToServer/Locally から呼ばれる
         }
     };
 
-    // メモを編集する関数
+    /**
+     * メモを編集モードにします。
+     * @param {number} originalIndex - 編集するメモの元の配列インデックス。
+     */
     const editMemo = (originalIndex) => {
         if (!memoTextArea) return;
 
-        let memos = window.userMemos || []; // サーバーデータ優先
-
-        if (!window.currentUserId) {
+        let memos;
+        if (window.currentUserId) {
+            memos = window.userMemos || []; // サーバーデータ優先
+        } else {
             // 未ログイン時はローカルストレージから取得
             browser.storage.local.get(['savedMemosLocal'], (result) => {
                 memos = result.savedMemosLocal || [];
@@ -168,7 +195,7 @@ window.initMemoSection = async function() { // async を追加
         }
     };
 
-    // イベントハンドラ関数
+    // --- イベントハンドラ関数 ---
     async function handleDeleteMemoClick(event) {
         const originalIndexToDelete = parseInt(event.currentTarget.dataset.originalIndex);
         const confirmed = await window.showCustomDialog('メモ削除', 'このメモを削除しますか？', true);
@@ -193,10 +220,10 @@ window.initMemoSection = async function() { // async を追加
             return;
         }
 
-        let memos = window.userMemos || []; // サーバーデータ優先
-
-        if (!window.currentUserId) {
-            // 未ログイン時はローカルストレージから取得
+        let memos;
+        if (window.currentUserId) {
+            memos = window.userMemos || []; // サーバーデータ優先
+        } else {
             const result = await browser.storage.local.get(['savedMemosLocal']);
             memos = result.savedMemosLocal || [];
         }
@@ -219,6 +246,7 @@ window.initMemoSection = async function() { // async を追加
             saveMemosLocally(memos); // ローカルに保存
         }
 
+        // UIをリセット
         if (memoTextArea) memoTextArea.value = '';
         if (screenshotArea) screenshotArea.innerHTML = '<p>スクリーンショットがここに表示されます。（画像をここに貼り付けることもできます - Ctrl+V / Cmd+V）</p>';
     }
@@ -233,16 +261,6 @@ window.initMemoSection = async function() { // async を追加
     function handleMemoSearchInputKeypress(e) {
         if (e.key === 'Enter') {
             if (memoSearchButton) memoSearchButton.click();
-        }
-    }
-
-    // main.jsから発火されるカスタムイベントをリッスン (このイベントはmain.jsから削除されるため、将来的には不要になる)
-    document.removeEventListener('screenshotCropped', handleScreenshotCropped); // 既存のリスナーを削除
-    document.addEventListener('screenshotCropped', handleScreenshotCropped);
-
-    function handleScreenshotCropped(event) {
-        if (screenshotArea) {
-            screenshotArea.innerHTML = `<img src="${event.detail.imageUrl}" alt="Cropped Screenshot">`;
         }
     }
 
@@ -272,7 +290,7 @@ window.initMemoSection = async function() { // async を追加
         window.showCustomDialog('貼り付け失敗', 'クリップボードに画像がありませんでした。');
     }
 
-    // イベントリスナーを再アタッチ
+    // --- イベントリスナーの再アタッチ ---
     if (saveMemoButton) {
         saveMemoButton.removeEventListener('click', handleSaveMemoButtonClick);
         saveMemoButton.addEventListener('click', handleSaveMemoButtonClick);
@@ -292,5 +310,5 @@ window.initMemoSection = async function() { // async を追加
     document.addEventListener('loginStateChanged', loadMemos);
 
     loadMemos(); // 初期ロード
-}; // End of initMemoSection
+};
 void 0; // Explicitly return undefined for Firefox compatibility

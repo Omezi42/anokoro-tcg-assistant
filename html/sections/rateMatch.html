@@ -34,7 +34,6 @@
     <!-- マッチング前のUI要素 -->
     <div id="pre-match-ui">
         <button id="matching-button">オンラインマッチング</button>
-        <!-- <button id="cancel-matching-button" class="cancel-button" style="display: none;">マッチングキャンセル</button> --> <!-- このボタンはマッチング待機中に移動 -->
         <h3>対戦履歴</h3>
         <ul id="match-history-list">
             <li>ログインすると対戦履歴が表示されます。</li>
@@ -45,9 +44,9 @@
 
     <!-- マッチング中の表示 -->
     <div id="matching-status" style="display: none;">
-        <p>対戦相手を検索中...</p>
+        <p><span id="matching-status-text">対戦相手を検索中...</span></p> <!-- テキスト表示用のspanを追加 -->
         <div class="spinner"></div>
-        <button id="cancel-matching-button-in-status" class="cancel-button">マッチングキャンセル</button> <!-- マッチング待機中のキャンセルボタン -->
+        <button id="cancel-matching-button-in-status" class="cancel-button">マッチングキャンセル</button>
     </div>
 
     <!-- 対戦中（マッチング後）のUI要素 -->
@@ -55,7 +54,6 @@
         <h4>対戦相手情報</h4>
         <div class="info-box opponent-info-box">
             <p>相手プレイヤー: <span id="opponent-username-display"></span></p>
-            <!-- <p>相手ID: <span id="opponent-userid-display"></span></p> --> <!-- ID表示は削除 -->
             <p>接続状態: <span id="webrtc-connection-status">接続中...</span></p>
         </div>
 

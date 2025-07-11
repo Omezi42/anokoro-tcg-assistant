@@ -4,6 +4,13 @@
 window.initRateMatchSection = async function() {
     console.log("RateMatch section initialized.");
 
+    // Firebaseが利用可能になるまで待機 (Replit DB移行により不要だが、他のセクションの依存関係のため残す)
+    // if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.auth || !window.db || !window.auth || !window.currentUserId) {
+    //     console.log("Firebase SDKs or global instances not yet ready. Waiting for firebaseAuthReady event...");
+    //     await new Promise(resolve => document.addEventListener('firebaseAuthReady', resolve, { once: true }));
+    //     console.log("Firebase is now ready!");
+    // }
+
     // Firefox互換性のためのbrowserオブジェクトのフォールバック (main.jsにもありますが、念のためここでも)
     if (typeof browser === 'undefined') {
         var browser = chrome;
@@ -12,9 +19,9 @@ window.initRateMatchSection = async function() {
     // === レート戦セクションのロジック ===
     // 各要素を関数内で取得
     const matchingButton = document.getElementById('matching-button');
-    const cancelMatchingButton = document.getElementById('cancel-matching-button');
+    const cancelMatchingButtonInStatus = document.getElementById('cancel-matching-button-in-status'); // 新しいキャンセルボタン
     const matchingStatusDiv = document.getElementById('matching-status');
-    const preMatchUiDiv = document.getElementById('pre-match-ui');
+    const preMatchUiDiv = document = document.getElementById('pre-match-ui');
     const postMatchUiDiv = document.getElementById('post-match-ui');
     const matchHistoryList = document.getElementById('match-history-list');
 
@@ -107,19 +114,18 @@ window.initRateMatchSection = async function() {
                      chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
                      chatMessagesDiv.dataset.initialized = 'true';
                  }
-            } else if (matchingStatusDiv && matchingStatusDiv.textContent === '対戦相手を検索中です...') { // マッチング待機中
+            } else if (matchingStatusDiv && matchingStatusDiv.style.display === 'flex') { // マッチング待機中
+                // 既にマッチング待機中UIが表示されている場合、そのまま維持
                 if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
-                if (matchingStatusDiv) matchingStatusDiv.style.display = 'flex'; // マッチング中UIを表示
                 if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
-                // この状態ではボタンは既にdisabledになっているはず
             }
-            else { // マッチング前
-                if (preMatchUiDiv) preMatchUiDiv.style.display = 'block'; // マッチングボタンを表示
+            else { // マッチング前 (デフォルト状態)
+                if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
                 if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
                 if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
-                if (matchingButton) matchingButton.disabled = false;
-                if (cancelMatchingButton) cancelMatchingButton.disabled = true;
             }
+            // マッチングボタンの有効/無効はhandleMatchingButtonClick/handleCancelMatchingButtonClickで制御
+            // ここではUIの表示状態のみを制御し、ボタンのdisabled状態はイベントハンドラに任せる
             if (chatMessagesDiv) chatMessagesDiv.dataset.initialized = 'false'; // リセット
         } else {
             // 未ログイン
@@ -448,11 +454,17 @@ window.initRateMatchSection = async function() {
         // ICE候補収集状態の変更を監視 (デバッグ用)
         peerConnection.onicegatheringstatechange = () => {
             console.log("WebRTC ICE Gathering state changed:", peerConnection.iceGatheringState);
+            if (webrtcConnectionStatus) { // ICE Gatheringの状態もUIに反映
+                webrtcConnectionStatus.textContent = `ICE収集: ${peerConnection.iceGatheringState}`;
+            }
         };
 
         // ICE接続状態の変更を監視 (デバッグ用)
         peerConnection.oniceconnectionstatechange = () => {
             console.log("WebRTC ICE Connection state changed:", peerConnection.iceConnectionState);
+            if (webrtcConnectionStatus) { // ICE Connectionの状態もUIに反映
+                webrtcConnectionStatus.textContent = `ICE接続: ${peerConnection.iceConnectionState}`;
+            }
         };
 
 
@@ -538,6 +550,7 @@ window.initRateMatchSection = async function() {
             console.log("WebRTC: DataChannel cleared during cleanup.");
         }
         // サーバーにもマッチ情報クリアを通知
+        // このメッセージはサーバー側で相手のopponent_ws_idをクリアするために必要
         if (window.ws && window.ws.readyState === WebSocket.OPEN && window.currentUserId) {
             window.ws.send(JSON.stringify({ type: 'clear_match_info' }));
         }
@@ -568,9 +581,9 @@ window.initRateMatchSection = async function() {
         matchingButton.removeEventListener('click', handleMatchingButtonClick);
         matchingButton.addEventListener('click', handleMatchingButtonClick);
     }
-    if (cancelMatchingButton) {
-        cancelMatchingButton.removeEventListener('click', handleCancelMatchingButtonClick);
-        cancelMatchingButton.addEventListener('click', handleCancelMatchingButtonClick);
+    if (cancelMatchingButtonInStatus) { // 新しいキャンセルボタン
+        cancelMatchingButtonInStatus.removeEventListener('click', handleCancelMatchingButtonClick);
+        cancelMatchingButtonInStatus.addEventListener('click', handleCancelMatchingButtonClick);
     }
 
     // チャット関連
@@ -657,7 +670,7 @@ window.initRateMatchSection = async function() {
         matchingStatusDiv.textContent = '対戦相手を検索中です...'; // テキストも更新
         if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
         if (matchingButton) matchingButton.disabled = true;
-        if (cancelMatchingButton) cancelMatchingButton.disabled = false;
+        if (cancelMatchingButtonInStatus) cancelMatchingButtonInStatus.disabled = false; // 新しいキャンセルボタンを有効化
 
         // マッチング開始リクエストを送信
         window.ws.send(JSON.stringify({ type: 'join_queue', userId: window.currentUserId }));

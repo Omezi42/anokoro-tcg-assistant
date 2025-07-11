@@ -120,14 +120,16 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
               }
               // スクリプトが注入された後、その中の初期化関数を呼び出す
               // Manifest V2では、関数を文字列として渡す
+              // 関数名を文字列として渡し、IIFE (Immediately Invoked Function Expression) で呼び出すことで、
+              // 文字列の不正な解釈を防ぐ
               browser.tabs.executeScript(sender.tab.id, {
-                  code: `
-                      if (typeof window.${request.initFunctionName} === 'function') {
-                          window.${request.initFunctionName}(); 
+                  code: `(function(funcName) {
+                      if (typeof window[funcName] === 'function') {
+                          window[funcName]();
                       } else {
-                          console.error('Background: Initialization function ${request.initFunctionName} not found on window object after script injection.');
+                          console.error('Background: Initialization function ' + funcName + ' not found on window object after script injection.');
                       }
-                  `
+                  })('${request.initFunctionName}');` // ここを修正
               }, () => {
                   if (browser.runtime.lastError) {
                       console.error(`Failed to call init function ${request.initFunctionName}:`, browser.runtime.lastError.message);

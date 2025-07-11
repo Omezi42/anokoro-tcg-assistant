@@ -11,9 +11,6 @@
     "tabs",
     "<all_urls>"
   ],
-  "host_permissions": [
-    "https://unityroom.com/games/anokorotcg*"
-  ],
   "background": {
     "scripts": ["js/background.js"],
     "persistent": false

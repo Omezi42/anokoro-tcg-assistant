@@ -109,9 +109,9 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
   else if (request.action === "injectSectionScript") {
       // content.js からのスクリプト注入リクエスト
       if (sender.tab && sender.tab.id && request.scriptPath && request.initFunctionName) {
-          browser.scripting.executeScript({
-              target: { tabId: sender.tab.id },
-              files: [request.scriptPath] // 相対パスを直接使用
+          // Manifest V2: browser.tabs.executeScript を使用
+          browser.tabs.executeScript(sender.tab.id, {
+              file: request.scriptPath // Manifest V2では 'file' プロパティ
           }, () => {
               if (browser.runtime.lastError) {                  
                   console.error(`Failed to execute script ${request.scriptPath}:`, browser.runtime.lastError.message);
@@ -119,19 +119,15 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
                   return;
               }
               // スクリプトが注入された後、その中の初期化関数を呼び出す
-              // allCards と showCustomDialog は content.js のグローバルスコープからアクセスできることを前提とする
-              browser.scripting.executeScript({
-                  target: { tabId: sender.tab.id },
-                  // function を文字列として渡すことで、シリアライズの問題を回避
-                  function: (funcName) => {
-                      if (typeof window[funcName] === 'function') {
-                          // allCards と showCustomDialog は window オブジェクトから直接アクセス
-                          window[funcName](); 
+              // Manifest V2では、関数を文字列として渡す
+              browser.tabs.executeScript(sender.tab.id, {
+                  code: `
+                      if (typeof window.${request.initFunctionName} === 'function') {
+                          window.${request.initFunctionName}(); 
                       } else {
-                          console.error(`Background: Initialization function ${funcName} not found on window object after script injection.`);
+                          console.error('Background: Initialization function ${request.initFunctionName} not found on window object after script injection.');
                       }
-                  },
-                  args: [request.initFunctionName] // initFunctionName のみ渡す
+                  `
               }, () => {
                   if (browser.runtime.lastError) {
                       console.error(`Failed to call init function ${request.initFunctionName}:`, browser.runtime.lastError.message);
@@ -145,7 +141,8 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendAsyncResponse({ success: false, error: "Invalid parameters for script injection." });
       }
       return true; // 非同期処理のため true を返す
-  } else if (request.action === "injectFirebaseSDKs") {
+  }
+  else if (request.action === "injectFirebaseSDKs") {
       // Firebase SDKsを動的に注入するリクエスト
       const scriptsToInject = [
           "js/lib/firebase/firebase-app.js",
@@ -157,9 +154,9 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       const loadScript = (relativePath) => {
           return new Promise((res, rej) => {
-              browser.scripting.executeScript({
-                  target: { tabId: tabId },
-                  files: [relativePath]
+              // Manifest V2: browser.tabs.executeScript を使用
+              browser.tabs.executeScript(tabId, {
+                  file: relativePath // Manifest V2では 'file' プロパティ
               }, (results) => {
                   if (browser.runtime.lastError) {
                       rej(new Error(browser.runtime.lastError.message));
@@ -199,9 +196,9 @@ browser.commands.onCommand.addListener((command) => {
     } else {
       // ゲームページでない場合はユーザーに通知（content.jsのカスタムダイアログをトリガー）
       if (tabs[0] && tabs[0].id) {
-          browser.scripting.executeScript({
-              target: { tabId: tabs[0].id },
-              function: () => {
+          // Manifest V2: browser.tabs.executeScript を使用
+          browser.tabs.executeScript(tabs[0].id, {
+              code: `
                 function showCustomAlertDialog(title, message) {
                   const existingOverlay = document.getElementById('tcg-custom-dialog-overlay');
                   if (existingOverlay) {
@@ -211,13 +208,13 @@ browser.commands.onCommand.addListener((command) => {
                   const overlay = document.createElement('div');
                   overlay.id = 'tcg-custom-dialog-overlay';
                   overlay.className = 'tcg-modal-overlay';
-                  overlay.innerHTML = `
+                  overlay.innerHTML = \`
                       <div class="tcg-modal-content">
-                          <h3>${title}</h3>
-                          <p>${message}</p>
+                          <h3>\${title}</h3>
+                          <p>\${message}</p>
                           <button id="tcg-dialog-ok-button">OK</button>
                       </div>
-                  `;
+                  \`;
                   document.body.appendChild(overlay);
       
                   setTimeout(() => overlay.classList.add('show'), 10);
@@ -229,7 +226,7 @@ browser.commands.onCommand.addListener((command) => {
                   });
                 }
                 showCustomAlertDialog('注意', 'この拡張機能は「あの頃の自作TCG」のゲームページでのみ動作します。');
-              }
+              `
           }).catch(error => console.error("Failed to execute script:", error));
       }
     }

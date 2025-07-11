@@ -1,14 +1,20 @@
 // js/main.js
 
+console.log("main.js: Script loaded."); // スクリプトがロードされたことを確認
+
 // Font AwesomeのCSSを注入してアイコンを使用できるようにします。
 const link = document.createElement('link');
 link.rel = 'stylesheet';
 link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css';
 document.head.appendChild(link);
+console.log("main.js: Font Awesome CSS link added.");
 
 // Firefox互換性のためのbrowserオブジェクトのフォールバック
 if (typeof browser === 'undefined') {
     var browser = chrome;
+    console.log("main.js: 'browser' object aliased to 'chrome' for compatibility.");
+} else {
+    console.log("main.js: 'browser' object natively available.");
 }
 
 // 全カードデータを格納する変数 (グローバルで保持し、各セクションからアクセス可能にする)
@@ -47,19 +53,28 @@ async function initializeFirebase() {
              await new Promise((resolve, reject) => {
                 browser.runtime.sendMessage({ action: "injectFirebaseSDKs" }, (response) => {
                     if (browser.runtime.lastError) {
+                        console.error("Firebase: Error from runtime.sendMessage (injectFirebaseSDKs):", browser.runtime.lastError.message);
                         reject(new Error(browser.runtime.lastError.message));
                     } else if (response && response.success) {
+                        console.log("Firebase: Firebase SDKs injection message sent successfully.");
                         resolve();
                     } else {
+                        console.error("Firebase: Firebase SDKs injection message failed:", response ? response.error : 'Unknown error');
                         reject(new Error(response.error || "Unknown error injecting Firebase SDKs."));
                     }
                 });
              });
              // 再度チェック
              if (typeof firebase === 'undefined' || !firebase.app || !firebase.auth || !firebase.firestore) {
-                 window.showCustomDialog('エラー', 'Firebase SDKのロードに失敗しました。拡張機能のファイルを確認してください。');
+                 console.error("Firebase: Firebase SDKs still not loaded after injection attempt.");
+                 if (window.showCustomDialog) {
+                    window.showCustomDialog('エラー', 'Firebase SDKのロードに失敗しました。拡張機能のファイルを確認してください。');
+                 }
                  return;
              }
+             console.log("Firebase: Firebase SDKs detected after injection attempt.");
+        } else {
+            console.log("Firebase: Firebase SDKs already loaded.");
         }
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -69,6 +84,7 @@ async function initializeFirebase() {
             console.error("Firebase: Firebase config is empty. Cannot initialize Firebase.");
             return;
         }
+        console.log("Firebase: Firebase config loaded.");
 
         // Firebaseアプリが既に初期化されているかチェック
         if (!window.firebaseApp) {
@@ -110,6 +126,9 @@ async function initializeFirebase() {
         });
     } catch (error) {
         console.error("Firebase: Failed to initialize Firebase:", error);
+        if (window.showCustomDialog) {
+            window.showCustomDialog('エラー', `Firebase初期化中にエラーが発生しました: ${error.message}`);
+        }
     }
 }
 
@@ -134,6 +153,7 @@ window.showCustomDialog = function(title, message, isConfirm = false) {
             console.error("Custom dialog elements not found. Cannot show dialog.");
             return resolve(false); // エラー時はfalseを返す
         }
+        console.log(`showCustomDialog: Displaying dialog with title "${title}" and message "${message}". Is confirm: ${isConfirm}`);
 
         dialogTitle.textContent = title;
         dialogMessage.innerHTML = message; // HTMLを許可するためにinnerHTMLを使用
@@ -146,6 +166,7 @@ window.showCustomDialog = function(title, message, isConfirm = false) {
         cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
 
         newOkButton.addEventListener('click', () => {
+            console.log("showCustomDialog: OK button clicked.");
             overlay.classList.remove('show');
             overlay.addEventListener('transitionend', () => overlay.style.display = 'none', { once: true });
             resolve(true);
@@ -153,6 +174,7 @@ window.showCustomDialog = function(title, message, isConfirm = false) {
 
         if (isConfirm) {
             newCancelButton.addEventListener('click', () => {
+                console.log("showCustomDialog: Cancel button clicked.");
                 overlay.classList.remove('show');
                 overlay.addEventListener('transitionend', () => overlay.style.display = 'none', { once: true });
                 resolve(false);
@@ -176,9 +198,10 @@ function updateMenuIconsVisibility() {
     const toggleIcon = toggleButton ? toggleButton.querySelector('i') : null;
 
     if (!menuContainer || !menuIconsWrapper || !toggleIcon) {
-        console.warn("Menu visibility elements not found for update. UI might not be fully loaded yet.");
+        console.warn("updateMenuIconsVisibility: Menu visibility elements not found for update. UI might not be fully loaded yet.");
         return;
     }
+    console.log(`updateMenuIconsVisibility: Setting visibility to ${isMenuIconsVisible ? 'visible' : 'hidden'}.`);
 
     if (isMenuIconsVisible) { // アイコンを表示し、コンテナを展開
         menuContainer.classList.remove('collapsed');
@@ -200,9 +223,10 @@ function updateMenuIconsVisibility() {
  * この関数はUIがDOMに挿入された後に一度だけ呼び出されます。
  */
 function createRightSideMenuAndAttachListeners() {
+    console.log("createRightSideMenuAndAttachListeners: Attaching menu listeners.");
     const menuContainer = document.getElementById('tcg-right-menu-container');
     if (!menuContainer) {
-        console.error("tcg-right-menu-container not found after UI injection. Cannot attach menu listeners.");
+        console.error("createRightSideMenuAndAttachListeners: tcg-right-menu-container not found after UI injection. Cannot attach menu listeners.");
         return;
     }
 
@@ -210,20 +234,28 @@ function createRightSideMenuAndAttachListeners() {
     const menuIcons = menuIconsWrapper.querySelectorAll('.tcg-menu-icon');
     const toggleButton = document.getElementById('tcg-menu-toggle-button');
 
+    if (!menuIconsWrapper || !menuIcons.length || !toggleButton) {
+        console.error("createRightSideMenuAndAttachListeners: Some menu elements are missing. Cannot attach listeners.");
+        return;
+    }
+
     // 各メニューアイコンにクリックイベントリスナーを設定
     menuIcons.forEach(iconButton => {
         iconButton.removeEventListener('click', handleMenuIconClick); // 以前のリスナーを削除
         iconButton.addEventListener('click', handleMenuIconClick);
+        console.log(`createRightSideMenuAndAttachListeners: Attached click listener to menu icon: ${iconButton.dataset.section}`);
     });
 
     // トグルボタンのイベントリスナーを設定
     toggleButton.removeEventListener('click', handleMenuToggleButtonClick); // 以前のリスナーを削除
     toggleButton.addEventListener('click', handleMenuToggleButtonClick);
+    console.log("createRightSideMenuAndAttachListeners: Attached click listener to toggle button.");
 
     // メニューアイコンの表示状態をロードし、初期状態を適用
     browser.storage.local.get(['isMenuIconsVisible'], (result) => {
         isMenuIconsVisible = result.isMenuIconsVisible !== undefined ? result.isMenuIconsVisible : true;
         updateMenuIconsVisibility();
+        console.log(`createRightSideMenuAndAttachListeners: Loaded isMenuIconsVisible: ${isMenuIconsVisible}`);
     });
 
     // サイドバーの開閉状態とアクティブなセクションをロードし、UIを初期化
@@ -242,6 +274,7 @@ function createRightSideMenuAndAttachListeners() {
         updateMenuIconsVisibility();
 
         if (isSidebarOpen) {
+            console.log(`createRightSideMenuAndAttachListeners: Sidebar is open. Showing section: ${activeSection}`);
             if (contentArea) {
                 contentArea.classList.add('active');
                 contentArea.style.right = '0px';
@@ -256,6 +289,7 @@ function createRightSideMenuAndAttachListeners() {
                 initialActiveIcon.classList.add('active');
             }
         } else {
+            console.log("createRightSideMenuAndAttachListeners: Sidebar is closed.");
             if (contentArea) {
                 contentArea.classList.remove('active');
                 contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
@@ -275,6 +309,7 @@ function createRightSideMenuAndAttachListeners() {
 // メニューアイコンクリックハンドラ
 function handleMenuIconClick(event) {
     const sectionId = event.currentTarget.dataset.section;
+    console.log(`handleMenuIconClick: Menu icon "${sectionId}" clicked.`);
     // アリーナボタンがクリックされたら新しいタブで開く
     if (sectionId === 'arena') {
         window.open('https://anokorotcg-arena.vercel.app/', '_blank');
@@ -285,6 +320,7 @@ function handleMenuIconClick(event) {
 
 // メニュー開閉トグルボタンクリックハンドラ
 function handleMenuToggleButtonClick() {
+    console.log("handleMenuToggleButtonClick: Toggle button clicked.");
     isMenuIconsVisible = !isMenuIconsVisible;
     updateMenuIconsVisibility();
     browser.storage.local.set({ isMenuIconsVisible: isMenuIconsVisible });
@@ -297,12 +333,16 @@ function handleMenuToggleButtonClick() {
  * @param {boolean} forceOpenSidebar - サイドバーが閉じている場合でも強制的に開くかどうか
  */
 function toggleContentArea(sectionId, forceOpenSidebar = false) {
+    console.log(`toggleContentArea: Toggling content area for section "${sectionId}". Force open: ${forceOpenSidebar}`);
     const contentArea = document.getElementById('tcg-content-area');
     const rightMenuContainer = document.getElementById('tcg-right-menu-container');
     const gameCanvas = document.querySelector('canvas#unity-canvas');
     const menuIcons = rightMenuContainer ? rightMenuContainer.querySelectorAll('.tcg-menu-icon') : [];
 
-    if (!contentArea || !rightMenuContainer) return;
+    if (!contentArea || !rightMenuContainer) {
+        console.error("toggleContentArea: Essential UI elements not found.");
+        return;
+    }
 
     const currentActiveIcon = rightMenuContainer.querySelector('.tcg-menu-icon.active');
     const clickedIcon = rightMenuContainer.querySelector(`.tcg-menu-icon[data-section="${sectionId}"]`);
@@ -315,6 +355,7 @@ function toggleContentArea(sectionId, forceOpenSidebar = false) {
     const isSameIconAlreadyActiveAndClicked = isContentAreaActive && (currentActiveIcon && currentActiveIcon.dataset.section === sectionId);
 
     if (isSameIconAlreadyActiveAndClicked && !forceOpenSidebar) { // forceOpenSidebar が true の場合は閉じない
+        console.log("toggleContentArea: Same icon clicked, closing sidebar.");
         contentArea.classList.remove('active');
         contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
         isMenuIconsVisible = false;
@@ -324,7 +365,7 @@ function toggleContentArea(sectionId, forceOpenSidebar = false) {
         isSidebarOpen = false;
         browser.storage.local.set({ isSidebarOpen: isSidebarOpen, isMenuIconsVisible: isMenuIconsVisible });
     } else {
-        // サイドバーを開く、または別のセクションに切り替える
+        console.log("toggleContentArea: Opening sidebar or switching section.");
         contentArea.classList.add('active');
         contentArea.style.right = '0px';
         isMenuIconsVisible = true;
@@ -353,11 +394,10 @@ if (!window._injectedSectionScripts) {
  * @param {string} sectionId - 表示するセクションのID (例: "home", "rateMatch")。
  */
 async function showSection(sectionId) {
+    console.log(`showSection: Attempting to show section: ${sectionId}`);
     // アリーナセクションはHTMLとしてロードしない
     if (sectionId === 'arena') {
-        // アリーナボタンがクリックされたら新しいタブで開くロジックは handleMenuIconClick で処理済み
-        // ここでは何もしないか、エラーログを出力しないようにする
-        console.log("Arena section is handled by opening a new tab. No HTML to load.");
+        console.log("showSection: Arena section is handled by opening a new tab. No HTML to load.");
         return; 
     }
 
@@ -377,8 +417,9 @@ async function showSection(sectionId) {
         targetSection.className = 'tcg-section';
         if (tcgSectionsWrapper) {
             tcgSectionsWrapper.appendChild(targetSection);
+            console.log(`showSection: Created new section div for ${sectionId}.`);
         } else {
-            console.error("tcg-sections-wrapper not found. Cannot append new section.");
+            console.error("showSection: tcg-sections-wrapper not found. Cannot append new section.");
             return;
         }
     }
@@ -386,14 +427,16 @@ async function showSection(sectionId) {
     // セクションのHTMLをロード
     try {
         const htmlPath = browser.runtime.getURL(`html/sections/${sectionId}.html`);
+        console.log(`showSection: Fetching HTML from: ${htmlPath}`);
         const response = await fetch(htmlPath);
         if (!response.ok) {
             throw new Error(`Failed to load HTML for ${sectionId}: ${response.statusText} (${response.status})`);
         }
         const htmlContent = await response.text();
         targetSection.innerHTML = htmlContent;
+        console.log(`showSection: HTML loaded for section ${sectionId}.`);
     } catch (error) {
-        console.error(`Error loading HTML for section ${sectionId}:`, error);
+        console.error(`showSection: Error loading HTML for section ${sectionId}:`, error);
         targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました: ${sectionId}<br>エラー: ${error.message}</p>`;
         return;
     }
@@ -402,9 +445,11 @@ async function showSection(sectionId) {
     // jsPath は background.js に渡すための相対パス
     const jsPath = `js/sections/${sectionId}.js`; 
     const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace(/-([a-z])/g, (g) => g[1].toUpperCase())}Section`;
+    console.log(`showSection: Preparing to inject script: ${jsPath} with init function: ${initFunctionName}`);
 
     // スクリプトがまだ注入されていない場合のみ注入
     if (!window._injectedSectionScripts.has(jsPath)) {
+        console.log(`showSection: Script ${jsPath} not yet injected. Requesting background script injection.`);
         try {
             // background.js にメッセージを送信してスクリプト注入を依頼
             browser.runtime.sendMessage({
@@ -413,36 +458,35 @@ async function showSection(sectionId) {
                 initFunctionName: initFunctionName
             }, (response) => {
                 if (browser.runtime.lastError) {
-                    console.error("Error injecting script via background:", browser.runtime.lastError.message);
+                    console.error("showSection: Error from runtime.sendMessage (injectSectionScript):", browser.runtime.lastError.message);
                     return;
                 }
                 if (response && response.success) {
                     window._injectedSectionScripts.add(jsPath); // 注入済みとしてマーク
-                    console.log(`Script ${jsPath} injected and ${initFunctionName} called via background.js.`);
+                    console.log(`showSection: Script ${jsPath} injected and ${initFunctionName} called via background.js successfully.`);
                 } else {
-                    console.error(`Failed to inject script ${jsPath}: ${response ? response.error : 'Unknown error'}`);
+                    console.error(`showSection: Failed to inject script ${jsPath}: ${response ? response.error : 'Unknown error'}`);
                 }
             });
         } catch (error) {
-            console.error(`Failed to send message to background for script injection for section ${sectionId}:`, error);
+            console.error(`showSection: Failed to send message to background for script injection for section ${sectionId}:`, error);
         }
     } else {
         // 既にスクリプトが注入されている場合は、初期化関数を再実行
         // DOMが更新された後にイベントリスナーを再アタッチするため
+        console.log(`showSection: Script ${jsPath} already injected. Re-calling ${initFunctionName}.`);
         setTimeout(() => {
             if (typeof window[initFunctionName] === 'function') {
-                console.log(`Re-calling ${initFunctionName} for already injected section ${sectionId}.`);
-                // allCards は main.js のグローバル変数としてアクセス可能
-                // showCustomDialog は main.js のグローバル関数としてアクセス可能
                 window[initFunctionName](); // 引数を削除
             } else {
-                console.error(`Initialization function ${initFunctionName} NOT found on window object for already injected script for section ${sectionId}. This indicates a scoping issue or the function is not exposed globally.`);
+                console.error(`showSection: Initialization function ${initFunctionName} NOT found on window object for already injected script for section ${sectionId}. This indicates a scoping issue or the function is not exposed globally.`);
             }
         }, 0);
     }
 
     // 指定されたセクションをアクティブにする
     targetSection.classList.add('active');
+    console.log(`showSection: Section ${sectionId} set to active.`);
 
     // アクティブなセクションを保存
     browser.storage.local.set({ activeSection: sectionId });
@@ -473,7 +517,9 @@ function getSectionTitle(sectionId) {
  * この関数は一度だけ実行されることを保証します。
  */
 async function injectUIIntoPage() {
+    console.log("injectUIIntoPage: Attempting to inject UI.");
     if (uiInjected) {
+        console.log("injectUIIntoPage: UI already injected, skipping.");
         return;
     }
 
@@ -518,35 +564,46 @@ async function injectUIIntoPage() {
         // 一時的なコンテナを作成し、HTMLコンテンツを解析
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = uiHtml;
+        console.log("injectUIIntoPage: UI HTML parsed.");
 
         // bodyの既存コンテンツを保持しつつ、UIを挿入する
         const bodyOriginalContent = Array.from(document.body.childNodes);
-        document.body.innerHTML = '';
+        document.body.innerHTML = ''; // bodyを一度クリア
+        console.log("injectUIIntoPage: Body content cleared.");
 
         while (tempDiv.firstChild) {
             document.body.appendChild(tempDiv.firstChild);
         }
+        console.log("injectUIIntoPage: New UI elements appended to body.");
 
         bodyOriginalContent.forEach(node => {
             document.body.appendChild(node);
         });
+        console.log("injectUIIntoPage: Original body content re-appended.");
         
         uiInjected = true;
         console.log("main.js: UI injected into page. Elements referenced.");
 
         // Firebase初期化をここで行う
         await initializeFirebase(); // Firebaseの初期化が完了するのを待つ
+        console.log("main.js: Firebase initialization triggered.");
 
         createRightSideMenuAndAttachListeners();
+        console.log("main.js: Right side menu listeners attached.");
         initializeExtensionFeatures();
+        console.log("main.js: Extension features initialized.");
 
         browser.storage.local.get(['activeSection'], (result) => {
             const activeSection = result.activeSection || 'home';
             showSection(activeSection);
+            console.log(`main.js: Initial section "${activeSection}" shown.`);
         });
 
     } catch (error) {
-        console.error("Failed to inject UI into page:", error);
+        console.error("injectUIIntoPage: Failed to inject UI into page:", error);
+        if (window.showCustomDialog) {
+            window.showCustomDialog('エラー', `UIの注入に失敗しました: ${error.message}`);
+        }
     }
 }
 
@@ -566,21 +623,27 @@ async function initializeExtensionFeatures() {
         }
     } catch (error) {
         console.error("main.js: カードデータのロードに失敗しました:", error);
+        if (window.showCustomDialog) {
+            window.showCustomDialog('エラー', `カードデータのロードに失敗しました: ${error.message}`);
+        }
     }
 }
 
 // DOMが完全にロードされるのを待ってから要素を注入し、機能を初期化します。
 // Firebaseの初期化が非同期になったため、DOMContentLoaded後にUI注入とFirebase初期化を行う
 if (document.readyState === 'loading') {
+    console.log("main.js: Document is still loading, waiting for DOMContentLoaded.");
     document.addEventListener('DOMContentLoaded', () => {
         injectUIIntoPage();
     });
 } else {
+    console.log("main.js: Document already loaded, injecting UI immediately.");
     injectUIIntoPage();
 }
 
 // popup.jsからのメッセージを受け取るリスナー
 browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log(`main.js: Message received - Action: ${request.action}`);
     if (request.action === "showSection") {
         toggleContentArea(request.section, request.forceOpenSidebar);
     } else if (request.action === "toggleSidebar") {
@@ -588,15 +651,20 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const rightMenuContainer = document.getElementById('tcg-right-menu-container');
         const gameCanvas = document.querySelector('canvas#unity-canvas');
 
-        if (!contentArea || !rightMenuContainer) return;
+        if (!contentArea || !rightMenuContainer) {
+            console.error("main.js: toggleSidebar: Essential UI elements not found.");
+            return;
+        }
 
         if (contentArea.classList.contains('active')) {
+            console.log("main.js: toggleSidebar: Sidebar is active, closing.");
             contentArea.classList.remove('active');
             contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
             isSidebarOpen = false;
             isMenuIconsVisible = false;
             updateMenuIconsVisibility();
         } else {
+            console.log("main.js: toggleSidebar: Sidebar is inactive, opening.");
             contentArea.classList.add('active');
             contentArea.style.right = '0px';
             isSidebarOpen = true;
@@ -617,7 +685,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === "matchFound") {
         console.log("main.js: Match found message received from background. Triggering dialog and sidebar.");
         // ルームIDは表示しない
-        window.showCustomDialog('対戦相手決定', `対戦相手が決まりました！対戦を開始しましょう！`);
+        if (window.showCustomDialog) {
+            window.showCustomDialog('対戦相手決定', `対戦相手が決まりました！対戦を開始しましょう！`);
+        } else {
+            console.error("main.js: showCustomDialog is not available.");
+        }
         toggleContentArea('rateMatch', true);
     }
 });

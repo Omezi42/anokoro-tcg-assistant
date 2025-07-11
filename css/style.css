@@ -348,6 +348,31 @@ h4 {
     gap: 10px;
 }
 
+/* マッチング待機中のキャンセルボタンのスタイル強化 */
+#matching-status .cancel-button {
+    background-color: #ff4d4d; /* 赤色で目立たせる */
+    color: white;
+    border: none;
+    padding: 12px 25px; /* 大きくする */
+    border-radius: 10px;
+    font-size: 1.2em; /* 文字を大きく */
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 20px; /* 上のテキストとの間隔 */
+    box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    display: inline-flex; /* アイコンとテキストを中央揃え */
+    align-items: center;
+    justify-content: center;
+    gap: 8px; /* アイコンとテキストの間隔 */
+}
+
+#matching-status .cancel-button:hover {
+    background-color: #e60000;
+    transform: translateY(-2px);
+}
+
+
 .spinner {
     border: 4px solid rgba(0, 0, 0, 0.1);
     border-left-color: #007bff;

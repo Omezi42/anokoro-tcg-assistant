@@ -1,149 +1,100 @@
 /* css/popup.css */
 
 body {
-    font-family: 'Inter', Arial, sans-serif;
-    width: 300px;
+    font-family: 'Inter', Arial, sans-serif; /* Font Interを使用 */
+    width: 280px; /* 幅を調整 */
     padding: 15px;
     background-color: #f0f2f5;
     color: #333;
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    border-radius: 10px;
+    border-radius: 10px; /* 角を丸く */
     text-align: center;
 }
-
-h1 {
-    color: #28a745;
-    margin-bottom: 10px;
-    font-size: 1.8em;
+h2 {
+    color: #28a745; /* 緑のアクセントカラー */
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 1.6em;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 10px;
 }
-
-p {
-    font-size: 0.9em;
-    color: #555;
-    margin-bottom: 5px;
-}
-
-#user-info {
-    background-color: #e6f7ff;
-    border: 1px solid #b3e0ff;
-    border-radius: 8px;
-    padding: 10px;
-    margin-bottom: 15px;
-}
-
-#user-info p {
-    margin: 0;
-    font-size: 0.9em;
-}
-
-#logout-button {
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.9em;
-    margin-top: 10px;
-    transition: background-color 0.2s ease;
-}
-
-#logout-button:hover {
-    background-color: #c82333;
-}
-
-#navigation {
-    margin-top: 20px;
-    border-top: 1px solid #e0e0e0;
-    padding-top: 15px;
-}
-
-.nav-button {
-    display: block;
+.section-button {
+    display: flex; /* Flexboxでアイコンとテキストを配置 */
+    align-items: center;
+    justify-content: center;
     width: 100%;
-    padding: 10px;
-    margin-bottom: 8px;
-    background-color: #007bff;
+    padding: 12px;
+    margin-bottom: 10px;
+    background-color: #007bff; /* 青のアクセントカラー */
     color: white;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px; /* 角を丸く */
     cursor: pointer;
-    font-size: 1em;
+    font-size: 15px;
     font-weight: bold;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+    gap: 8px; /* アイコンとテキストの間隔 */
 }
-
-.nav-button:hover {
+.section-button:hover {
     background-color: #0056b3;
+    transform: translateY(-2px);
+}
+/* 各セクションボタンの固有色 */
+.section-button.home { background-color: #5cb85c; }
+.section-button.home:hover { background-color: #449d44; }
+.section-button.rate-match { background-color: #ffc107; color: black; } /* レート戦は黄色系 */
+.section-button.rate-match:hover { background-color: #e0a800; }
+.section-button.memo { background-color: #17a2b8; }
+.section-button.memo:hover { background-color: #138496; }
+.section-button.search { background-color: #6f42c1; }
+.section-button.search:hover { background-color: #5f37a8; }
+.section-button.minigames { background-color: #6c757d; }
+.section-button.minigames:hover { background-color: #5a6268; }
+.section-button.battle-record { background-color: #dc3545; }
+.section-button.battle-record:hover { background-color: #c82333; }
+
+.section-button i {
+    font-size: 1.2em; /* アイコンサイズ調整 */
 }
 
-/* 各セクションのコンテンツはpopup.htmlには直接表示されないため、ここではスタイルのみ */
-.section-content {
-    /* display: none; はJavaScriptで制御 */
-    padding: 15px;
-    background-color: white;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+.info-text {
+    font-size: 12px;
+    color: #666;
+    text-align: center;
     margin-top: 20px;
 }
 
+/* Auth Form Styles (popup.htmlには直接ないが、将来的な拡張性のため残す) */
 .auth-form {
-    background-color: #f9f9f9;
-    border: 1px solid #eee;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 15px;
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .auth-form h4 {
     color: #007bff;
     margin-top: 0;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+    font-size: 1.2em;
 }
 
 .auth-form input[type="text"],
 .auth-form input[type="password"] {
     width: calc(100% - 20px);
-    padding: 8px;
+    padding: 10px;
     margin-bottom: 10px;
-    border: 1px solid #ccc;
+    border: 1px solid #ced4da;
     border-radius: 5px;
+    font-size: 1em;
+    box-sizing: border-box;
 }
 
 .auth-form button {
     background-color: #28a745;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.9em;
-    transition: background-color 0.2s ease;
-}
-
-.auth-form button:hover {
-    background-color: #218838;
-}
-
-.spinner {
-    border: 4px solid rgba(0, 0, 0, 0.1);
-    border-left-color: #007bff;
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    animation: spin 1s linear infinite;
-    display: inline-block;
-    vertical-align: middle;
-    margin-left: 10px;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-/* Homeセクションのログイン/ログアウトボタン用スタイル */
-.home-action-button {
-    background-color: #007bff;
     color: white;
     border: none;
     padding: 10px 20px;
@@ -151,14 +102,28 @@ p {
     cursor: pointer;
     font-size: 1em;
     font-weight: bold;
-    margin-top: 15px;
-    transition: background-color 0.2s ease, transform 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+    width: 100%; /* ボタンの幅を調整 */
 }
 
-.home-action-button:hover {
-    background-color: #0056b3;
+.auth-form button:hover {
+    background-color: #218838;
     transform: translateY(-2px);
+}
+
+/* Spinner for loading states */
+.spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-left-color: #007bff;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+    display: block;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }

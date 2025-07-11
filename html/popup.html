@@ -1,111 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>あの頃の自作TCG 拡張機能</title>
-    <link rel="stylesheet" href="../css/popup.css">
+    <meta charset="UTF-8"> <!-- 文字化け対策として追加 -->
+    <title>TCGアシスタント</title>
+    <link rel="stylesheet" href="css/popup.css"> <!-- css/popup.cssへの相対パスを修正 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <div id="header">
-            <h1>あの頃の自作TCG</h1>
-            <p>拡張機能</p>
-            <div id="user-info">
-                <p>ユーザー: <span id="username-display">未ログイン</span> (<span id="user-id-display">N/A</span>)</p>
-                <p>現在のレート: <span id="rate-display">1500</span></p>
-            </div>
-            <button id="logout-button" style="display: none;">ログアウト</button>
-        </div>
+    <h2>あの頃の自作TCGアシスタント</h2>
+    <button class="section-button home" data-section="home"><i class="fas fa-home"></i> ホーム</button>
+    <button class="section-button rate-match" data-section="rateMatch"><i class="fas fa-fist-raised"></i> レート戦</button>
+    <button class="section-button memo" data-section="memo"><i class="fas fa-clipboard"></i> メモ</button>
+    <button class="section-button search" data-section="search"><i class="fas fa-search"></i> 検索</button>
+    <button class="section-button minigames" data-section="minigames"><i class="fas fa-gamepad"></i> ミニゲーム</button>
+    <button class="section-button battle-record" data-section="battleRecord"><i class="fas fa-trophy"></i> 戦いの記録</button>
+    <p class="info-text">ゲーム画面で拡張機能のメニューが表示されます。</p>
 
-        <div id="navigation">
-            <button class="nav-button" data-section="home">ホーム</button>
-            <button class="nav-button" data-section="search">カード検索</button>
-            <button class="nav-button" data-section="rateMatch">レート戦</button>
-            <button class="nav-button" data-section="memo">メモ</button>
-            <button class="nav-button" data-section="minigames">ミニゲーム</button>
-        </div>
-
-        <div id="content">
-            <div id="rateMatch-section" class="section-content" style="display: none;">
-                <h2>オンラインレート戦</h2>
-
-                <div id="auth-section">
-                    <h3>アカウント登録 / ログイン</h3>
-                    <div class="auth-form">
-                        <h4>アカウント登録</h4>
-                        <input type="text" id="register-username" placeholder="ユーザー名" required>
-                        <input type="password" id="register-password" placeholder="パスワード" required>
-                        <button id="register-button">登録</button>
-                    </div>
-                    <div class="auth-form">
-                        <h4>ログイン</h4>
-                        <input type="text" id="login-username" placeholder="ユーザー名" required>
-                        <input type="password" id="login-password" placeholder="パスワード" required>
-                        <button id="login-button">ログイン</button>
-                    </div>
-                </div>
-
-                <div id="logged-in-ui" style="display: none;">
-                    <div id="pre-match-ui">
-                        <button id="matching-button">オンラインマッチング開始</button>
-                        <button id="cancel-matching-button" style="display: none;">マッチングキャンセル</button>
-                    </div>
-
-                    <div id="matching-status" style="display: none;">
-                        <p>対戦相手を検索中です...</p>
-                        <div class="spinner"></div>
-                        <button id="cancel-matching-button-in-status">キャンセル</button>
-                    </div>
-
-                    <div id="post-match-ui" style="display: none;">
-                        <h3>対戦中！</h3>
-                        <div id="chat-area">
-                            <div id="chat-messages">
-                                </div>
-                            <div class="chat-input-area">
-                                <input type="text" id="chat-input" placeholder="メッセージを入力..." disabled>
-                                <button id="send-chat-button" disabled>送信</button>
-                            </div>
-                            <div class="chat-phrases">
-                                <button class="chat-phrase-button">よろしく！</button>
-                                <button class="chat-phrase-button">ナイス！</button>
-                                <button class="chat-phrase-button">GG！</button>
-                                <button class="chat-phrase-button">またね！</button>
-                            </div>
-                        </div>
-                        <div class="battle-actions">
-                            <button id="win-button">勝利報告</button>
-                            <button id="lose-button">敗北報告</button>
-                            <button id="cancel-button">対戦中止</button>
-                        </div>
-                    </div>
-
-                    <h3>対戦履歴</h3>
-                    <ul id="match-history-list">
-                        <li>まだ対戦履歴がありません。</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div id="home-section" class="section-content">
-                </div>
-            <div id="search-section" class="section-content">
-                </div>
-            <div id="memo-section" class="section-content">
-                </div>
-            <div id="minigames-section" class="section-content">
-                </div>
-        </div>
-    </div>
-
-    <script src="js/firebase-app.js"></script>
-    <script src="js/firebase-auth.js"></script>
-    <script src="js/firebase-firestore.js"></script>
-    <script src="js/main.js"></script>
-    <script src="js/sections/home.js"></script>
-    <script src="js/sections/search.js"></script>
-    <script src="js/sections/rateMatch.js"></script>
-    <script src="js/sections/memo.js"></script>
-    <script src="js/sections/minigames.js"></script>
+    <script src="js/popup.js"></script> <!-- js/popup.jsへの相対パス -->
 </body>
 </html>

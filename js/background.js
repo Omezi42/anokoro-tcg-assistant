@@ -1,13 +1,14 @@
-// background.js
+// background.js (バックグラウンドスクリプト)
 
 // Firefox互換性のためのbrowserオブジェクトのフォールバック
+// Chrome環境ではchromeオブジェクトが、Firefox環境ではbrowserオブジェクトが使用される
 if (typeof browser === 'undefined') {
     var browser = chrome;
 }
 
 // 拡張機能がインストールされたときにメッセージをコンソールに出力します。
 browser.runtime.onInstalled.addListener((details) => {
-  console.log("あの頃の自作TCGアシスタントがインストールされました。");
+  console.log("Background: あの頃の自作TCGアシスタントがインストールされました。");
   // 初回インストール時にオプションページを開く（任意）
   if (details.reason === browser.runtime.OnInstalledReason.INSTALL) {
     // browser.runtime.openOptionsPage(); // 設定ページを自動で開く場合
@@ -32,8 +33,9 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
   };
 
+  // --- メッセージハンドラー ---
   if (request.action === "showSection" && sender.tab) {
-    // 特定のセクションを表示するリクエスト
+    // 特定のセクションを表示するリクエストをcontent scriptに転送
     browser.tabs.sendMessage(sender.tab.id, {
       action: "showSection",
       section: request.section
@@ -48,20 +50,21 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
       priority: 2
     });
   } else if (request.action === "startMatching") {
-    // マッチング開始リクエスト
+    // マッチング開始リクエスト (シミュレーション用、現在はRenderサーバーに移行)
+    // この部分は現在使用されていませんが、以前のロジックを保持
     if (isUserMatching) {
         sendAsyncResponse({ success: false, error: "Already matching." });
         return;
     }
     isUserMatching = true;
     currentMatchInfo = null; // 新しいマッチング開始時は既存のマッチ情報をクリア
-    console.log("Background: Matching started.");
+    console.log("Background: Matching started (simulated).");
 
     // 3秒後にマッチング完了をシミュレート
     currentMatchingTimeout = setTimeout(() => {
         isUserMatching = false; // マッチング終了
         currentMatchInfo = { matched: true }; // マッチが成立したことを示す
-        console.log("Background: Match found!");
+        console.log("Background: Simulated match found!");
 
         // アクティブなタブにマッチング完了を通知
         browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -86,18 +89,18 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendAsyncResponse({ success: true, message: "Matching started." });
     return true; // 非同期処理のため true を返す
   } else if (request.action === "cancelMatching") {
-    // マッチングキャンセルリクエスト
+    // マッチングキャンセルリクエスト (シミュレーション用)
     if (currentMatchingTimeout) {
         clearTimeout(currentMatchingTimeout);
         currentMatchingTimeout = null;
     }
     isUserMatching = false;
     currentMatchInfo = null; // キャンセル時はマッチ情報をクリア
-    console.log("Background: Matching cancelled.");
+    console.log("Background: Matching cancelled (simulated).");
     sendAsyncResponse({ success: true, message: "Matching cancelled." });
     return true; // 非同期処理のため true を返す
   } else if (request.action === "getMatchingStatus") {
-    // マッチング状態の取得リクエスト
+    // マッチング状態の取得リクエスト (シミュレーション用)
     sendAsyncResponse({ isMatching: isUserMatching, currentMatch: currentMatchInfo });
     return true; // 非同期処理のため true を返す
   } else if (request.action === "clearMatchInfo") {
@@ -107,48 +110,31 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   else if (request.action === "injectSectionScript") {
-      // content.js からのスクリプト注入リクエスト
+      // content.js からのセクションスクリプト注入リクエスト
       if (sender.tab && sender.tab.id && request.scriptPath && request.initFunctionName) {
-          // Manifest V2: browser.tabs.executeScript を使用
-          // code文字列の生成をより堅牢な形式に修正
-          const scriptCode = `
-              (function() {
-                  // 既にスクリプトがロードされているかチェックするフラグ (initFunctionNameがwindowに存在するかで判断)
-                  // ただし、initFunctionNameがwindowに存在しても、DOMが再ロードされている場合があるので、
-                  // init関数内でイベントリスナーの重複登録防止は引き続き重要。
-                  if (typeof window['${request.initFunctionName}'] === 'function' && window._injectedSectionScripts.has('${request.scriptPath}')) {
-                      console.log('Background: Script ${request.scriptPath} already loaded, re-calling init function.');
-                      window['${request.initFunctionName}']();
-                  } else {
-                      console.log('Background: Injecting script ${request.scriptPath} and calling init function.');
-                      // スクリプトファイルを直接読み込む (fetchはcontent scriptからでは不可なので、backgroundから注入)
-                      // この部分はbackground.jsが直接ファイルを注入する形式に変更
-                      // browser.tabs.executeScript の file プロパティで直接注入
-                  }
-              })();
-          `;
-          
+          // Manifest V2: browser.tabs.executeScript を使用してスクリプトファイルを直接注入
           browser.tabs.executeScript(sender.tab.id, {
-              file: request.scriptPath // Manifest V2では 'file' プロパティで直接スクリプトファイルを指定
+              file: request.scriptPath // 'file' プロパティで直接スクリプトファイルを指定
           }, () => {
               if (browser.runtime.lastError) {                  
-                  console.error(`Failed to execute script ${request.scriptPath}:`, browser.runtime.lastError.message);
+                  console.error(`Background: ERROR: Failed to execute script ${request.scriptPath}:`, browser.runtime.lastError.message);
                   sendAsyncResponse({ success: false, error: browser.runtime.lastError.message });
                   return;
               }
-              // スクリプトが注入された後、その中の初期化関数を呼び出す
-              // initFunctionName を直接呼び出すコードを注入
+              // スクリプトが注入された後、その中の初期化関数を呼び出すコードを注入
+              // initFunctionName を直接呼び出すコードを文字列として注入
               browser.tabs.executeScript(sender.tab.id, {
                   code: `
+                      // windowオブジェクトに関数が存在するかチェックし、存在すれば呼び出す
                       if (typeof window.${request.initFunctionName} === 'function') {
                           window.${request.initFunctionName}(); 
                       } else {
-                          console.error('Background: Initialization function ${request.initFunctionName} not found on window object after script injection.');
+                          console.error('Background: ERROR: Initialization function ${request.initFunctionName} not found on window object after script injection.');
                       }
                   `
               }, () => {
                   if (browser.runtime.lastError) {
-                      console.error(`Failed to call init function ${request.initFunctionName}:`, browser.runtime.lastError.message);
+                      console.error(`Background: ERROR: Failed to call init function ${request.initFunctionName}:`, browser.runtime.lastError.message);
                       sendAsyncResponse({ success: false, error: browser.runtime.lastError.message });
                       return;
                   }
@@ -161,7 +147,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true; // 非同期処理のため true を返す
   }
   else if (request.action === "injectFirebaseSDKs") {
-      // Firebase SDKsを動的に注入するリクエスト
+      // Firebase SDKsを動的に注入するリクエスト (現在この拡張機能では使用されていません)
       const scriptsToInject = [
           "js/lib/firebase/firebase-app.js",
           "js/lib/firebase/firebase-auth.js",
@@ -172,9 +158,9 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       const loadScript = (relativePath) => {
           return new Promise((res, rej) => {
-              // Manifest V2: browser.tabs.executeScript を使用
+              // Manifest V2: browser.tabs.executeScript を使用してファイルを注入
               browser.tabs.executeScript(tabId, {
-                  file: relativePath // Manifest V2では 'file' プロパティ
+                  file: relativePath // 'file' プロパティで直接スクリプトファイルを指定
               }, (results) => {
                   if (browser.runtime.lastError) {
                       rej(new Error(browser.runtime.lastError.message));
@@ -193,7 +179,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
               sendAsyncResponse({ success: true });
           })
           .catch(error => {
-              console.error("Background: Failed to inject Firebase SDKs:", error);
+              console.error("Background: ERROR: Failed to inject Firebase SDKs:", error);
               sendAsyncResponse({ success: false, error: error.message });
           });
       return true; // 非同期処理のため true を返す
@@ -214,7 +200,6 @@ browser.commands.onCommand.addListener((command) => {
     } else {
       // ゲームページでない場合はユーザーに通知（content.jsのカスタムダイアログをトリガー）
       if (tabs[0] && tabs[0].id) {
-          // Manifest V2: browser.tabs.executeScript を使用
           browser.tabs.executeScript(tabs[0].id, {
               code: `
                 function showCustomAlertDialog(title, message) {
@@ -245,7 +230,7 @@ browser.commands.onCommand.addListener((command) => {
                 }
                 showCustomAlertDialog('注意', 'この拡張機能は「あの頃の自作TCG」のゲームページでのみ動作します。');
               `
-          }).catch(error => console.error("Failed to execute script:", error));
+          }).catch(error => console.error("Background: Failed to execute script for alert:", error));
       }
     }
   });

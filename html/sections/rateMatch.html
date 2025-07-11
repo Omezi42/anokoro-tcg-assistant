@@ -6,57 +6,72 @@
     </div>
     <div class="info-box">
         <h3>あなたのID</h3>
-        <p id="user-id-display">未ログイン</p>
+        <p id="username-display">未ログイン</p> <!-- ユーザー名表示を追加 -->
+        <p id="user-id-display">N/A</p>
     </div>
 </div>
 
-<!-- マッチング前のUI要素 -->
-<div id="pre-match-ui">
-    <!-- オンライン対戦ルームのUIを削除 -->
-    <!--
-    <h3>オンライン対戦ルーム</h3>
-    <div style="margin-bottom: 15px;">
-        <input type="text" id="room-id-input" placeholder="ルームIDを入力 (任意)">
-        <button id="create-room-button" style="background-color: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; margin-right: 5px;">ルーム作成</button>
-        <button id="join-room-button" style="background-color: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer;">ルーム参加</button>
+<!-- アカウント認証セクション -->
+<div id="auth-section">
+    <h3>アカウント登録 / ログイン</h3>
+    <div class="auth-form">
+        <h4>アカウント登録</h4>
+        <input type="text" id="register-username" placeholder="ユーザー名" required>
+        <input type="password" id="register-password" placeholder="パスワード" required>
+        <button id="register-button">登録</button>
     </div>
-    -->
-    <button id="matching-button">オンラインマッチング</button>
-    <h3>対戦履歴</h3>
-    <ul id="match-history-list">
+    <div class="auth-form">
+        <h4>ログイン</h4>
+        <input type="text" id="login-username" placeholder="ユーザー名" required>
+        <input type="password" id="login-password" placeholder="パスワード" required>
+        <button id="login-button">ログイン</button>
+    </div>
+    <button id="logout-button" style="display: none;">ログアウト</button> <!-- ログアウトボタンはログイン後に表示 -->
+</div>
+
+<!-- ログイン後のUI要素 -->
+<div id="logged-in-ui" style="display: none;">
+    <!-- マッチング前のUI要素 -->
+    <div id="pre-match-ui">
+        <button id="matching-button">オンラインマッチング</button>
+        <button id="cancel-matching-button" class="cancel-button" style="display: none;">マッチングキャンセル</button>
+        <h3>対戦履歴</h3>
+        <ul id="match-history-list">
+            <li>ログインすると対戦履歴が表示されます。</li>
         </ul>
-    <h3>ランキング</h3>
-    <p>ここにランキング情報が表示されます。</p>
-</div>
+        <h3>ランキング</h3>
+        <p>ここにランキング情報が表示されます。</p>
+    </div>
 
-<!-- マッチング中の表示 -->
-<div id="matching-status" style="display: none;">
-    <p>対戦相手を検索中...</p>
-    <div class="spinner"></div>
-    <button id="cancel-matching-button" class="cancel-button">マッチングキャンセル</button>
-</div>
+    <!-- マッチング中の表示 -->
+    <div id="matching-status" style="display: none;">
+        <p>対戦相手を検索中...</p>
+        <div class="spinner"></div>
+        <button id="cancel-matching-button-in-status" class="cancel-button">マッチングキャンセル</button>
+    </div>
 
-<!-- 対戦中（マッチング後）のUI要素 -->
-<div id="post-match-ui" style="display: none;">
-    <h4>チャット</h4>
-    <div id="chat-messages" style="height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; background-color: #f9f9f9; border-radius: 8px;">
-        <p><strong>[システム]:</strong> 対戦が始まりました！</p>
-        <p><strong>[相手プレイヤー]:</strong> 先攻お願いします！</p>
-    </div>
-    <div class="chat-fixed-phrases">
-        <button class="chat-phrase-button">よろしくお願いします！</button>
-        <button class="chat-phrase-button">ナイスゲームでした！</button>
-        <button class="chat-phrase-button">GG</button>
-        <button class="chat-phrase-button">対戦ありがとうございました！</button>
-    </div>
-    <div style="display: flex; gap: 5px;">
-        <input type="text" id="chat-input" placeholder="メッセージを入力..." style="flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 5px;">
-        <button id="send-chat-button" style="background-color: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">送信</button>
-    </div>
-    <h4>対戦結果報告</h4>
-    <div class="rate-match-actions">
-        <button id="win-button" class="win"><i class="fas fa-check-circle"></i> 勝利</button>
-        <button id="lose-button" class="lose"><i class="fas fa-times-circle"></i> 敗北</button>
-        <button id="cancel-button"><i class="fas fa-stop-circle"></i> 対戦中止</button>
+    <!-- 対戦中（マッチング後）のUI要素 -->
+    <div id="post-match-ui" style="display: none;">
+        <h4>チャット</h4>
+        <div id="chat-messages" style="height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; background-color: #f9f9f9; border-radius: 8px;">
+            <p><strong>[システム]:</strong> 対戦が始まりました！</p>
+            <p><strong>[相手プレイヤー]:</strong> 先攻お願いします！</p>
+        </div>
+        <div class="chat-fixed-phrases">
+            <button class="chat-phrase-button">よろしくお願いします！</button>
+            <button class="chat-phrase-button">ナイスゲームでした！</button>
+            <button class="chat-phrase-button">GG</button>
+            <button class="chat-phrase-button">対戦ありがとうございました！</button>
+        </div>
+        <div style="display: flex; gap: 5px;">
+            <input type="text" id="chat-input" placeholder="メッセージを入力..." style="flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 5px;">
+            <button id="send-chat-button" style="background-color: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">送信</button>
+        </div>
+        <h4>対戦結果報告</h4>
+        <div class="rate-match-actions">
+            <button id="win-button" class="win"><i class="fas fa-check-circle"></i> 勝利</button>
+            <button id="lose-button" class="lose"><i class="fas fa-times-circle"></i> 敗北</button>
+            <button id="cancel-button"><i class="fas fa-stop-circle"></i> 対戦中止</button>
+        </div>
     </div>
 </div>

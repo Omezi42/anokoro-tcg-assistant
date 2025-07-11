@@ -5,13 +5,10 @@
         <p id="rate-display">1500</p>
     </div>
     <div class="info-box">
-        <h3>あなたのID</h3>
-        <p id="username-display">未ログイン</p> <!-- ユーザー名表示を追加 -->
-        <p id="user-id-display">N/A</p>
-    </div>
+        <h3>あなたのユーザー名</h3>
+        <p id="username-display">未ログイン</p> </div>
 </div>
 
-<!-- アカウント認証セクション -->
 <div id="auth-section">
     <h3>アカウント登録 / ログイン</h3>
     <div class="auth-form">
@@ -26,12 +23,9 @@
         <input type="password" id="login-password" placeholder="パスワード" required>
         <button id="login-button">ログイン</button>
     </div>
-    <button id="logout-button" style="display: none;">ログアウト</button> <!-- ログアウトボタンはログイン後に表示 -->
-</div>
+    <button id="logout-button" style="display: none;">ログアウト</button> </div>
 
-<!-- ログイン後のUI要素 -->
 <div id="logged-in-ui" style="display: none;">
-    <!-- マッチング前のUI要素 -->
     <div id="pre-match-ui">
         <button id="matching-button">オンラインマッチング</button>
         <button id="cancel-matching-button" class="cancel-button" style="display: none;">マッチングキャンセル</button>
@@ -43,19 +37,16 @@
         <p>ここにランキング情報が表示されます。</p>
     </div>
 
-    <!-- マッチング中の表示 -->
     <div id="matching-status" style="display: none;">
         <p>対戦相手を検索中...</p>
         <div class="spinner"></div>
         <button id="cancel-matching-button-in-status" class="cancel-button">マッチングキャンセル</button>
     </div>
 
-    <!-- 対戦中（マッチング後）のUI要素 -->
     <div id="post-match-ui" style="display: none;">
         <h4>対戦相手情報</h4>
         <div class="info-box opponent-info-box">
             <p>相手プレイヤー: <span id="opponent-username-display"></span></p>
-            <p>相手ID: <span id="opponent-userid-display"></span></p>
             <p>接続状態: <span id="webrtc-connection-status">接続中...</span></p>
         </div>
 

@@ -4,9 +4,7 @@
 window.initRateMatchSection = async function() {
     console.log("RateMatch section initialized.");
 
-    // Firebase SDKs and global instances are no longer strictly required for auth/db here
-    // but the event listener might still be useful for other parts of the extension.
-    // We will remove Firebase Auth specific calls.
+    // Firefox互換性のためのbrowserオブジェクトのフォールバック (main.jsにもありますが、念のためここでも)
     if (typeof browser === 'undefined') {
         var browser = chrome;
     }
@@ -46,10 +44,11 @@ window.initRateMatchSection = async function() {
 
     let currentRate = 1500; // 仮の初期レート
     let currentUsername = null; // ログイン中のユーザー名
-    let currentUserId = null; // ログイン中のユーザーID (Replitサーバーが発行)
+    let currentUserId = null; // ログイン中のユーザーID (サーバーが発行)
 
     // --- WebSocket & WebRTC Variables ---
-    const REPLIT_WS_URL = 'https://8b8f6d6b-0ed0-4b33-9c7f-a5f4fa7b86f7-00-u0oyrmlyl7jd.pike.replit.dev/'; // ★★★ ここをReplitのURLに置き換える ★★★
+    // RailwayサーバーのWebSocket URLに置き換えてください！
+    const RAILWAY_WS_URL = 'wss://your-service-name-xxxx.up.railway.app'; // ★★★ ここをあなたのRailwayのURLに置き換える ★★★
 
     let ws = null; // WebSocket接続
     let peerConnection = null; // WebRTC PeerConnection
@@ -76,21 +75,19 @@ window.initRateMatchSection = async function() {
             if (userIdDisplay) userIdDisplay.textContent = currentUserId.substring(0, 8) + '...'; // IDの一部を表示
 
             // マッチングUIの表示
-            if (isWebRTCOfferInitiator || (peerConnection && peerConnection.connectionState !== 'closed' && opponentPlayerId)) {
-                // マッチング成立後
-                if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
-                if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
-                if (postMatchUiDiv) postMatchUiDiv.style.display = 'block';
-                if (chatMessagesDiv && chatMessagesDiv.dataset.initialized !== 'true') {
-                    chatMessagesDiv.innerHTML = `
-                        <p><strong>[システム]:</strong> 対戦が始まりました！</p>
-                        <p><strong>[システム]:</strong> WebRTC接続を確立中...</p>
-                    `;
-                    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-                    chatMessagesDiv.dataset.initialized = 'true';
-                }
-            } else {
-                // マッチング待ち中またはマッチング前
+            if (opponentPlayerId) { // マッチング成立後
+                 if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
+                 if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
+                 if (postMatchUiDiv) postMatchUiDiv.style.display = 'block';
+                 if (chatMessagesDiv && chatMessagesDiv.dataset.initialized !== 'true') {
+                     chatMessagesDiv.innerHTML = `
+                         <p><strong>[システム]:</strong> 対戦が始まりました！</p>
+                         <p><strong>[システム]:</strong> WebRTC接続を確立中...</p>
+                     `;
+                     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                     chatMessagesDiv.dataset.initialized = 'true';
+                 }
+            } else { // マッチング待ち中またはマッチング前
                 if (preMatchUiDiv) preMatchUiDiv.style.display = 'block'; // マッチングボタンを表示
                 if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
                 if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
@@ -163,7 +160,7 @@ window.initRateMatchSection = async function() {
     const displayChatMessage = (senderId, message) => {
         if (!chatMessagesDiv) return;
         const messageElement = document.createElement('p');
-        const displaySender = senderId === currentUserId ? 'あなた' : '相手プレイヤー';
+        const displaySender = senderId === currentUserId ? 'あなた' : '相手プレイヤー'; 
         messageElement.innerHTML = `<strong>[${displaySender}]:</strong> ${message}`;
         chatMessagesDiv.appendChild(messageElement);
         chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight; // スクロールを一番下へ
@@ -175,12 +172,24 @@ window.initRateMatchSection = async function() {
             console.log("WebSocket already open or connecting.");
             return;
         }
-        ws = new WebSocket(REPLIT_WS_URL);
+        ws = new WebSocket(RAILWAY_WS_URL);
 
         ws.onopen = () => {
-            console.log("WebSocket connected to Replit server.");
-            // 接続後、Replitサーバーから自身のIDが送られてくるのを待つ
-            updateUIState();
+            console.log("WebSocket connected to Railway server.");
+            // 接続後、ローカルストレージに保存されたログイン情報があれば自動ログインを試みる
+            browser.storage.local.get(['loggedInUserId', 'loggedInUsername'], (result) => {
+                if (result.loggedInUserId && result.loggedInUsername) {
+                    // サーバーに自動ログインリクエストを送信
+                    ws.send(JSON.stringify({
+                        type: 'auto_login',
+                        userId: result.loggedInUserId,
+                        username: result.loggedInUsername
+                    }));
+                    console.log("Attempting auto-login with cached credentials.");
+                } else {
+                    updateUIState(); // 未ログイン状態のUIを表示
+                }
+            });
         };
 
         ws.onmessage = async (event) => {
@@ -208,6 +217,19 @@ window.initRateMatchSection = async function() {
                         browser.storage.local.set({ loggedInUserId: currentUserId, loggedInUsername: currentUsername });
                     } else {
                         await window.showCustomDialog('ログイン失敗', message.message);
+                    }
+                    updateUIState();
+                    break;
+                case 'auto_login_response': // 自動ログインの応答
+                    if (message.success) {
+                        currentUserId = message.userId;
+                        currentUsername = message.username;
+                        currentRate = message.rate;
+                        window.userMatchHistory = message.matchHistory || [];
+                        console.log("Auto-login successful.");
+                    } else {
+                        console.log("Auto-login failed:", message.message);
+                        browser.storage.local.remove(['loggedInUserId', 'loggedInUsername']); // キャッシュをクリア
                     }
                     updateUIState();
                     break;
@@ -319,7 +341,7 @@ window.initRateMatchSection = async function() {
 
         ws.onerror = (error) => {
             console.error("WebSocket error:", error);
-            window.showCustomDialog('エラー', 'マッチングサーバーへの接続に失敗しました。Replitサーバーが起動しているか確認してください。');
+            window.showCustomDialog('エラー', 'マッチングサーバーへの接続に失敗しました。Railwayサーバーが起動しているか確認してください。');
         };
     };
     // --- End WebSocket Connection Setup ---
@@ -639,21 +661,16 @@ window.initRateMatchSection = async function() {
     connectWebSocket(); // WebSocket接続を開始
 
     // ページロード時にローカルストレージからログイン情報を読み込み、自動ログインを試みる
-    browser.storage.local.get(['loggedInUserId', 'loggedInUsername'], (result) => {
-        if (result.loggedInUserId && result.loggedInUsername) {
-            currentUserId = result.loggedInUserId;
-            currentUsername = result.loggedInUsername;
-            // Replitサーバー側でのセッション復元は行わないため、
-            // 実際にはユーザーデータ（レート、履歴）はログインし直すまで取得されない。
-            // サーバーにログイン情報を送信して、ユーザーデータを取得する処理が必要。
-            // ここではUIの初期状態をログイン済みに見せるだけ。
-            // ユーザーデータはログインメッセージの応答で取得される。
-            console.log("Found cached login info. User might need to re-login to fetch data.");
-            updateUIState();
-        } else {
-            updateUIState(); // 未ログイン状態のUIを表示
-        }
-    });
+    // WebSocket接続が確立された後にサーバーにauto_loginリクエストを送信するように変更
+    // browser.storage.local.get(['loggedInUserId', 'loggedInUsername'], (result) => {
+    //     if (result.loggedInUserId && result.loggedInUsername) {
+    //         currentUserId = result.loggedInUserId;
+    //         currentUsername = result.loggedInUsername;
+    //         console.log("Found cached login info. Will attempt auto-login after WS connection.");
+    //     } else {
+    //         updateUIState(); // 未ログイン状態のUIを表示
+    //     }
+    // });
 
     // Firebase Auth ReadyイベントはReplit DB認証では不要になるが、
     // 他のセクションでFirebase Authを使用している場合は残す。

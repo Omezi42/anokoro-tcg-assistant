@@ -52,10 +52,17 @@
 
     <!-- 対戦中（マッチング後）のUI要素 -->
     <div id="post-match-ui" style="display: none;">
+        <h4>対戦相手情報</h4>
+        <div class="info-box opponent-info-box">
+            <p>相手プレイヤー: <span id="opponent-username-display"></span></p>
+            <p>相手ID: <span id="opponent-userid-display"></span></p>
+            <p>接続状態: <span id="webrtc-connection-status">接続中...</span></p>
+        </div>
+
         <h4>チャット</h4>
         <div id="chat-messages" style="height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; background-color: #f9f9f9; border-radius: 8px;">
             <p><strong>[システム]:</strong> 対戦が始まりました！</p>
-            <p><strong>[相手プレイヤー]:</strong> 先攻お願いします！</p>
+            <p><strong>[システム]:</strong> WebRTC接続を確立中...</p>
         </div>
         <div class="chat-fixed-phrases">
             <button class="chat-phrase-button">よろしくお願いします！</button>

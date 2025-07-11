@@ -1238,3 +1238,25 @@ h4 {
 .go-to-rate-match-link:hover {
     text-decoration: underline;
 }
+
+/* New styles for opponent info box */
+.opponent-info-box {
+    background-color: #e9f7ef; /* Light green background */
+    border: 1px solid #c9e6d3; /* Green border */
+    border-radius: 12px;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    text-align: left;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.opponent-info-box p {
+    font-size: 1.1em;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.opponent-info-box span {
+    font-weight: bold;
+    color: #0056b3; /* Blue for emphasis */
+}

@@ -57,7 +57,7 @@ window.initRateMatchSection = async function() {
 
     // --- WebSocket & WebRTC Variables ---
     // RailwayサーバーのWebSocket URLに置き換えてください！
-    const RAILWAY_WS_URL = 'anokoro-tcg-backend-production.up.railway.app'; // ★★★ ここをあなたのRailwayのURLに置き換える ★★★
+    const RAILWAY_WS_URL = 'wss://anokoro-tcg-backend-production.up.railway.app'; // ★★★ ここをあなたのRailwayのURLに置き換える ★★★
 
     let peerConnection = null; // WebRTC PeerConnection
     let dataChannel = null; // WebRTC DataChannel for chat

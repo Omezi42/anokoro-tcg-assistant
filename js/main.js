@@ -35,14 +35,16 @@ const TOGGLE_BUTTON_SIZE = 50; // px (メニュー開閉ボタンのサイズ)
 let uiInjected = false;
 
 // グローバルなログイン状態変数 (rateMatch.jsで設定される)
-window.currentRate = window.currentRate || 1500;
-window.currentUsername = window.currentUsername || null;
-window.currentUserId = window.currentUserId || null;
-window.userMatchHistory = window.userMatchHistory || [];
-window.userMemos = window.userMemos || [];
-window.userBattleRecords = window.userBattleRecords || [];
-window.userRegisteredDecks = window.userRegisteredDecks || [];
-window.ws = window.ws || null; // WebSocketインスタンスもグローバルに
+// これらの変数はmain.jsで初期化し、rateMatch.jsや他のセクションで参照・更新する
+window.currentRate = 1500;
+window.currentUsername = null;
+window.currentUserId = null;
+window.userMatchHistory = [];
+window.userMemos = [];
+window.userBattleRecords = [];
+window.userRegisteredDecks = [];
+window.ws = null; // WebSocketインスタンスもグローバルに
+
 
 /**
  * カスタムアラート/確認ダイアログを表示します。
@@ -194,7 +196,7 @@ function createRightSideMenuAndAttachListeners() {
                 gameCanvas.style.display = 'block';
             }
             document.body.classList.remove('game-focused-mode');
-            showSection(activeSection); // アクティブなセクションのコンテンツを表示
+            window.showSection(activeSection); // グローバル関数として呼び出し
             const initialActiveIcon = menuContainer.querySelector(`.tcg-menu-icon[data-section="${activeSection}"]`);
             if (initialActiveIcon) {
                 initialActiveIcon.classList.add('active');
@@ -287,7 +289,7 @@ window.toggleContentArea = function(sectionId, forceOpenSidebar = false) {
         isSidebarOpen = true;
         browser.storage.local.set({ isSidebarOpen: isSidebarOpen, activeSection: sectionId, isMenuIconsVisible: isMenuIconsVisible });
 
-        showSection(sectionId); // ターゲットセクションのコンテンツを表示
+        window.showSection(sectionId); // グローバル関数として呼び出し
 
         if (clickedIcon) {
             clickedIcon.classList.add('active');
@@ -303,9 +305,10 @@ if (!window._injectedSectionScripts) {
 
 /**
  * 指定されたセクションを表示し、他のセクションを非表示にします。
+ * この関数はグローバルスコープ (window) に公開されます。
  * @param {string} sectionId - 表示するセクションのID (例: "home", "rateMatch")。
  */
-async function showSection(sectionId) {
+window.showSection = async function(sectionId) {
     console.log(`showSection: Attempting to show section: ${sectionId}`);
     // アリーナセクションはHTMLとしてロードしない
     if (sectionId === 'arena') {
@@ -356,7 +359,7 @@ async function showSection(sectionId) {
     // 各セクションのJavaScriptを動的に注入
     // jsPath は background.js に渡すための相対パス
     const jsPath = `js/sections/${sectionId}.js`; 
-    const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1).replace(/-([a-z])/g, (g) => g[1].toUpperCase())}Section`;
+    const initFunctionName = `init${sectionId.charAt(0).toUpperCase().toUpperCase() + sectionId.slice(1).replace(/-([a-z])/g, (g) => g[1].toUpperCase())}Section`;
     console.log(`showSection: Preparing to inject script: ${jsPath} with init function: ${initFunctionName}`);
 
     // スクリプトがまだ注入されていない場合のみ注入

@@ -110,7 +110,7 @@ function updateMenuIconsVisibility() {
     const toggleButton = document.getElementById('tcg-menu-toggle-button');
     const toggleIcon = toggleButton ? toggleButton.querySelector('i') : null;
 
-    if (!menuContainer || !menuIconsWrapper || !toggleIcon) {
+    if (!menuContainer || !menuIconsWrapper || !toggleButton) {
         console.warn("updateMenuIconsVisibility: Menu visibility elements not found for update. UI might not be fully loaded yet.");
         return;
     }
@@ -506,10 +506,49 @@ async function injectUIIntoPage() {
         initializeExtensionFeatures();
         console.log("main.js: Extension features initialized.");
 
-        browser.storage.local.get(['activeSection'], (result) => {
+        // 初期セクションの表示は、UI要素が完全にDOMに追加された後に、
+        // かつ createRightSideMenuAndAttachListeners の中で重複して呼ばれないように
+        // ここで一度だけ行います。
+        browser.storage.local.get(['isSidebarOpen', 'activeSection'], (result) => { // isSidebarOpen もここで取得
             const activeSection = result.activeSection || 'home';
-            window.showSection(activeSection); // グローバル関数として呼び出し
+            const initialIsSidebarOpen = result.isSidebarOpen !== undefined ? result.isSidebarOpen : false;
+
+            // サイドバーの初期状態を適用
+            const contentArea = document.getElementById('tcg-content-area');
+            const gameCanvas = document.querySelector('canvas#unity-canvas');
+            if (initialIsSidebarOpen) {
+                if (contentArea) {
+                    contentArea.classList.add('active');
+                    contentArea.style.right = '0px';
+                }
+                if (gameCanvas) {
+                    gameCanvas.style.display = 'block';
+                }
+                document.body.classList.remove('game-focused-mode');
+            } else {
+                if (contentArea) {
+                    contentArea.classList.remove('active');
+                    contentArea.style.right = `-${SIDEBAR_WIDTH}px`;
+                }
+                if (gameCanvas) {
+                    gameCanvas.style.display = 'block';
+                }
+                document.body.classList.remove('game-focused-mode');
+            }
+
+            // アクティブなセクションを表示
+            window.showSection(activeSection); 
             console.log(`main.js: Initial section "${activeSection}" shown.`);
+
+            // 初期アクティブアイコンを設定
+            const menuContainer = document.getElementById('tcg-right-menu-container');
+            if (menuContainer) {
+                const initialActiveIcon = menuContainer.querySelector(`.tcg-menu-icon[data-section="${activeSection}"]`);
+                if (initialActiveIcon) {
+                    menuContainer.querySelectorAll('.tcg-menu-icon').forEach(btn => btn.classList.remove('active'));
+                    initialActiveIcon.classList.add('active');
+                }
+            }
         });
 
     } catch (error) {
@@ -543,7 +582,6 @@ async function initializeExtensionFeatures() {
 }
 
 // DOMが完全にロードされるのを待ってから要素を注入し、機能を初期化します。
-// Firebaseの初期化が非同期になったため、DOMContentLoaded後にUI注入とFirebase初期化を行う
 if (document.readyState === 'loading') {
     console.log("main.js: Document is still loading, waiting for DOMContentLoaded.");
     document.addEventListener('DOMContentLoaded', () => {
@@ -577,6 +615,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
             isMenuIconsVisible = false;
             updateMenuIconsVisibility();
         } else {
+            console.log("main.js: toggleSidebar: Sidebar is inactive, opening.");
             contentArea.classList.add('active');
             contentArea.style.right = '0px';
             isSidebarOpen = true;

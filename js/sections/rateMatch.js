@@ -70,7 +70,7 @@ window.initRateMatchSection = async function() {
 
     // --- WebSocket & WebRTC Variables ---
     // RenderサーバーのWebSocket URLに置き換えてください！
-    const RENDER_WS_URL = 'wss://anokoro-tcg-api.onrender.com'; // ★★★ ここをあなたのRenderのURLに置き換える ★★★
+    const RENDER_WS_URL = 'wss://anokoro-tcg-backend-production.onrender.com'; // ★★★ ここをあなたのRenderのURLに置き換える ★★★
 
     let peerConnection = null; // WebRTC PeerConnection
     let dataChannel = null; // WebRTC DataChannel for chat
@@ -400,6 +400,17 @@ window.initRateMatchSection = async function() {
 
     // --- WebRTC PeerConnection Setup ---
     const setupPeerConnection = async () => {
+        // 既存のPeerConnectionがあればクリーンアップ
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+            console.log("WebRTC: Existing PeerConnection closed.");
+        }
+        if (dataChannel) {
+            dataChannel = null;
+            console.log("WebRTC: Existing DataChannel cleared.");
+        }
+
         peerConnection = new RTCPeerConnection(iceServers);
 
         // WebRTC接続状態の変更を監視

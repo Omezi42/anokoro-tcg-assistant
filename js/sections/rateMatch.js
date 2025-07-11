@@ -48,7 +48,7 @@ window.initRateMatchSection = async function() {
 
     // --- WebSocket & WebRTC Variables ---
     // RailwayサーバーのWebSocket URLに置き換えてください！
-    const RAILWAY_WS_URL = 'wss://your-service-name-xxxx.up.railway.app'; // ★★★ ここをあなたのRailwayのURLに置き換える ★★★
+    const RAILWAY_WS_URL = 'production-asia-southeast1-eqsg3a.railway-registry.com/46a7cf96-56a6-4cff-865b-53cac7ec1a08:43282ad0-59d8-4770-8c7c-ccb2fcf0d60b'; // ★★★ ここをあなたのRailwayのURLに置き換える ★★★
 
     let ws = null; // WebSocket接続
     let peerConnection = null; // WebRTC PeerConnection

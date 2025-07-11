@@ -334,3 +334,4 @@ window.initSearchSection = async function() { // async を維持
     // 検索フィルターを初期化
     populateSearchFilters();
 }; // End of initSearchSection
+void 0; // Explicitly return undefined for Firefox compatibility

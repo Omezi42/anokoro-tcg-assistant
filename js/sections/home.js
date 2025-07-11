@@ -11,3 +11,4 @@ window.initHomeSection = async function() { // async を維持
     // ここにHomeセクション固有のJSロジックがあれば記述
     // 現在はHTMLに直接記述されているため、特別な要素操作は不要
 };
+void 0; // Explicitly return undefined for Firefox compatibility

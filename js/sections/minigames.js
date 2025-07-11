@@ -91,13 +91,13 @@ window.initMinigamesSection = async function() { // async を追加
             currentQuiz.card = window.allCards[Math.floor(Math.random() * window.allCards.length)]; // window.allCards を使用
             if (type !== 'cardName') {
                 const cardName = currentQuiz.card.name;
-                const imageUrl = chrome.runtime.getURL(`images/cards/${cardName}.png`);
+                const imageUrl = browser.runtime.getURL(`images/cards/${cardName}.png`);
                 try {
                     const response = await fetch(imageUrl, { method: 'HEAD' });
                     if (response.ok) {
                         if (type === 'silhouette') {
-                            const transparentImageUrl = chrome.runtime.getURL(`images/cards/${cardName}_transparent.png`);
-                            const illustImageUrl = chrome.runtime.getURL(`images/cards/${cardName}_illust.png`);
+                            const transparentImageUrl = browser.runtime.getURL(`images/cards/${cardName}_transparent.png`);
+                            const illustImageUrl = browser.runtime.getURL(`images/cards/${cardName}_illust.png`);
                             const [transResponse, illustResponse] = await Promise.all([
                                 fetch(transparentImageUrl, { method: 'HEAD' }),
                                 fetch(illustImageUrl, { method: 'HEAD' })
@@ -174,7 +174,7 @@ window.initMinigamesSection = async function() { // async を追加
     async function loadImageForQuiz(cardName, quizType) {
         return new Promise(async (resolve, reject) => {
             currentQuiz.fullCardImage = new Image();
-            currentQuiz.fullCardImage.src = chrome.runtime.getURL(`images/cards/${cardName}.png`);
+            currentQuiz.fullCardImage.src = browser.runtime.getURL(`images/cards/${cardName}.png`);
 
             let loadPromises = [
                 new Promise((res, rej) => {
@@ -188,7 +188,7 @@ window.initMinigamesSection = async function() { // async を追加
 
             if (quizType === 'silhouette') {
                 currentQuiz.transparentIllustrationImage = new Image();
-                currentQuiz.transparentIllustrationImage.src = chrome.runtime.getURL(`images/cards/${cardName}_transparent.png`);
+                currentQuiz.transparentIllustrationImage.src = browser.runtime.getURL(`images/cards/${cardName}_transparent.png`);
                 loadPromises.push(new Promise((res, rej) => {
                     currentQuiz.transparentIllustrationImage.onload = res;
                     currentQuiz.transparentIllustrationImage.onerror = () => {
@@ -198,7 +198,7 @@ window.initMinigamesSection = async function() { // async を追加
                 }));
 
                 currentQuiz.illustrationImage = new Image();
-                currentQuiz.illustrationImage.src = chrome.runtime.getURL(`images/cards/${cardName}_illust.png`);
+                currentQuiz.illustrationImage.src = browser.runtime.getURL(`images/cards/${cardName}_illust.png`);
                 loadPromises.push(new Promise((res, rej) => {
                     currentQuiz.illustrationImage.onload = res;
                     currentQuiz.illustrationImage.onerror = () => {
@@ -371,7 +371,7 @@ window.initMinigamesSection = async function() { // async を追加
             ctx.fillStyle = 'red';
             ctx.font = '20px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('画像エラー', canvasWidth / 2, canvasHeight / 2);
+            ctx.fillText('画像エラー', canvasWidth / 2, canvasCanvas.height / 2);
             ctx.fillText('(_transparent.pngが見つからないか無効です)', canvasWidth / 2, canvasHeight / 2 + 30);
         }
     }
@@ -510,7 +510,7 @@ window.initMinigamesSection = async function() { // async を追加
                 offsetX = 0;
                 offsetY = (currentQuiz.quizCanvas.height - drawHeight) / 2;
             } else {
-                drawHeight = canvasHeight;
+                drawHeight = currentQuiz.quizCanvas.height;
                 drawWidth = canvasAspectRatio === 0 ? finalImage.naturalWidth : currentQuiz.quizCanvas.height * imgAspectRatio;
                 offsetX = (currentQuiz.quizCanvas.width - drawWidth) / 2;
                 offsetY = 0;
@@ -522,7 +522,7 @@ window.initMinigamesSection = async function() { // async を追加
              ctx.font = '20px Arial';
              ctx.textAlign = 'center';
              ctx.fillText('画像エラー', quizCanvas.width / 2, quizCanvas.height / 2);
-             ctx.fillText('(_transparent.pngが見つからないか無効です)', canvasWidth / 2, canvasHeight / 2 + 30);
+             ctx.fillText('(_transparent.pngが見つからないか無効です)', quizCanvas.width / 2, quizCanvas.height / 2 + 30);
         }
 
         quizResetButton.style.display = 'inline-block';
@@ -585,3 +585,4 @@ window.initMinigamesSection = async function() { // async を追加
 
     resetQuiz(); // 初期状態ではクイズUIを非表示に
 }; // End of initMinigamesSection
+void 0; // Explicitly return undefined for Firefox compatibility

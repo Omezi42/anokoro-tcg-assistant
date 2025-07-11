@@ -67,7 +67,7 @@ window.initRateMatchSection = async function() { // async を追加
     // ローカルストレージから対戦履歴を読み込む関数
     const loadMatchHistory = () => {
         if (!matchHistoryList) return;
-        chrome.storage.local.get(['matchHistory'], (result) => {
+        browser.storage.local.get(['matchHistory'], (result) => {
             const history = result.matchHistory || [];
             matchHistoryList.innerHTML = ''; // クリア
             if (history.length === 0) {
@@ -84,13 +84,13 @@ window.initRateMatchSection = async function() { // async を追加
 
     // 対戦履歴を保存する関数
     const saveMatchHistory = (record) => {
-        chrome.storage.local.get(['matchHistory'], (result) => {
+        browser.storage.local.get(['matchHistory'], (result) => {
             const history = result.matchHistory || [];
             history.unshift(record); // 最新のものを先頭に追加
             if (history.length > 10) { // 履歴を最新10件に制限
                 history.pop();
             }
-            chrome.storage.local.set({matchHistory: history}, () => {
+            browser.storage.local.set({matchHistory: history}, () => {
                 loadMatchHistory(); // 保存後に再読み込み
             });
         });
@@ -98,7 +98,7 @@ window.initRateMatchSection = async function() { // async を追加
 
     // マッチング状態をバックグラウンドから取得し、UIを更新する
     const updateMatchingUI = async () => {
-        const response = await chrome.runtime.sendMessage({ action: "getMatchingStatus" });
+        const response = await browser.runtime.sendMessage({ action: "getMatchingStatus" });
         if (response && response.isMatching) {
             // マッチング中のUIを表示
             if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
@@ -214,7 +214,7 @@ window.initRateMatchSection = async function() { // async を追加
     // イベントハンドラ関数
     async function handleMatchingButtonClick() {
         // バックグラウンドスクリプトにマッチング開始を要求 (シミュレーションに戻す)
-        const response = await chrome.runtime.sendMessage({ action: "startMatching" });
+        const response = await browser.runtime.sendMessage({ action: "startMatching" });
         if (response && response.success) {
             await window.showCustomDialog('オンラインマッチング開始', '対戦相手を検索中です...');
             updateMatchingUI(); // UIをマッチング中状態に更新
@@ -228,7 +228,7 @@ window.initRateMatchSection = async function() { // async を追加
         const confirmed = await window.showCustomDialog('マッチングキャンセル', 'マッチングをキャンセルしますか？', true);
         if (confirmed) {
             // バックグラウンドスクリプトにマッチングキャンセルを要求
-            const response = await chrome.runtime.sendMessage({ action: "cancelMatching" });
+            const response = await browser.runtime.sendMessage({ action: "cancelMatching" });
             if (response && response.success) {
                 await window.showCustomDialog('キャンセル完了', 'マッチングをキャンセルしました。');
             } else {
@@ -283,7 +283,7 @@ window.initRateMatchSection = async function() { // async を追加
             await window.showCustomDialog('報告完了', `勝利を報告しました！<br>レート: ${oldRate} → ${currentRate} (+30)`);
             
             // マッチ情報をクリアするメッセージをバックグラウンドに送信し、その完了を待つ
-            await chrome.runtime.sendMessage({ action: "clearMatchInfo" });
+            await browser.runtime.sendMessage({ action: "clearMatchInfo" });
             updateMatchingUI(); // UIを元の状態に戻す
         }
     }
@@ -298,7 +298,7 @@ window.initRateMatchSection = async function() { // async を追加
             await window.showCustomDialog('報告完了', `敗北を報告しました。<br>レート: ${oldRate} → ${currentRate} (-20)`);
             
             // マッチ情報をクリアするメッセージをバックグラウンドに送信し、その完了を待つ
-            await chrome.runtime.sendMessage({ action: "clearMatchInfo" });
+            await browser.runtime.sendMessage({ action: "clearMatchInfo" });
             updateMatchingUI(); // UIを元の状態に戻す
         }
     }
@@ -309,7 +309,7 @@ window.initRateMatchSection = async function() { // async を追加
             await window.showCustomDialog('完了', '対戦を中止しました。');
             
             // マッチ情報をクリアするメッセージをバックグラウンドに送信し、その完了を待つ
-            await chrome.runtime.sendMessage({ action: "clearMatchInfo" });
+            await browser.runtime.sendMessage({ action: "clearMatchInfo" });
             updateMatchingUI(); // UIを元の状態に戻す
         }
     }
@@ -328,3 +328,4 @@ window.initRateMatchSection = async function() { // async を追加
     });
 
 }; // End of initRateMatchSection
+void 0; // Explicitly return undefined for Firefox compatibility

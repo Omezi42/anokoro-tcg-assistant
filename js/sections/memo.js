@@ -218,3 +218,4 @@ window.initMemoSection = async function() { // async を追加
 
     loadMemos();
 }; // End of initMemoSection
+void 0; // Explicitly return undefined for Firefox compatibility

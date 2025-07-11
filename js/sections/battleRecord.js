@@ -486,4 +486,5 @@ window.initBattleRecordSection = async function() { // async を追加
 
     // デフォルトで「新しい対戦記録」タブを表示}
     showBattleRecordTab('new-record');
-}
+}; // End of initBattleRecordSection
+void 0; // Explicitly return undefined for Firefox compatibility

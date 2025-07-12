@@ -1,11 +1,11 @@
-// js/sections/rateMatch.js - 修正版 v2.6
+// js/sections/rateMatch.js (レート戦セクションのロジック) - 安定化版 v2.7
 
 window.initRateMatchSection = async function() {
-    console.log("RateMatch section initialized (v2.6).");
+    console.log("RateMatch section initialized (v2.7).");
 
     if (typeof browser === 'undefined') { var browser = chrome; }
 
-    // === DOM要素の取得 ===
+    // --- DOM要素の取得 ---
     const loggedInUi = document.getElementById('logged-in-ui');
     const authSection = document.getElementById('auth-section');
     const displayNameDisplay = document.getElementById('display-name-display');
@@ -22,12 +22,11 @@ window.initRateMatchSection = async function() {
     const webrtcConnectionStatus = document.getElementById('webrtc-connection-status');
     const chatMessagesDiv = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
-    const sendChatButton = document.getElementById('send-chat-button');
     const winButton = document.getElementById('win-button');
     const loseButton = document.getElementById('lose-button');
     const cancelButton = document.getElementById('cancel-button');
-
-    // マッチング状態を管理するローカル変数
+    
+    // --- 状態管理 ---
     let currentMatchId = null;
     let peerConnection = null;
     let dataChannel = null;
@@ -36,12 +35,11 @@ window.initRateMatchSection = async function() {
     let isWebRTCOfferInitiator = false;
     const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-    // === UI更新関数 ===
+    // --- UI更新 ---
     const updateUIState = () => {
-        if (!loggedInUi || !authSection) return;
         const assistant = window.TCG_ASSISTANT;
-        
         const isLoggedIn = assistant.isLoggedIn;
+
         authSection.style.display = isLoggedIn ? 'none' : 'block';
         loggedInUi.style.display = isLoggedIn ? 'block' : 'none';
 
@@ -49,57 +47,47 @@ window.initRateMatchSection = async function() {
             displayNameDisplay.textContent = assistant.currentDisplayName || assistant.currentUsername;
             newDisplayNameInput.value = assistant.currentDisplayName || assistant.currentUsername;
             rateDisplay.textContent = assistant.currentRate;
-            matchHistoryList.innerHTML = assistant.userMatchHistory.length > 0
-                ? assistant.userMatchHistory.map(record => `<li>${record}</li>`).join('')
-                : '<li>まだ対戦履歴がありません。</li>';
+            matchHistoryList.innerHTML = assistant.userMatchHistory.map(r => `<li>${r}</li>`).join('') || '<li>対戦履歴はありません。</li>';
             
-            loggedInUi.classList.remove('state-pre-match', 'state-matching', 'state-in-match');
+            loggedInUi.classList.toggle('state-pre-match', !currentMatchId && matchingStatusDiv.dataset.isMatching !== 'true');
+            loggedInUi.classList.toggle('state-matching', matchingStatusDiv.dataset.isMatching === 'true');
+            loggedInUi.classList.toggle('state-in-match', !!currentMatchId);
+
             if (currentMatchId) {
-                loggedInUi.classList.add('state-in-match');
                 opponentUsernameDisplay.textContent = opponentDisplayName || '不明';
-            } else if (matchingStatusDiv.dataset.isMatching === 'true') {
-                loggedInUi.classList.add('state-matching');
-            } else {
-                loggedInUi.classList.add('state-pre-match');
             }
         }
     };
 
-    // === WebSocketメッセージ送信ヘルパー (修正版) ===
+    // --- WebSocketメッセージ送信 ---
     const sendWebSocketMessage = (payload) => {
         const ws = window.TCG_ASSISTANT.ws;
 
-        // 接続が確立されるまで待機する関数
         const waitForConnectionAndSend = (timeout = 5000) => {
             const startTime = Date.now();
             const interval = setInterval(() => {
                 const currentWs = window.TCG_ASSISTANT.ws;
-                // 接続が確立されたらメッセージを送信
                 if (currentWs && currentWs.readyState === WebSocket.OPEN) {
                     clearInterval(interval);
                     currentWs.send(JSON.stringify(payload));
                 } else if (Date.now() - startTime > timeout) {
-                    // タイムアウトしたらエラーを表示
                     clearInterval(interval);
                     window.showCustomDialog('エラー', 'サーバーへの接続がタイムアウトしました。');
                 }
-            }, 100); // 100msごとに接続状態をチェック
+            }, 100);
         };
 
         if (ws && ws.readyState === WebSocket.OPEN) {
-            // 既に接続済みの場合はすぐに送信
             ws.send(JSON.stringify(payload));
         } else if (ws && ws.readyState === WebSocket.CONNECTING) {
-            // 接続中の場合は、接続が確立されるのを待つ
             console.log("WebSocket is connecting. Waiting to send message...");
             waitForConnectionAndSend();
         } else {
-            // 接続がない、または切断されている場合
             window.showCustomDialog('エラー', 'サーバーに接続していません。');
         }
     };
     
-    // === WebRTC関連関数 ===
+    // --- WebRTC関連 ---
     const setupPeerConnection = () => {
         if (peerConnection) peerConnection.close();
         peerConnection = new RTCPeerConnection(iceServers);
@@ -110,7 +98,9 @@ window.initRateMatchSection = async function() {
         
         peerConnection.onconnectionstatechange = () => {
             if (webrtcConnectionStatus) webrtcConnectionStatus.textContent = peerConnection.connectionState;
-            if (peerConnection.connectionState === 'connected') displayChatMessage('システム', 'P2P接続が確立されました！');
+            if (peerConnection.connectionState === 'connected') {
+                displayChatMessage('システム', 'P2P接続が確立されました！');
+            }
         };
         
         peerConnection.ondatachannel = e => {
@@ -123,7 +113,8 @@ window.initRateMatchSection = async function() {
             setupDataChannelListeners();
             peerConnection.createOffer()
                 .then(offer => peerConnection.setLocalDescription(offer))
-                .then(() => sendWebSocketMessage({ type: 'webrtc_signal', signal: peerConnection.localDescription }));
+                .then(() => sendWebSocketMessage({ type: 'webrtc_signal', signal: peerConnection.localDescription }))
+                .catch(err => console.error("Offer creation error:", err));
         }
     };
     
@@ -142,15 +133,23 @@ window.initRateMatchSection = async function() {
     };
 
     const clearMatchAndP2PConnection = () => {
-        currentMatchId = null; opponentPlayerId = null; opponentDisplayName = null; isWebRTCOfferInitiator = false;
-        if (peerConnection) { peerConnection.close(); peerConnection = null; }
+        currentMatchId = null; 
+        opponentPlayerId = null; 
+        opponentDisplayName = null; 
+        isWebRTCOfferInitiator = false;
+        if (peerConnection) { 
+            peerConnection.close(); 
+            peerConnection = null; 
+        }
         dataChannel = null;
         matchingStatusDiv.dataset.isMatching = 'false';
-        [winButton, loseButton, cancelButton].forEach(btn => btn.disabled = false);
+        if(winButton) winButton.disabled = false;
+        if(loseButton) loseButton.disabled = false;
+        if(cancelButton) cancelButton.disabled = false;
         updateUIState();
     };
 
-    // === WebSocketイベントハンドラ ===
+    // --- WebSocketイベントハンドラ ---
     const handleMatchFound = (e) => {
         const msg = e.detail;
         currentMatchId = msg.matchId;
@@ -176,13 +175,15 @@ window.initRateMatchSection = async function() {
             peerConnection.addIceCandidate(new RTCIceCandidate(signal)).catch(err => console.error("Add ICE Candidate Error:", err));
         }
     };
-    
+
     const handleReportResultResponse = (e) => {
         const msg = e.detail;
         window.showCustomDialog('結果報告', msg.message);
         if (msg.result?.startsWith('resolved') || msg.result === 'disputed') {
-            // main.jsがloginSuccessイベントを発行し、グローバルステートが更新されるので、
-            // ここではUIの状態をクリアするだけで良い
+            const assistant = window.TCG_ASSISTANT;
+            assistant.currentRate = msg.myNewRate;
+            assistant.userMatchHistory = msg.myMatchHistory;
+            assistant.dispatchEvent(new CustomEvent('loginStateChanged', { detail: { isLoggedIn: true } }));
             clearMatchAndP2PConnection();
         }
     };
@@ -197,66 +198,92 @@ window.initRateMatchSection = async function() {
         }
     };
 
-    // === DOMイベントハンドラ ===
+    const handleError = (e) => window.showCustomDialog('サーバーエラー', e.detail.message);
+
+    const handleQueueStatus = (e) => {
+        const statusText = document.getElementById('matching-status-text');
+        if (statusText) statusText.textContent = e.detail.message;
+    };
+
+    // --- DOMイベントハンドラ ---
+    const onRegister = () => sendWebSocketMessage({ type: 'register', username: registerUsernameInput.value, password: registerPasswordInput.value });
+    const onLogin = () => sendWebSocketMessage({ type: 'login', username: loginUsernameInput.value, password: loginPasswordInput.value });
+    const onLogout = async () => {
+        const confirmed = await window.showCustomDialog('ログアウト', 'ログアウトしますか？', true);
+        if (confirmed) sendWebSocketMessage({ type: 'logout' });
+    };
+    const onUpdateDisplayName = () => sendWebSocketMessage({ type: 'update_display_name', newDisplayName: newDisplayNameInput.value });
     const onMatchingClick = () => {
         matchingStatusDiv.dataset.isMatching = 'true';
         updateUIState();
         sendWebSocketMessage({ type: 'join_queue' });
     };
-
+    const onCancelMatchingClick = () => {
+        matchingStatusDiv.dataset.isMatching = 'false';
+        updateUIState();
+        sendWebSocketMessage({ type: 'leave_queue' });
+    };
+    const onSendChat = () => {
+        if (chatInput.value && dataChannel && dataChannel.readyState === 'open') {
+            dataChannel.send(chatInput.value);
+            displayChatMessage('あなた', chatInput.value);
+            chatInput.value = '';
+        }
+    };
     const onReportResultClick = async (e) => {
         const result = e.currentTarget.dataset.result;
         const confirmed = await window.showCustomDialog('確認', `結果を「${result}」として報告しますか？`, true);
         if (confirmed) {
             sendWebSocketMessage({ type: 'report_result', matchId: currentMatchId, result });
-            [winButton, loseButton, cancelButton].forEach(btn => btn.disabled = true);
+            if(winButton) winButton.disabled = true;
+            if(loseButton) loseButton.disabled = true;
+            if(cancelButton) cancelButton.disabled = true;
         }
     };
+    const onRefreshRanking = () => sendWebSocketMessage({ type: 'get_ranking' });
 
-    // === イベントリスナー設定 ===
+    // --- イベントリスナー設定 ---
     const assistant = window.TCG_ASSISTANT;
     const addListener = (id, event, handler) => {
         const element = document.getElementById(id);
         if (element) {
-            // 既存のリスナーを削除してから追加することで、重複を防ぐ
             element.removeEventListener(event, handler);
             element.addEventListener(event, handler);
         }
     };
-
-    addListener('register-button', 'click', () => sendWebSocketMessage({ type: 'register', username: registerUsernameInput.value, password: registerPasswordInput.value }));
-    addListener('login-button', 'click', () => sendWebSocketMessage({ type: 'login', username: loginUsernameInput.value, password: loginPasswordInput.value }));
-    addListener('update-display-name-button', 'click', () => sendWebSocketMessage({ type: 'update_display_name', newDisplayName: newDisplayNameInput.value }));
+    
+    addListener('register-button', 'click', onRegister);
+    addListener('login-button', 'click', onLogin);
+    addListener('logout-button', 'click', onLogout);
+    addListener('update-display-name-button', 'click', onUpdateDisplayName);
     addListener('matching-button', 'click', onMatchingClick);
-    addListener('cancel-matching-button-in-status', 'click', () => { matchingStatusDiv.dataset.isMatching = 'false'; updateUIState(); sendWebSocketMessage({ type: 'leave_queue' }); });
-    addListener('send-chat-button', 'click', () => { if (chatInput.value && dataChannel && dataChannel.readyState === 'open') { dataChannel.send(chatInput.value); displayChatMessage('あなた', chatInput.value); chatInput.value = ''; } });
+    addListener('cancel-matching-button-in-status', 'click', onCancelMatchingClick);
+    addListener('send-chat-button', 'click', onSendChat);
+    addListener('chat-input', 'keypress', (e) => { if (e.key === 'Enter') onSendChat(); });
     addListener('win-button', 'click', onReportResultClick);
     addListener('lose-button', 'click', onReportResultClick);
     addListener('cancel-button', 'click', onReportResultClick);
-    addListener('refresh-ranking-button', 'click', () => sendWebSocketMessage({ type: 'get_ranking' }));
+    addListener('refresh-ranking-button', 'click', onRefreshRanking);
 
-    // loginStateChangedイベントでUI全体を更新
-    assistant.removeEventListener('loginStateChanged', updateUIState);
-    assistant.addEventListener('loginStateChanged', updateUIState);
-    
-    // WebSocketメッセージのリスナー
     const wsEvents = {
         'ws-match_found': handleMatchFound,
         'ws-webrtc_signal': handleSignalingData,
         'ws-report_result_response': handleReportResultResponse,
         'ws-ranking_response': handleRankingResponse,
-        'ws-queue_status': (e) => { if(document.getElementById('matching-status-text')) document.getElementById('matching-status-text').textContent = e.detail.message; },
-        'ws-error': (e) => window.showCustomDialog('サーバーエラー', e.detail.message)
+        'ws-queue_status': handleQueueStatus,
+        'ws-error': handleError
     };
 
     for (const [event, handler] of Object.entries(wsEvents)) {
         assistant.removeEventListener(event, handler);
         assistant.addEventListener(event, handler);
     }
-
-    // --- 初期化処理 ---
+    
+    assistant.removeEventListener('loginStateChanged', updateUIState);
+    assistant.addEventListener('loginStateChanged', updateUIState);
+    
+    // --- 初期化 ---
     updateUIState();
-    // ログイン済みの場合のみランキングを取得
     if (assistant.isLoggedIn) {
         sendWebSocketMessage({ type: 'get_ranking' });
     }

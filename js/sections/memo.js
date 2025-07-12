@@ -1,60 +1,27 @@
-// js/sections/memo.js
+// js/sections/memo.js - 修正版
 
-// グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
 window.initMemoSection = async function() {
     console.log("Memo section initialized.");
 
-    // Firefox互換性のためのbrowserオブジェクトのフォールバック
     if (typeof browser === 'undefined') {
         var browser = chrome;
     }
 
-    // === メモセクションのロジック ===
-    // 各要素を関数内で取得
+    // === DOM要素の取得 ===
     const saveMemoButton = document.getElementById('save-memo-button');
     const memoTextArea = document.getElementById('memo-text-area');
     const savedMemosList = document.getElementById('saved-memos-list');
     const screenshotArea = document.getElementById('screenshot-area');
     const memoSearchInput = document.getElementById('memo-search-input');
     const memoSearchButton = document.getElementById('memo-search-button');
-    let editingMemoIndex = -1; // 編集中のメモのインデックス
-
-    // ユーザーのメモデータを保持するグローバル変数 (rateMatch.jsからログイン時にセットされることを期待)
-    // window.userMemos は main.js で初期化される
-    // window.currentUserId は main.js で初期化される
-
-    /**
-     * 保存されたメモを読み込む関数 (サーバーから、または未ログイン時はローカルから)
-     * @param {string} filterQuery - 検索クエリ
-     */
-    const loadMemos = (filterQuery = '') => {
-        if (!savedMemosList) return;
-
-        // ログインしていない場合はローカルストレージから読み込む
-        if (!window.currentUserId) {
-            console.log("Memo: Not logged in. Displaying local memo data (if any).");
-            browser.storage.local.get(['savedMemosLocal'], (result) => {
-                const memos = result.savedMemosLocal || [];
-                displayMemos(memos, filterQuery, false); // ローカルストレージからの表示
-            });
-            return;
-        }
-
-        // ログイン済みの場合はグローバル変数 (サーバーから取得されたデータ) を使用
-        console.log("Memo: Logged in. Loading memos from server data.");
-        const memos = window.userMemos || []; 
-        displayMemos(memos, filterQuery, true); // サーバーからの表示
-    };
+    let editingMemoIndex = -1;
 
     /**
      * メモをUIに表示するヘルパー関数
-     * @param {Array<Object>} memos - 表示するメモの配列
-     * @param {string} filterQuery - フィルタリング文字列
-     * @param {boolean} isServerData - サーバーデータかどうか (表示メッセージ用)
      */
-    const displayMemos = (memos, filterQuery, isServerData) => {
+    const displayMemos = (memos, filterQuery = '') => {
         if (!savedMemosList) return;
-        savedMemosList.innerHTML = ''; // リストをクリア
+        savedMemosList.innerHTML = '';
 
         const filteredMemos = memos.filter(memo =>
             memo.content.toLowerCase().includes(filterQuery.toLowerCase()) ||
@@ -62,17 +29,14 @@ window.initMemoSection = async function() {
         );
 
         if (filteredMemos.length === 0) {
-            savedMemosList.innerHTML = `<li>まだメモがありません。${isServerData ? '(ログイン済み)' : '(ローカル)'}</li>`;
+            savedMemosList.innerHTML = `<li>まだメモがありません。</li>`;
         } else {
-            // 新しいメモが常に先頭に来るように逆順に表示
             [...filteredMemos].reverse().forEach((memo) => {
-                // 元の配列におけるインデックスを正確に取得
                 const originalIndex = memos.findIndex(m => m.timestamp === memo.timestamp && m.content === memo.content);
-                if (originalIndex === -1) return; // 見つからない場合はスキップ（フィルタリングで発生しうる）
+                if (originalIndex === -1) return;
 
                 const memoItem = document.createElement('li');
                 memoItem.className = 'saved-memo-item';
-
                 memoItem.innerHTML = `
                     <strong>${memo.timestamp}</strong>: ${memo.content}
                     <button class="delete-memo-button" data-original-index="${originalIndex}" title="削除"><i class="fas fa-trash-alt"></i></button>
@@ -81,136 +45,65 @@ window.initMemoSection = async function() {
                 `;
                 savedMemosList.appendChild(memoItem);
             });
-            // 削除ボタンのイベントリスナーを設定
+            
             savedMemosList.querySelectorAll('.delete-memo-button').forEach(button => {
-                button.removeEventListener('click', handleDeleteMemoClick); // 既存のリスナーを削除
                 button.addEventListener('click', handleDeleteMemoClick);
             });
-            // 編集ボタンのイベントリスナーを設定
             savedMemosList.querySelectorAll('.edit-memo-button').forEach(button => {
-                button.removeEventListener('click', handleEditMemoClick); // 既存のリスナーを削除
                 button.addEventListener('click', handleEditMemoClick);
             });
         }
     };
 
     /**
-     * メモデータをサーバーに保存します。
-     * @param {Array<Object>} memosToSave - 保存するメモの配列。
+     * ログイン状態に基づいてメモをロードして表示する
      */
-    const saveMemosToServer = async (memosToSave) => {
-        // ログイン状態とWebSocket接続を確認
-        if (!window.currentUserId || !window.ws || window.ws.readyState !== WebSocket.OPEN) {
-            console.warn("Memo: Not logged in or WebSocket not open. Cannot save memos to server.");
-            await window.showCustomDialog('エラー', 'ログインしていないか、サーバーに接続していません。メモは保存されませんでした。');
-            return;
-        }
-        window.userMemos = memosToSave; // グローバルデータを更新
-        window.ws.send(JSON.stringify({
-            type: 'update_user_data',
-            userId: window.currentUserId,
-            memos: window.userMemos
-        }));
-        await window.showCustomDialog('保存完了', 'メモをサーバーに保存しました！');
-        loadMemos(memoSearchInput ? memoSearchInput.value.trim() : ''); // UIを再ロード
-    };
+    const loadAndDisplayMemos = async () => {
+        const assistant = window.TCG_ASSISTANT;
+        const filterQuery = memoSearchInput ? memoSearchInput.value.trim() : '';
 
-    /**
-     * メモデータをローカルストレージに保存します (未ログイン時用)。
-     * @param {Array<Object>} memosToSave - 保存するメモの配列。
-     */
-    const saveMemosLocally = (memosToSave) => {
-        browser.storage.local.set({ savedMemosLocal: memosToSave }, () => {
-            window.showCustomDialog('保存完了', 'メモをローカルに保存しました！');
-            loadMemos(memoSearchInput ? memoSearchInput.value.trim() : '');
-        });
-    };
-
-    /**
-     * メモを削除します (ログイン状態に応じてサーバーまたはローカル)。
-     * @param {number} originalIndex - 削除するメモの元の配列インデックス。
-     */
-    const deleteMemo = async (originalIndex) => {
-        if (!memoTextArea) return;
-        
-        let memos;
-        if (window.currentUserId) {
-            memos = window.userMemos || []; // サーバーデータ優先
+        if (assistant.isLoggedIn) {
+            // ログイン済み: グローバルステートのデータを使用
+            console.log("Memo: Logged in. Loading memos from server data.");
+            displayMemos(assistant.userMemos || [], filterQuery);
         } else {
-            const result = await browser.storage.local.get(['savedMemosLocal']);
-            memos = result.savedMemosLocal || [];
-        }
-
-        if (originalIndex > -1 && originalIndex < memos.length) {
-            memos.splice(originalIndex, 1);
-            if (window.currentUserId) {
-                await saveMemosToServer(memos); // サーバーに保存
-            } else {
-                saveMemosLocally(memos); // ローカルに保存
-            }
-            // showCustomDialog は saveMemosToServer/Locally から呼ばれる
-        }
-    };
-
-    /**
-     * メモを編集モードにします。
-     * @param {number} originalIndex - 編集するメモの元の配列インデックス。
-     */
-    const editMemo = (originalIndex) => {
-        if (!memoTextArea) return;
-
-        let memos;
-        if (window.currentUserId) {
-            memos = window.userMemos || []; // サーバーデータ優先
-        } else {
-            // 未ログイン時はローカルストレージから取得
+            // 未ログイン: ローカルストレージから読み込む
+            console.log("Memo: Not logged in. Displaying local memo data.");
             browser.storage.local.get(['savedMemosLocal'], (result) => {
-                memos = result.savedMemosLocal || [];
-                if (originalIndex > -1 && originalIndex < memos.length) {
-                    const memoToEdit = memos[originalIndex];
-                    memoTextArea.value = memoToEdit.content;
-                    if (memoToEdit.screenshotUrl && screenshotArea) {
-                        screenshotArea.innerHTML = `<img src="${memoToEdit.screenshotUrl}" alt="Screenshot">`;
-                    } else if (screenshotArea) {
-                        screenshotArea.innerHTML = '<p>スクリーンショットがここに表示されます。（画像をここに貼り付けることもできます - Ctrl+V / Cmd+V）</p>';
-                    }
-                    editingMemoIndex = originalIndex;
-                    window.showCustomDialog('メモ編集', 'メモを編集モードにしました。内容を変更して「メモを保存」ボタンを押してください。');
-                }
+                displayMemos(result.savedMemosLocal || [], filterQuery);
             });
-            return;
-        }
-        
-        // ログイン済みの場合
-        if (originalIndex > -1 && originalIndex < memos.length) {
-            const memoToEdit = memos[originalIndex];
-            memoTextArea.value = memoToEdit.content;
-            if (memoToEdit.screenshotUrl && screenshotArea) {
-                screenshotArea.innerHTML = `<img src="${memoToEdit.screenshotUrl}" alt="Screenshot">`;
-            } else if (screenshotArea) {
-                screenshotArea.innerHTML = '<p>スクリーンショットがここに表示されます。（画像をここに貼り付けることもできます - Ctrl+V / Cmd+V）</p>';
-            }
-            editingMemoIndex = originalIndex;
-            window.showCustomDialog('メモ編集', 'メモを編集モードにしました。内容を変更して「メモを保存」ボタンを押してください。');
         }
     };
 
-    // --- イベントハンドラ関数 ---
-    async function handleDeleteMemoClick(event) {
-        const originalIndexToDelete = parseInt(event.currentTarget.dataset.originalIndex);
-        const confirmed = await window.showCustomDialog('メモ削除', 'このメモを削除しますか？', true);
-        if (confirmed) {
-            await deleteMemo(originalIndexToDelete);
+    /**
+     * メモデータを保存する (ログイン状態に応じて送信先を切り替え)
+     */
+    const saveMemos = async (memosToSave) => {
+        const assistant = window.TCG_ASSISTANT;
+        if (assistant.isLoggedIn) {
+            // サーバーに保存
+            if (!assistant.ws || assistant.ws.readyState !== WebSocket.OPEN) {
+                await window.showCustomDialog('エラー', 'サーバーに接続していません。メモは保存されませんでした。');
+                return;
+            }
+            assistant.userMemos = memosToSave; // グローバルステートを更新
+            assistant.ws.send(JSON.stringify({
+                type: 'update_user_data', // バックエンドでこのタイプを処理する必要がある
+                userId: assistant.currentUserId,
+                memos: memosToSave
+            }));
+            await window.showCustomDialog('保存完了', 'メモをサーバーに保存しました！');
+        } else {
+            // ローカルに保存
+            browser.storage.local.set({ savedMemosLocal: memosToSave }, () => {
+                window.showCustomDialog('保存完了', 'メモをローカルに保存しました！');
+            });
         }
-    }
+        loadAndDisplayMemos();
+    };
 
-    function handleEditMemoClick(event) {
-        const originalIndexToEdit = parseInt(event.currentTarget.dataset.originalIndex);
-        editMemo(originalIndexToEdit);
-    }
-
-    async function handleSaveMemoButtonClick() {
-        if (!memoTextArea || !screenshotArea) return;
+    // === イベントハンドラ ===
+    const handleSaveMemoButtonClick = async () => {
         const memoContent = memoTextArea.value.trim();
         const currentScreenshot = screenshotArea.querySelector('img');
         const screenshotUrl = currentScreenshot ? currentScreenshot.src : null;
@@ -220,95 +113,100 @@ window.initMemoSection = async function() {
             return;
         }
 
+        const assistant = window.TCG_ASSISTANT;
         let memos;
-        if (window.currentUserId) {
-            memos = window.userMemos || []; // サーバーデータ優先
+        if (assistant.isLoggedIn) {
+            memos = [...(assistant.userMemos || [])];
         } else {
-            const result = await browser.storage.local.get(['savedMemosLocal']);
+            const result = await new Promise(resolve => browser.storage.local.get(['savedMemosLocal'], resolve));
             memos = result.savedMemosLocal || [];
         }
 
         const timestamp = new Date().toLocaleString();
         if (editingMemoIndex !== -1) {
-            // 編集モード
             memos[editingMemoIndex].content = memoContent;
             memos[editingMemoIndex].timestamp = timestamp;
             memos[editingMemoIndex].screenshotUrl = screenshotUrl;
-            editingMemoIndex = -1;
         } else {
-            // 新規保存
             memos.push({ timestamp, content: memoContent, screenshotUrl });
         }
 
-        if (window.currentUserId) {
-            await saveMemosToServer(memos); // サーバーに保存
+        await saveMemos(memos);
+
+        memoTextArea.value = '';
+        screenshotArea.innerHTML = '<p>スクリーンショットがここに表示されます。（画像をここに貼り付けることもできます - Ctrl+V / Cmd+V）</p>';
+        editingMemoIndex = -1;
+    };
+
+    const handleDeleteMemoClick = async (event) => {
+        const originalIndexToDelete = parseInt(event.currentTarget.dataset.originalIndex);
+        const confirmed = await window.showCustomDialog('メモ削除', 'このメモを削除しますか？', true);
+        if (confirmed) {
+            const assistant = window.TCG_ASSISTANT;
+            let memos;
+            if (assistant.isLoggedIn) {
+                memos = [...(assistant.userMemos || [])];
+            } else {
+                const result = await new Promise(resolve => browser.storage.local.get(['savedMemosLocal'], resolve));
+                memos = result.savedMemosLocal || [];
+            }
+            if (originalIndexToDelete > -1 && originalIndexToDelete < memos.length) {
+                memos.splice(originalIndexToDelete, 1);
+                await saveMemos(memos);
+            }
+        }
+    };
+
+    const handleEditMemoClick = async (event) => {
+        const originalIndexToEdit = parseInt(event.currentTarget.dataset.originalIndex);
+        const assistant = window.TCG_ASSISTANT;
+        let memos;
+        if (assistant.isLoggedIn) {
+            memos = assistant.userMemos || [];
         } else {
-            saveMemosLocally(memos); // ローカルに保存
+            const result = await new Promise(resolve => browser.storage.local.get(['savedMemosLocal'], resolve));
+            memos = result.savedMemosLocal || [];
         }
-
-        // UIをリセット
-        if (memoTextArea) memoTextArea.value = '';
-        if (screenshotArea) screenshotArea.innerHTML = '<p>スクリーンショットがここに表示されます。（画像をここに貼り付けることもできます - Ctrl+V / Cmd+V）</p>';
-    }
-
-    function handleMemoSearchButtonClick() {
-        if (memoSearchInput) {
-            const query = memoSearchInput.value.trim();
-            loadMemos(query);
+        
+        if (originalIndexToEdit > -1 && originalIndexToEdit < memos.length) {
+            const memoToEdit = memos[originalIndexToEdit];
+            memoTextArea.value = memoToEdit.content;
+            screenshotArea.innerHTML = memoToEdit.screenshotUrl 
+                ? `<img src="${memoToEdit.screenshotUrl}" alt="Screenshot">`
+                : '<p>スクリーンショットがここに表示されます。（画像をここに貼り付けることもできます - Ctrl+V / Cmd+V）</p>';
+            editingMemoIndex = originalIndexToEdit;
+            window.showCustomDialog('メモ編集', '内容を変更して「メモを保存」ボタンを押してください。');
         }
-    }
+    };
 
-    function handleMemoSearchInputKeypress(e) {
-        if (e.key === 'Enter') {
-            if (memoSearchButton) memoSearchButton.click();
-        }
-    }
-
-    // 画像貼り付けイベントリスナーを追加
-    if (screenshotArea) {
-        screenshotArea.removeEventListener('paste', handleImagePaste); // 重複防止
-        screenshotArea.addEventListener('paste', handleImagePaste);
-    }
-
-    function handleImagePaste(event) {
+    const handleImagePaste = (event) => {
         const items = event.clipboardData.items;
         for (const item of items) {
             if (item.type.startsWith('image/')) {
-                const blob = item.getAsFile();
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    const imageUrl = e.target.result;
-                    if (screenshotArea) {
-                        screenshotArea.innerHTML = `<img src="${imageUrl}" alt="Pasted Image">`;
-                        window.showCustomDialog('貼り付け完了', '画像をメモエリアに貼り付けました。');
-                    }
+                    screenshotArea.innerHTML = `<img src="${e.target.result}" alt="Pasted Image">`;
+                    window.showCustomDialog('貼り付け完了', '画像をメモエリアに貼り付けました。');
                 };
-                reader.readAsDataURL(blob);
+                reader.readAsDataURL(item.getAsFile());
                 return;
             }
         }
-        window.showCustomDialog('貼り付け失敗', 'クリップボードに画像がありませんでした。');
-    }
+    };
 
-    // --- イベントリスナーの再アタッチ ---
-    if (saveMemoButton) {
-        saveMemoButton.removeEventListener('click', handleSaveMemoButtonClick);
-        saveMemoButton.addEventListener('click', handleSaveMemoButtonClick);
-    }
+    // === イベントリスナー設定 ===
+    saveMemoButton?.addEventListener('click', handleSaveMemoButtonClick);
+    memoSearchButton?.addEventListener('click', loadAndDisplayMemos);
+    memoSearchInput?.addEventListener('keypress', (e) => e.key === 'Enter' && loadAndDisplayMemos());
+    screenshotArea?.addEventListener('paste', handleImagePaste);
 
-    if (memoSearchButton) {
-        memoSearchButton.removeEventListener('click', handleMemoSearchButtonClick);
-        memoSearchButton.addEventListener('click', handleMemoSearchButtonClick);
-    }
-    if (memoSearchInput) {
-        memoSearchInput.removeEventListener('keypress', handleMemoSearchInputKeypress);
-        memoSearchInput.addEventListener('keypress', handleMemoSearchInputKeypress);
-    }
+    // ★★★ 修正点 ★★★
+    // loginStateChangedイベントをリッスンして、UIを更新
+    window.TCG_ASSISTANT.removeEventListener('loginStateChanged', loadAndDisplayMemos); // 重複登録防止
+    window.TCG_ASSISTANT.addEventListener('loginStateChanged', loadAndDisplayMemos);
 
-    // ログイン状態が変更されたときにメモを再ロード
-    document.removeEventListener('loginStateChanged', loadMemos);
-    document.addEventListener('loginStateChanged', loadMemos);
-
-    loadMemos(); // 初期ロード
+    // --- 初期化処理 ---
+    loadAndDisplayMemos();
 };
-void 0; // Explicitly return undefined for Firefox compatibility
+
+void 0;

@@ -1,7 +1,7 @@
-// js/sections/home.js - 修正版 v2.2
+// js/sections/home.js - 修正版 v2.3
 
 window.initHomeSection = async function() {
-    console.log("Home section initialized (v2.2).");
+    console.log("Home section initialized (v2.3).");
 
     if (typeof browser === 'undefined') {
         var browser = chrome;

@@ -20,7 +20,6 @@ window.initRateMatchSection = async function() {
     
     // マッチング関連UI
     const matchingStatusDiv = document.getElementById('matching-status');
-    const postMatchUiDiv = document.getElementById('post-match-ui');
     const opponentUsernameDisplay = document.getElementById('opponent-username-display');
     const webrtcConnectionStatus = document.getElementById('webrtc-connection-status');
     const chatMessagesDiv = document.getElementById('chat-messages');
@@ -197,7 +196,9 @@ window.initRateMatchSection = async function() {
     const displayChatMessage = (sender, message) => {
         if (!chatMessagesDiv) return;
         const p = document.createElement('p');
-        p.innerHTML = `<strong>[${sender.replace(/</g, "&lt;")}]:</strong> ${message.replace(/</g, "&lt;")}`;
+        const sanitizedSender = sender.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const sanitizedMessage = message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        p.innerHTML = `<strong>[${sanitizedSender}]:</strong> ${sanitizedMessage}`;
         chatMessagesDiv.appendChild(p);
         chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
     };
@@ -299,26 +300,31 @@ window.initRateMatchSection = async function() {
     };
 
     // === イベントリスナー設定 ===
-    // DOM要素へのイベントリスナー
-    document.getElementById('register-button')?.addEventListener('click', onRegisterClick);
-    document.getElementById('login-button')?.addEventListener('click', onLoginClick);
-    document.getElementById('logout-button')?.addEventListener('click', onLogoutClick);
-    document.getElementById('update-display-name-button')?.addEventListener('click', onUpdateDisplayNameClick);
-    document.getElementById('matching-button')?.addEventListener('click', onMatchingClick);
-    document.getElementById('cancel-matching-button-in-status')?.addEventListener('click', onCancelMatchingClick);
-    sendChatButton?.addEventListener('click', onSendChat);
-    chatInput?.addEventListener('keypress', e => e.key === 'Enter' && onSendChat());
+    const assistant = window.TCG_ASSISTANT;
+    const eventListeners = [
+        { id: 'register-button', event: 'click', handler: onRegisterClick },
+        { id: 'login-button', event: 'click', handler: onLoginClick },
+        { id: 'logout-button', event: 'click', handler: onLogoutClick },
+        { id: 'update-display-name-button', event: 'click', handler: onUpdateDisplayNameClick },
+        { id: 'matching-button', event: 'click', handler: onMatchingClick },
+        { id: 'cancel-matching-button-in-status', event: 'click', handler: onCancelMatchingClick },
+        { id: 'send-chat-button', event: 'click', handler: onSendChat },
+        { id: 'chat-input', event: 'keypress', handler: e => e.key === 'Enter' && onSendChat() },
+        { id: 'win-button', event: 'click', handler: onReportResultClick },
+        { id: 'lose-button', event: 'click', handler: onReportResultClick },
+        { id: 'cancel-button', event: 'click', handler: onReportResultClick },
+        { id: 'refresh-ranking-button', event: 'click', handler: onRefreshRanking }
+    ];
+
+    eventListeners.forEach(({ id, event, handler }) => {
+        document.getElementById(id)?.addEventListener(event, handler);
+    });
     document.querySelectorAll('.chat-phrase-button').forEach(btn => btn.addEventListener('click', () => {
         chatInput.value = btn.textContent;
         onSendChat();
     }));
-    winButton?.addEventListener('click', onReportResultClick);
-    loseButton?.addEventListener('click', onReportResultClick);
-    cancelButton?.addEventListener('click', onReportResultClick);
-    document.getElementById('refresh-ranking-button')?.addEventListener('click', onRefreshRanking);
 
     // グローバルなTCG_ASSISTANTオブジェクトへのイベントリスナー
-    const assistant = window.TCG_ASSISTANT;
     assistant.addEventListener('loginStateChanged', updateUIState);
     assistant.addEventListener('ws-match_found', handleMatchFound);
     assistant.addEventListener('ws-webrtc_signal', handleSignalingData);
@@ -329,5 +335,5 @@ window.initRateMatchSection = async function() {
     
     // --- 初期化処理 ---
     updateUIState();
-    onRefreshRanking(); // セクション表示時にランキングを自動更新
+    onRefreshRanking();
 };

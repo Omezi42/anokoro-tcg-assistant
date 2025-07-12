@@ -136,7 +136,7 @@ window.TCG_ASSISTANT.addEventListener('loginFail', (e) => {
 
 // ログアウト時の状態更新
 window.TCG_ASSISTANT.addEventListener('logout', (e) => {
-    if (e?.detail?.message) {
+    if (e?.detail?.message && window.TCG_ASSISTANT.isSidebarOpen) {
          window.showCustomDialog('ログアウト', e.detail.message);
     }
     Object.assign(window.TCG_ASSISTANT, {
@@ -294,11 +294,12 @@ window.showSection = async function(sectionId) {
             scriptPath: jsPath,
             initFunctionName: initFunctionName
         }, (response) => {
-            if (response?.success) {
-                window.TCG_ASSISTANT._injectedSectionScripts.add(jsPath);
-            } else {
-                console.error(`Failed to inject script ${jsPath}:`, response?.error);
+            // Firefoxではレスポンスがうまく返らないことがあるため、エラーチェックのみ
+            if (browser.runtime.lastError) {
+                console.error(`Failed to inject script ${jsPath}:`, browser.runtime.lastError.message);
+                return;
             }
+            window.TCG_ASSISTANT._injectedSectionScripts.add(jsPath);
         });
     } else {
         if (typeof window[initFunctionName] === 'function') {
@@ -323,6 +324,7 @@ async function injectUIIntoPage() {
         const response = await fetch(htmlPath);
         if (!response.ok) throw new Error('Failed to fetch index.html');
         uiContainer.innerHTML = await response.text();
+        // ★修正点: bodyの先頭に安全に挿入
         document.body.prepend(uiContainer);
         console.log("main.js: UI injected successfully.");
         createRightSideMenuAndAttachListeners();
@@ -349,7 +351,8 @@ function initializeExtensionFeatures() {
             resolve();
         } catch (error) {
             console.error("Features: Failed to load card data:", error);
-            // エラーダイアログは表示しないか、UIが確実に描画された後に行う
+            // UI描画後にダイアログを表示するようにする
+            setTimeout(() => window.showCustomDialog('エラー', `カードデータのロードに失敗しました: ${error.message}`), 500);
             reject(error);
         }
     });

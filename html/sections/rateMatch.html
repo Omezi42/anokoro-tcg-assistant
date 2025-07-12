@@ -1,3 +1,18 @@
+<style>
+    /* UIの状態に応じて表示を切り替えるCSS */
+    #logged-in-ui .ui-state-container {
+        display: none; /* デフォルトではすべての状態を非表示 */
+    }
+    #logged-in-ui.state-pre-match #pre-match-ui {
+        display: block; /* マッチング前のUIを表示 */
+    }
+    #logged-in-ui.state-matching #matching-status {
+        display: block; /* マッチング中のUIを表示 */
+    }
+    #logged-in-ui.state-in-match #post-match-ui {
+        display: block; /* 対戦中のUIを表示 */
+    }
+</style>
 <h2 class="section-title">レート戦</h2>
 <div class="rate-match-info">
     <div class="info-box">
@@ -28,7 +43,6 @@
 </div>
 
 <!-- ログイン後のUI要素 -->
-<!-- ★修正点: UIの状態をクラスで管理するように変更 -->
 <div id="logged-in-ui" style="display: none;" class="state-pre-match">
     <!-- 表示名変更UI -->
     <div class="display-name-section auth-form">

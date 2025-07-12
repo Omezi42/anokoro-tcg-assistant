@@ -1,10 +1,10 @@
-// js/sections/minigames.js - 修正版 v2.4
+// js/sections/minigames.js - 修正版 v2.5
 
 window.initMinigamesSection = async function() {
     // カードデータがロードされるまで待機
     try {
         await window.TCG_ASSISTANT.cardDataReady;
-        console.log("Minigames section initialized (v2.4). Card data is ready.");
+        console.log("Minigames section initialized (v2.5). Card data is ready.");
     } catch (error) {
         console.error("Minigames: Failed to wait for card data.", error);
         await window.showCustomDialog('エラー', 'クイズの初期化に必要なカードデータの読み込みに失敗しました。');
@@ -136,11 +136,6 @@ window.initMinigamesSection = async function() {
         return titles[type] || 'ミニゲーム';
     }
 
-    /**
-     * [修正] カード名当てクイズのヒント表示ロジック
-     * 複数のヒントが一度に表示される問題を修正。
-     * これまでのヒントをすべて再構築して表示することで、一貫性を保ちます。
-     */
     function displayCardNameQuizHint() {
         if (!currentQuiz.card || !quizHintArea) return;
 
@@ -158,10 +153,6 @@ window.initMinigamesSection = async function() {
         }
     }
 
-    /**
-     * [修正] シルエットクイズの画像読み込みとアスペクト比計算
-     * イラスト部分の正しいアスペクト比を維持するように修正。
-     */
     async function loadImageForQuiz(cardFileName, quizType) {
         const loadImage = (src) => new Promise((resolve, reject) => {
             const img = new Image();
@@ -170,11 +161,11 @@ window.initMinigamesSection = async function() {
             img.src = src;
         });
 
-        let imageForSizing; // アスペクト比の計算に使用する画像
+        let imageForSizing;
 
         const baseImageUrl = browser.runtime.getURL(`images/cards/${cardFileName}.png`);
         currentQuiz.fullCardImage = await loadImage(baseImageUrl);
-        imageForSizing = currentQuiz.fullCardImage; // デフォルトはカード全体の画像
+        imageForSizing = currentQuiz.fullCardImage;
 
         if (quizType === 'silhouette') {
             const transImageUrl = browser.runtime.getURL(`images/cards/${cardFileName}_transparent.png`);
@@ -183,7 +174,6 @@ window.initMinigamesSection = async function() {
                 loadImage(transImageUrl),
                 loadImage(illustImageUrl)
             ]);
-            // シルエットクイズでは、イラスト画像のいずれかを使用してアスペクト比を決定
             imageForSizing = currentQuiz.illustrationImage || currentQuiz.transparentIllustrationImage;
         }
         
@@ -200,7 +190,6 @@ window.initMinigamesSection = async function() {
             quizCanvas.width = drawWidth;
             quizCanvas.height = drawHeight;
 
-            // モザイククイズ用に、カード全体の画像データを保持
             const offscreenCanvas = document.createElement('canvas');
             offscreenCanvas.width = currentQuiz.fullCardImage.naturalWidth;
             offscreenCanvas.height = currentQuiz.fullCardImage.naturalHeight;
@@ -231,9 +220,8 @@ window.initMinigamesSection = async function() {
     }
 
     /**
-     * [修正] 拡大クイズの描画ロジックと拡大率
-     * 拡大率を「2%, 3%, 5%, 10%, 15%」の順に変更。
-     * 表示領域の割合（displayRatio）として扱い、小さいほど拡大率が高い（ズームイン）状態になります。
+     * [修正] 拡大クイズの描画ロジック
+     * 拡大の中心を画像の中心から、上から20%の位置に変更しました。
      */
     function drawEnlargedImage(ctx, img, attempt, destX, destY, destWidth, destHeight) {
         const displayRatioLevels = [0.02, 0.03, 0.05, 0.10, 0.15, 1.0];
@@ -241,8 +229,17 @@ window.initMinigamesSection = async function() {
         
         const sourceWidth = img.naturalWidth * displayRatio;
         const sourceHeight = img.naturalHeight * displayRatio;
-        const sourceX = (img.naturalWidth - sourceWidth) / 2;
-        const sourceY = (img.naturalHeight - sourceHeight) / 2;
+        
+        // 拡大の中心を画像の中心から、上から20%の位置に設定
+        const centerX = img.naturalWidth / 2;
+        const centerY = img.naturalHeight * 0.2; // 上から20%の位置
+
+        let sourceX = centerX - (sourceWidth / 2);
+        let sourceY = centerY - (sourceHeight / 2);
+
+        // クロップ領域が画像の範囲外に出ないように調整
+        sourceX = Math.max(0, Math.min(sourceX, img.naturalWidth - sourceWidth));
+        sourceY = Math.max(0, Math.min(sourceY, img.naturalHeight - sourceHeight));
 
         ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight);
     }
@@ -260,10 +257,6 @@ window.initMinigamesSection = async function() {
         ctx.drawImage(offscreenCanvas, 0, 0);
     }
 
-    /**
-     * [修正] モザイククイズの難易度調整
-     * モザイクのピクセルサイズを大きくして、初期状態をより難しくしました。
-     */
     function drawMosaicImage(ctx, originalData, attempt, destX, destY, destWidth, destHeight) {
         if (!originalData) return;
         const pixelSizeLevels = [128, 80, 48, 24, 8, 1];
@@ -329,7 +322,6 @@ window.initMinigamesSection = async function() {
     const addClickListener = (id, handler) => {
         const element = document.getElementById(id);
         if (element) {
-            // イベントリスナーの重複を防ぐため、一度削除してから追加
             element.removeEventListener('click', handler);
             element.addEventListener('click', handler);
         }

@@ -309,7 +309,7 @@ async function injectUIIntoPage() {
 async function initializeExtensionFeatures() {
     console.log("Features: Initializing...");
     try {
-        const response = await fetch(browser.runtime.getURL('json/cards.json'));
+        const response = await fetch(browser.runtime.getURL('../json/cards.json'));
         window.TCG_ASSISTANT.allCards = await response.json();
         console.log(`Features: ${window.TCG_ASSISTANT.allCards.length} cards loaded.`);
     } catch (error) {

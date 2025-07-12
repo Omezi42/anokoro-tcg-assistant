@@ -1,8 +1,7 @@
-// js/main.js (コンテンツスクリプトのメインファイル) - 修正版 v2.4
+// js/main.js (コンテンツスクリプトのメインファイル) - 修正版 v2.5
 
-console.log("main.js: Script loaded (v2.4).");
+console.log("main.js: Script loaded (v2.5).");
 
-// Font AwesomeのCSSをウェブページに注入
 const fontAwesomeLink = document.createElement('link');
 fontAwesomeLink.rel = 'stylesheet';
 fontAwesomeLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css';
@@ -12,7 +11,6 @@ if (typeof browser === 'undefined') {
     var browser = chrome;
 }
 
-// --- グローバルな状態管理オブジェクト ---
 class TcgAssistantApp extends EventTarget {
     constructor() {
         super();
@@ -35,8 +33,6 @@ class TcgAssistantApp extends EventTarget {
 window.TCG_ASSISTANT = new TcgAssistantApp();
 console.log("main.js: TCG_ASSISTANT EventTarget namespace initialized.");
 
-
-// --- WebSocket 接続管理 ---
 const RENDER_WS_URL = 'wss://anokoro-tcg-api.onrender.com';
 let reconnectInterval = 5000;
 
@@ -87,28 +83,23 @@ function connectWebSocket() {
     };
 }
 
-// --- グローバルイベントリスナー ---
-window.TCG_ASSISTANT.addEventListener('ws-login_response', (e) => {
+const handleWsLoginResponse = (e) => {
     if (e.detail.success) {
         window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginSuccess', { detail: e.detail }));
     } else {
         window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginFail', { detail: e.detail }));
     }
-});
-window.TCG_ASSISTANT.addEventListener('ws-auto_login_response', (e) => {
-    if (e.detail.success) {
-        window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginSuccess', { detail: e.detail }));
-    } else {
-        window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginFail', { detail: e.detail }));
-    }
-});
+};
+
+window.TCG_ASSISTANT.addEventListener('ws-login_response', handleWsLoginResponse);
+window.TCG_ASSISTANT.addEventListener('ws-auto_login_response', handleWsLoginResponse);
+
 window.TCG_ASSISTANT.addEventListener('ws-logout_response', (e) => {
     window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout', { detail: e.detail }));
 });
 window.TCG_ASSISTANT.addEventListener('ws-logout_forced', (e) => {
     window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout', { detail: e.detail }));
 });
-
 
 window.TCG_ASSISTANT.addEventListener('loginSuccess', (e) => {
     const data = e.detail;
@@ -146,8 +137,6 @@ window.TCG_ASSISTANT.addEventListener('logout', (e) => {
     window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginStateChanged'));
 });
 
-
-// --- UI描画・管理 ---
 window.showCustomDialog = function(title, message, isConfirm = false) {
     return new Promise((resolve) => {
         const overlay = document.getElementById('tcg-custom-dialog-overlay');
@@ -268,12 +257,21 @@ window.showSection = async function(sectionId) {
     const jsPath = `js/sections/${sectionId}.js`;
     const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}Section`;
 
-    // ★修正点: スクリプト注入と初期化のフローを改善
     const injectAndInit = async () => {
-        if (typeof window[initFunctionName] === 'function') {
-            await window[initFunctionName]();
-        } else {
-            console.error(`Init function ${initFunctionName} not found.`);
+        try {
+            let attempts = 0;
+            const maxAttempts = 50;
+            while (typeof window[initFunctionName] !== 'function' && attempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            if (typeof window[initFunctionName] === 'function') {
+                await window[initFunctionName]();
+            } else {
+                console.error(`Init function ${initFunctionName} not found after waiting.`);
+            }
+        } catch(e) {
+            console.error(`Error initializing section ${sectionId}:`, e);
         }
     };
 
@@ -340,6 +338,19 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === "toggleSidebar") {
         const activeSection = document.querySelector('.tcg-menu-icon.active')?.dataset.section || 'home';
         toggleContentArea(activeSection);
+    } else if (request.action === "command") {
+        switch (request.command) {
+            case "toggle-sidebar":
+                const activeSection = document.querySelector('.tcg-menu-icon.active')?.dataset.section || 'home';
+                toggleContentArea(activeSection);
+                break;
+            case "open-home-section":
+                toggleContentArea("home", true);
+                break;
+            case "open-memo-section":
+                toggleContentArea("memo", true);
+                break;
+        }
     }
     sendResponse({success: true});
     return true;

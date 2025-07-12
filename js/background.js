@@ -1,4 +1,4 @@
-// background.js (バックグラウンドスクリプト) - 修正版 v2.1
+// background.js (バックグラウンドスクリプト) - 修正版 v2.2
 
 if (typeof browser === 'undefined') {
     var browser = chrome;
@@ -9,36 +9,39 @@ browser.runtime.onInstalled.addListener(() => {
 });
 
 browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  // ★修正点: スクリプト注入ロジックを簡素化・安定化
   if (request.action === "injectSectionScript") {
       if (sender.tab && sender.tab.id && request.scriptPath) {
-          // Manifest V2/V3互換の方法
-          const scripting = browser.scripting || {
-              executeScript: (target, details, callback) => {
-                  browser.tabs.executeScript(target.tabId, details, (results) => {
-                      if (callback) callback(results);
-                  });
-              }
-          };
-          
-          scripting.executeScript({
-              target: { tabId: sender.tab.id },
-              files: [request.scriptPath]
-          }, () => {
-              if (browser.runtime.lastError) {
-                  console.error(`Background: Failed to inject ${request.scriptPath}.`, browser.runtime.lastError.message);
-                  sendResponse({ success: false, error: browser.runtime.lastError.message });
-              } else {
-                  console.log(`Background: Injected ${request.scriptPath} successfully.`);
+          // ★修正点: Manifest V3のscripting APIを優先的に使用する
+          if (browser.scripting && browser.scripting.executeScript) {
+              browser.scripting.executeScript({
+                  target: { tabId: sender.tab.id },
+                  files: [request.scriptPath]
+              }).then(() => {
+                  console.log(`Background (V3): Injected ${request.scriptPath} successfully.`);
                   sendResponse({ success: true });
-              }
-          });
+              }).catch(error => {
+                  console.error(`Background (V3): Failed to inject ${request.scriptPath}.`, error);
+                  sendResponse({ success: false, error: error.message });
+              });
+          } else {
+              // Manifest V2 (tabs.executeScript) へのフォールバック
+              browser.tabs.executeScript(sender.tab.id, {
+                  file: request.scriptPath
+              }, () => {
+                  if (browser.runtime.lastError) {
+                      console.error(`Background (V2): Failed to inject ${request.scriptPath}.`, browser.runtime.lastError.message);
+                      sendResponse({ success: false, error: browser.runtime.lastError.message });
+                  } else {
+                      console.log(`Background (V2): Injected ${request.scriptPath} successfully.`);
+                      sendResponse({ success: true });
+                  }
+              });
+          }
       } else {
           sendResponse({ success: false, error: "Invalid parameters for script injection." });
       }
       return true; // 非同期応答のためにtrueを返す
   }
-  // その他のメッセージハンドリングは削除 (main.jsで完結するため)
 });
 
 // manifest.jsonで定義されたコマンドを処理

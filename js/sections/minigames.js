@@ -1,10 +1,10 @@
-// js/sections/minigames.js - 修正版 v2.1
+// js/sections/minigames.js - 修正版 v2.2
 
 window.initMinigamesSection = async function() {
     // カードデータがロードされるまで待機
     try {
         await window.TCG_ASSISTANT.cardDataReady;
-        console.log("Minigames section initialized (v2.1). Card data is ready.");
+        console.log("Minigames section initialized (v2.2). Card data is ready.");
     } catch (error) {
         console.error("Minigames: Failed to wait for card data.", error);
         await window.showCustomDialog('エラー', 'クイズの初期化に必要なカードデータの読み込みに失敗しました。');
@@ -51,7 +51,6 @@ window.initMinigamesSection = async function() {
         currentQuiz.quizCtx = quizCanvas.getContext('2d');
     }
 
-    // クイズの初期化
     function resetQuiz() {
         Object.assign(currentQuiz, {
             type: null, card: null, hintIndex: 0, attemptCount: 0,
@@ -74,7 +73,6 @@ window.initMinigamesSection = async function() {
         if (quizAnswerInput) quizAnswerInput.disabled = false;
     }
 
-    // クイズの開始
     async function startQuiz(type) {
         if (!window.TCG_ASSISTANT.allCards || window.TCG_ASSISTANT.allCards.length === 0) {
             await window.showCustomDialog('エラー', 'カードデータが利用できません。');
@@ -84,25 +82,25 @@ window.initMinigamesSection = async function() {
         currentQuiz.type = type;
 
         let cardSelected = false;
-        const maxAttempts = 30; // 試行回数を増やす
+        const maxAttempts = 30;
 
         for (let i = 0; i < maxAttempts; i++) {
             currentQuiz.card = window.TCG_ASSISTANT.allCards[Math.floor(Math.random() * window.TCG_ASSISTANT.allCards.length)];
             
-            // ★修正点: image_filenameの存在をチェック
-            if (!currentQuiz.card.image_filename) {
-                console.warn(`Card "${currentQuiz.card.name}" has no image_filename. Skipping.`);
+            // ★修正点: image_filenameではなく、nameプロパティを使用
+            const cardFileName = currentQuiz.card.name;
+            if (!cardFileName) {
+                console.warn(`Card has no name. Skipping.`);
                 continue;
             }
 
             if (type !== 'cardName') {
                 try {
-                    // ★修正点: card.nameではなくcard.image_filenameを使用
-                    await loadImageForQuiz(currentQuiz.card.image_filename, type);
+                    await loadImageForQuiz(cardFileName, type);
                     cardSelected = true;
                     break;
                 } catch (error) {
-                    console.warn(`Failed to load images for ${currentQuiz.card.image_filename}:`, error.message);
+                    console.warn(`Failed to load images for ${cardFileName}:`, error.message);
                 }
             } else {
                 cardSelected = true;
@@ -150,15 +148,15 @@ window.initMinigamesSection = async function() {
         }
     }
 
-    // 画像をロードする関数
     async function loadImageForQuiz(cardFileName, quizType) {
         const loadImage = (src) => new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => resolve(img);
-            img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+            img.onerror = (err) => reject(new Error(`Failed to load image at ${src}. Error: ${err}`));
             img.src = src;
         });
 
+        // ★修正点: ファイル名にカード名を使用
         const baseImageUrl = browser.runtime.getURL(`images/cards/${cardFileName}.png`);
         currentQuiz.fullCardImage = await loadImage(baseImageUrl);
 
@@ -171,7 +169,6 @@ window.initMinigamesSection = async function() {
             ]);
         }
         
-        // Canvasのサイズ設定とオリジナル画像データの保存
         if(quizCanvas && currentQuiz.fullCardImage.naturalWidth > 0) {
             const parentWidth = quizImageArea.clientWidth > 0 ? quizImageArea.clientWidth : 400;
             const parentHeight = quizImageArea.clientHeight > 0 ? quizImageArea.clientHeight : 300;
@@ -194,7 +191,6 @@ window.initMinigamesSection = async function() {
         }
     }
 
-    // クイズ画像を描画する関数
     function drawQuizImage() {
         if (!currentQuiz.quizCtx || !currentQuiz.quizCanvas || !currentQuiz.fullCardImage) return;
         const ctx = currentQuiz.quizCtx;
@@ -216,7 +212,7 @@ window.initMinigamesSection = async function() {
     }
 
     function drawEnlargedImage(ctx, img, attempt, destX, destY, destWidth, destHeight) {
-        const zoomLevels = [0.05, 0.1, 0.2, 0.4, 0.7, 1.0]; // ズームレベル
+        const zoomLevels = [0.05, 0.1, 0.2, 0.4, 0.7, 1.0];
         const zoom = zoomLevels[attempt] || 1.0;
         const sourceSize = Math.min(img.naturalWidth, img.naturalHeight) * (1.0 - zoom * 0.9);
         const sourceX = (img.naturalWidth - sourceSize) / 2;
@@ -238,6 +234,7 @@ window.initMinigamesSection = async function() {
     }
 
     function drawMosaicImage(ctx, originalData, attempt, destX, destY, destWidth, destHeight) {
+        if (!originalData) return;
         const pixelSizeLevels = [64, 32, 16, 8, 4, 1];
         const pixelSize = pixelSizeLevels[attempt] || 1;
         const originalWidth = originalData.width;
@@ -259,7 +256,6 @@ window.initMinigamesSection = async function() {
         }
     }
 
-    // 解答をチェック
     function checkAnswer() {
         if (!quizAnswerInput || !quizResultArea || !currentQuiz.card) return;
         const userAnswer = quizAnswerInput.value.trim().toLowerCase().replace(/\s+/g, '');
@@ -284,14 +280,13 @@ window.initMinigamesSection = async function() {
         }
     }
 
-    // クイズの終了
     function endQuiz(isCorrect) {
         if (!quizAnswerInput || !quizSubmitButton || !quizNextButton || !quizAnswerDisplay || !quizResetButton) return;
         quizAnswerInput.disabled = true;
         quizSubmitButton.style.display = 'none';
         quizNextButton.style.display = 'none';
         quizAnswerDisplay.innerHTML = `正解は「<strong>${currentQuiz.card.name}</strong>」でした！`;
-        if (currentQuiz.fullCardImage) {
+        if (currentQuiz.fullCardImage && quizCanvas) {
             const ctx = currentQuiz.quizCtx;
             ctx.clearRect(0, 0, quizCanvas.width, quizCanvas.height);
             ctx.drawImage(currentQuiz.fullCardImage, 0, 0, quizCanvas.width, quizCanvas.height);
@@ -299,7 +294,6 @@ window.initMinigamesSection = async function() {
         quizResetButton.style.display = 'inline-block';
     }
 
-    // イベントリスナーの設定
     const addClickListener = (id, handler) => document.getElementById(id)?.addEventListener('click', handler);
     addClickListener('quiz-card-name', () => startQuiz('cardName'));
     addClickListener('quiz-illustration-enlarge', () => startQuiz('enlarge'));

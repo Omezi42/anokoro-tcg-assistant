@@ -1285,3 +1285,115 @@ h4 {
     font-weight: bold;
     color: #0056b3; /* Blue for emphasis */
 }
+/* css/style.css */
+
+/* (既存のスタイルは省略) */
+
+/* --- ダイアログの修正 --- */
+#tcg-custom-dialog-overlay {
+    /* (既存のスタイル) */
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out, visibility 0s 0.2s;
+}
+#tcg-custom-dialog-overlay.show {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.2s ease-in-out;
+}
+.tcg-modal-content {
+    /* (既存のスタイル) */
+    transform: scale(0.95);
+    transition: transform 0.2s ease-in-out;
+}
+#tcg-custom-dialog-overlay.show .tcg-modal-content {
+    transform: scale(1);
+}
+.tcg-dialog-buttons {
+    margin-top: 20px;
+}
+
+/* --- レート戦UIの状態管理CSS --- */
+/* ★追加: 状態に応じてUI要素を切り替えるCSS */
+#logged-in-ui .ui-state-container {
+    display: none; /* デフォルトではすべての状態UIを非表示 */
+}
+#logged-in-ui.state-pre-match #pre-match-ui {
+    display: block; /* pre-match状態のときだけ表示 */
+}
+#logged-in-ui.state-matching #matching-status {
+    display: flex; /* matching状態のときだけ表示 */
+    flex-direction: column;
+    align-items: center;
+}
+#logged-in-ui.state-in-match #post-match-ui {
+    display: block; /* in-match状態のときだけ表示 */
+}
+
+/* --- チャットUIのスタイル改善 --- */
+#chat-messages {
+    height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+}
+.chat-input-wrapper {
+    display: flex;
+    gap: 5px;
+    margin-top: 10px;
+}
+#chat-input {
+    flex-grow: 1;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+#send-chat-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+#send-chat-button:hover {
+    background-color: #0056b3;
+}
+#send-chat-button:disabled {
+    background-color: #a0a0a0;
+    cursor: not-allowed;
+}
+
+/* --- ランキングUIのスタイル --- */
+#ranking-list {
+    list-style-type: none;
+    padding-left: 0;
+    max-height: 250px;
+    overflow-y: auto;
+}
+#ranking-list li {
+    padding: 5px;
+    border-bottom: 1px solid #eee;
+}
+#ranking-list li.current-user-ranking {
+    background-color: #e6f7ff;
+    font-weight: bold;
+}
+.ranking-rank {
+    display: inline-block;
+    width: 30px;
+    color: #888;
+}
+.ranking-display-name {
+    color: #333;
+}
+.ranking-rate {
+    color: #007bff;
+    font-weight: bold;
+}
+
+/* (その他の既存スタイルは省略) */

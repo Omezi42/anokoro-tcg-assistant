@@ -4,8 +4,7 @@
 window.initRateMatchSection = async function() {
     console.log("RateMatch section initialized.");
 
-    // Firefox互換性のためのbrowserオブジェクトのフォールバック
-    // Chrome環境ではchromeオブジェクトが、Firefox環境ではbrowserオブジェクトが使用される
+    // Firefox互換性のためのbrowserオブジェクトのフォールバック (main.jsにもありますが、念のためここでも)
     if (typeof browser === 'undefined') {
         var browser = chrome;
     }
@@ -47,8 +46,9 @@ window.initRateMatchSection = async function() {
     const webrtcConnectionStatus = document.getElementById('webrtc-connection-status');
 
     // --- ランキングUI要素 ---
-    const rankingDisplay = document.getElementById('ranking-display');
-    const rankingList = document.getElementById('ranking-list');
+    const rankingDisplayDiv = document.getElementById('ranking-display'); // ランキング表示用div (親要素)
+    const rankingList = document.getElementById('ranking-list'); // ランキングol要素
+    const refreshRankingButton = document.getElementById('refresh-ranking-button'); // ランキング更新ボタン
 
 
     // グローバルなログイン状態変数 (main.jsで初期化され、ここで参照・更新される)
@@ -88,7 +88,7 @@ window.initRateMatchSection = async function() {
         if (window.currentUserId && window.currentUsername) {
             if (authSection) authSection.style.display = 'none';
             if (loggedInUi) loggedInUi.style.display = 'block';
-            if (usernameDisplay) usernameDisplay.textContent = window.currentUsername;
+            if (usernameDisplay) usernameDisplay.textContent = window.currentUsername; // 表示名を表示
             if (logoutButton) logoutButton.style.display = 'block'; // ログアウトボタンを表示
         } else {
             if (authSection) authSection.style.display = 'block';
@@ -145,6 +145,7 @@ window.initRateMatchSection = async function() {
         }
         updateRateDisplay();
         loadMatchHistory(); // ログイン状態に応じて履歴をロード
+        fetchAndDisplayRanking(); // ランキングを更新
         // ログイン状態変更イベントを発火
         document.dispatchEvent(new CustomEvent('loginStateChanged'));
     };
@@ -189,7 +190,7 @@ window.initRateMatchSection = async function() {
      */
     const saveMatchHistoryToServer = async (record) => {
         if (!window.currentUserId || !window.ws || window.ws.readyState !== WebSocket.OPEN) {
-            console.warn("Not logged in or WebSocket not open. Cannot save match history.");
+            console.warn("Match History: Not logged in or WebSocket not open. Cannot save match history.");
             return;
         }
         // 既存の履歴に新しいレコードを追加
@@ -213,7 +214,7 @@ window.initRateMatchSection = async function() {
     const displayChatMessage = (senderId, message) => {
         if (!chatMessagesDiv) return;
         const messageElement = document.createElement('p');
-        // 自分のメッセージは「あなた」、相手のメッセージは相手のユーザー名を表示
+        // 自分のメッセージは「あなた」、相手のメッセージは相手の表示名を表示
         const displaySender = (senderId === window.currentUserId) ? 'あなた' : (opponentUsername || '相手プレイヤー'); 
         messageElement.innerHTML = `<strong>[${displaySender}]:</strong> ${message}`;
         chatMessagesDiv.appendChild(messageElement);
@@ -229,8 +230,9 @@ window.initRateMatchSection = async function() {
             rankingList.innerHTML = '<li>ログインするとランキングが表示されます。</li>';
             return;
         }
-        rankingList.innerHTML = '<li>ランキングを読み込み中...</li>';
+        rankingList.innerHTML = '<li><div class="spinner small-spinner"></div> ランキングを読み込み中...</li>'; // スピナー表示
         window.ws.send(JSON.stringify({ type: 'get_ranking' }));
+        console.log("Ranking: Requested ranking from server.");
     };
 
     /**
@@ -244,14 +246,20 @@ window.initRateMatchSection = async function() {
             if (message.rankingData.length === 0) {
                 rankingList.innerHTML = '<li>まだランキングデータがありません。</li>';
             } else {
+                let rankHtml = '';
                 message.rankingData.forEach((player, index) => {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = `${index + 1}. ${player.username} (レート: ${player.rate})`;
-                    rankingList.appendChild(listItem);
+                    const isCurrentUser = (window.currentUserId === player.userId); // ユーザーIDで比較
+                    rankHtml += `<li class="${isCurrentUser ? 'current-user-ranking' : ''}">
+                                    <span class="ranking-rank">${index + 1}.</span> 
+                                    <span class="ranking-display-name">${player.displayName || player.username}</span> 
+                                    <span class="ranking-rate"> (${player.rate})</span>
+                                </li>`;
                 });
+                rankingList.innerHTML = rankHtml;
             }
         } else {
             rankingList.innerHTML = `<li>ランキングの取得に失敗しました: ${message.message || '不明なエラー'}</li>`;
+            console.error("Ranking: Failed to get ranking:", message.message);
         }
     };
 
@@ -278,7 +286,7 @@ window.initRateMatchSection = async function() {
                     window.ws.send(JSON.stringify({
                         type: 'auto_login',
                         userId: result.loggedInUserId,
-                        username: result.loggedInUsername
+                        username: result.loggedInUsername // usernameも送信（サーバーがdisplay_nameを決定するため）
                     }));
                     console.log("WebSocket: Attempting auto-login with cached credentials.");
                 } else {
@@ -304,7 +312,8 @@ window.initRateMatchSection = async function() {
                 case 'login_response':
                     if (message.success) {
                         window.currentUserId = message.userId;
-                        window.currentUsername = message.username;
+                        window.currentUsername = message.username; // usernameも保持
+                        window.currentDisplayName = message.displayName; // display_nameを設定
                         window.currentRate = message.rate;
                         window.userMatchHistory = message.matchHistory || [];
                         window.userMemos = message.memos || [];
@@ -312,17 +321,17 @@ window.initRateMatchSection = async function() {
                         window.userRegisteredDecks = message.registeredDecks || [];
                         await window.showCustomDialog('ログイン成功', message.message);
                         // ログイン情報をローカルストレージに保存 (タブ/ブラウザ再起動時の自動ログイン用)
-                        browser.storage.local.set({ loggedInUserId: window.currentUserId, loggedInUsername: window.currentUsername });
+                        browser.storage.local.set({ loggedInUserId: window.currentUserId, loggedInUsername: window.currentUsername }); // usernameを保存
                     } else {
                         await window.showCustomDialog('ログイン失敗', message.message);
                     }
                     updateUIState(); // UI状態を更新
-                    fetchAndDisplayRanking(); // ログイン後にランキングをロード
                     break;
                 case 'auto_login_response': // 自動ログインの応答
                     if (message.success) {
                         window.currentUserId = message.userId;
-                        window.currentUsername = message.username;
+                        window.currentUsername = message.username; // usernameも保持
+                        window.currentDisplayName = message.displayName; // display_nameを設定
                         window.currentRate = message.rate;
                         window.userMatchHistory = message.matchHistory || [];
                         window.userMemos = message.memos || [];
@@ -334,12 +343,12 @@ window.initRateMatchSection = async function() {
                         browser.storage.local.remove(['loggedInUserId', 'loggedInUsername']); // キャッシュをクリア
                     }
                     updateUIState(); // UI状態を更新
-                    fetchAndDisplayRanking(); // 自動ログイン後にランキングをロード
                     break;
                 case 'logout_response':
                     if (message.success) {
                         window.currentUserId = null;
                         window.currentUsername = null;
+                        window.currentDisplayName = null; // display_nameもクリア
                         window.currentRate = 1500; // 初期レートに戻す
                         window.userMatchHistory = [];
                         window.userMemos = [];
@@ -351,11 +360,11 @@ window.initRateMatchSection = async function() {
                         await window.showCustomDialog('ログアウト失敗', message.message);
                     }
                     updateUIState(); // UI状態を更新
-                    fetchAndDisplayRanking(); // ログアウト後にランキングをクリア/再ロード
                     break;
                 case 'logout_forced':
                     window.currentUserId = null;
                     window.currentUsername = null;
+                    window.currentDisplayName = null; // display_nameもクリア
                     window.currentRate = 1500;
                     window.userMatchHistory = [];
                     window.userMemos = [];
@@ -375,19 +384,28 @@ window.initRateMatchSection = async function() {
                     opponentPlayerId = null;
                     opponentUsername = null; // 相手ユーザー名もクリア
                     isWebRTCOfferInitiator = false;
-                    fetchAndDisplayRanking(); // 強制ログアウト後にランキングをクリア/再ロード
+                    currentMatchId = null; // マッチIDもクリア
+                    break;
+                case 'update_display_name_response': // 表示名変更応答
+                    if (message.success) {
+                        window.currentDisplayName = message.displayName;
+                        await window.showCustomDialog('表示名更新', message.message);
+                    } else {
+                        await window.showCustomDialog('表示名更新失敗', message.message);
+                    }
+                    updateUIState(); // UIを更新して表示名を反映
                     break;
                 case 'queue_status':
-                    console.log("WebSocket: Queue status:", message.message);
+                    console.log("Queue status:", message.message);
                     if (matchingStatusTextSpan) matchingStatusTextSpan.textContent = message.message; // spanを更新
                     // UI更新はupdateUIStateでまとめて行う
                     break;
                 case 'match_found':
                     opponentPlayerId = message.opponentUserId; // 相手のユーザーID
-                    opponentUsername = message.opponentUsername; // 相手のユーザー名
+                    opponentUsername = message.opponentDisplayName; // 相手の表示名を設定
                     currentMatchId = message.matchId; // 現在のマッチIDを保存
                     isWebRTCOfferInitiator = message.isInitiator;
-                    console.log(`WebSocket: Match found! Opponent: ${opponentPlayerId} (${opponentUsername}), Initiator: ${isWebRTCOfferInitiator}, MatchId: ${currentMatchId}`);
+                    console.log(`Match found! Opponent: ${opponentPlayerId} (${opponentUsername}), Initiator: ${isWebRTCOfferInitiator}, MatchId: ${currentMatchId}`);
                     await window.showCustomDialog('対戦相手決定', `対戦相手が見つかりました！対戦を開始しましょう！`);
                     updateUIState(); // マッチ成立後のUIに切り替え
                     await setupPeerConnection(); // WebRTC接続のセットアップを開始
@@ -419,7 +437,7 @@ window.initRateMatchSection = async function() {
                     break;
                 case 'update_user_data_response':
                     if (message.success) {
-                        console.log("User Data: User data updated on server.");
+                        console.log("User data updated on server.");
                         // サーバーから返された最新のデータでローカルを更新
                         window.currentRate = message.userData.rate;
                         window.userMatchHistory = message.userData.matchHistory;
@@ -430,7 +448,7 @@ window.initRateMatchSection = async function() {
                         loadMatchHistory(); // レート戦の履歴を更新
                         document.dispatchEvent(new CustomEvent('loginStateChanged')); // 他のセクションにデータ更新を通知
                     } else {
-                        console.error("User Data: Failed to update user data on server:", message.message);
+                        console.error("Failed to update user data on server:", message.message);
                     }
                     break;
                 case 'report_result_response': // 結果報告の応答
@@ -472,16 +490,16 @@ window.initRateMatchSection = async function() {
         };
 
         window.ws.onclose = () => {
-            console.log("WebSocket: Disconnected.");
+            console.log("WebSocket disconnected.");
             // ログアウト状態にはしないが、マッチング関連の状態はリセット
-            clearMatchAndP2PConnection(); // P2P接続もクリア
-            updateUIState(); // UIを更新
+            clearMatchAndP2PConnection();
+            updateUIState();
             // 切断されたら自動再接続を試みる（任意）
             // setTimeout(connectWebSocket, 5000); 
         };
 
         window.ws.onerror = (error) => {
-            console.error("WebSocket: ERROR:", error);
+            console.error("WebSocket error:", error);
             window.showCustomDialog('エラー', 'マッチングサーバーへの接続に失敗しました。Renderサーバーが起動しているか確認してください。');
         };
     };
@@ -649,6 +667,14 @@ window.initRateMatchSection = async function() {
     // home.jsから呼び出せるようにグローバルに公開
     window.handleLogoutButtonClickFromRateMatch = handleLogoutButtonClick;
 
+    // 表示名変更ボタン
+    const newDisplayNameInput = document.getElementById('new-display-name-input');
+    const updateDisplayNameButton = document.getElementById('update-display-name-button');
+    if (updateDisplayNameButton) {
+        updateDisplayNameButton.removeEventListener('click', handleUpdateDisplayNameClick);
+        updateDisplayNameButton.addEventListener('click', handleUpdateDisplayNameClick);
+    }
+
 
     // マッチング関連ボタン
     if (matchingButton) {
@@ -686,6 +712,12 @@ window.initRateMatchSection = async function() {
     if (cancelButton) {
         cancelButton.removeEventListener('click', handleReportResultClick); // 共通ハンドラに変更
         cancelButton.addEventListener('click', handleReportResultClick);
+    }
+
+    // ランキング更新ボタン
+    if (refreshRankingButton) {
+        refreshRankingButton.removeEventListener('click', fetchAndDisplayRanking);
+        refreshRankingButton.addEventListener('click', fetchAndDisplayRanking);
     }
 
 
@@ -742,6 +774,28 @@ window.initRateMatchSection = async function() {
     }
 
     /**
+     * 表示名更新ボタンのクリックハンドラ。
+     * 新しい表示名をサーバーに送信して更新します。
+     */
+    async function handleUpdateDisplayNameClick() {
+        const newDisplayName = newDisplayNameInput ? newDisplayNameInput.value.trim() : '';
+        if (!newDisplayName) {
+            await window.showCustomDialog('エラー', '新しい表示名を入力してください。');
+            return;
+        }
+        if (newDisplayName.length > 20) { // 表示名の長さに制限を設ける
+            await window.showCustomDialog('エラー', '表示名は20文字以内で入力してください。');
+            return;
+        }
+        if (!window.currentUserId || !window.ws || window.ws.readyState !== WebSocket.OPEN) {
+            await window.showCustomDialog('エラー', 'ログインしているか、サーバーに接続していません。');
+            return;
+        }
+        window.ws.send(JSON.stringify({ type: 'update_display_name', userId: window.currentUserId, newDisplayName: newDisplayName }));
+    }
+
+
+    /**
      * オンラインマッチングボタンのクリックハンドラ。
      * マッチングキューに参加し、UIを更新します。
      */
@@ -779,7 +833,7 @@ window.initRateMatchSection = async function() {
                 await window.showCustomDialog('エラー', 'サーバーに接続していません。');
             }
             clearMatchAndP2PConnection(); // P2P接続もクリア
-            updateUIState(); // UIを更新
+            updateUIState(); // UIを元の状態に戻す
         }
     }
 

@@ -1,6 +1,6 @@
-// js/main.js (コンテンツスクリプトのメインファイル) - 修正版
+// js/main.js (コンテンツスクリプトのメインファイル) - 修正版 v2.1
 
-console.log("main.js: Script loaded (v2.0).");
+console.log("main.js: Script loaded (v2.1).");
 
 // Font AwesomeのCSSをウェブページに注入
 const fontAwesomeLink = document.createElement('link');
@@ -17,6 +17,8 @@ if (typeof browser === 'undefined') {
 // 拡張機能全体で共有する状態を一つのオブジェクトにまとめる
 window.TCG_ASSISTANT = {
     allCards: [],
+    // ★修正点: データロード完了を待つためのPromiseを追加
+    cardDataReady: null,
     // ログイン状態
     currentUserId: null,
     currentUsername: null,
@@ -260,7 +262,14 @@ window.showSection = async function(sectionId) {
         });
     } else {
         if (typeof window[initFunctionName] === 'function') {
-            window[initFunctionName]();
+            // ★修正点: 初期化関数を非同期で呼び出す
+            (async () => {
+                try {
+                    await window[initFunctionName]();
+                } catch (e) {
+                    console.error(`Error re-initializing section ${sectionId}:`, e);
+                }
+            })();
         } else {
             console.error(`Init function ${initFunctionName} not found.`);
         }
@@ -279,10 +288,35 @@ async function injectUIIntoPage() {
     uiContainer.id = 'tcg-assistant-container';
     
     try {
-        const htmlPath = browser.runtime.getURL('html/index.html');
-        const response = await fetch(htmlPath);
-        if (!response.ok) throw new Error('Failed to fetch index.html');
-        uiContainer.innerHTML = await response.text();
+        // index.htmlはUIの骨格だけなので、main.js内で定義する方が管理しやすい
+        uiContainer.innerHTML = `
+            <div id="tcg-right-menu-container" class="collapsed">
+                <div class="tcg-menu-icons-wrapper hidden">
+                    <button class="tcg-menu-icon" data-section="home" title="ホーム"><i class="fas fa-home"></i></button>
+                    <button class="tcg-menu-icon" data-section="rateMatch" title="レート戦"><i class="fas fa-fist-raised"></i></button>
+                    <button class="tcg-menu-icon" data-section="memo" title="メモ"><i class="fas fa-clipboard"></i></button>
+                    <button class="tcg-menu-icon" data-section="search" title="検索"><i class="fas fa-search"></i></button>
+                    <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
+                    <button class="tcg-menu-icon" data-section="battleRecord" title="戦いの記録"><i class="fas fa-trophy"></i></button>
+                </div>
+                <button class="tcg-menu-toggle-button" id="tcg-menu-toggle-button" title="メニューを開く/閉じる">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+            <div id="tcg-content-area">
+                <div id="tcg-sections-wrapper"></div>
+            </div>
+            <div id="tcg-custom-dialog-overlay">
+                <div class="tcg-modal-content">
+                    <h3 id="tcg-dialog-title"></h3>
+                    <p id="tcg-dialog-message"></p>
+                    <div class="tcg-dialog-buttons">
+                      <button id="tcg-dialog-ok-button">OK</button>
+                      <button id="tcg-dialog-cancel-button" style="display: none;">キャンセル</button>
+                    </div>
+                </div>
+            </div>
+        `;
         document.body.appendChild(uiContainer);
         
         console.log("main.js: UI injected successfully.");
@@ -306,16 +340,26 @@ async function injectUIIntoPage() {
 /**
  * 拡張機能のコア機能を初期化します。
  */
-async function initializeExtensionFeatures() {
+function initializeExtensionFeatures() {
     console.log("Features: Initializing...");
-    try {
-        const response = await fetch(browser.runtime.getURL('../json/cards.json'));
-        window.TCG_ASSISTANT.allCards = await response.json();
-        console.log(`Features: ${window.TCG_ASSISTANT.allCards.length} cards loaded.`);
-    } catch (error) {
-        console.error("Features: Failed to load card data:", error);
-        window.showCustomDialog('エラー', `カードデータのロードに失敗しました: ${error.message}`);
-    }
+
+    // ★修正点: Promiseを使ってデータロードの完了を管理
+    window.TCG_ASSISTANT.cardDataReady = new Promise(async (resolve, reject) => {
+        try {
+            const response = await fetch(browser.runtime.getURL('json\cards.json'));
+            if (!response.ok) {
+                throw new Error(`Failed to fetch cards.json: ${response.statusText}`);
+            }
+            window.TCG_ASSISTANT.allCards = await response.json();
+            console.log(`Features: ${window.TCG_ASSISTANT.allCards.length} cards loaded.`);
+            resolve(); // データロード完了を通知
+        } catch (error) {
+            console.error("Features: Failed to load card data:", error);
+            window.showCustomDialog('エラー', `カードデータのロードに失敗しました: ${error.message}`);
+            reject(error); // 失敗を通知
+        }
+    });
+
     // WebSocket接続を開始
     connectWebSocket();
 }

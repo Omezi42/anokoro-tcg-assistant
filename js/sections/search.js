@@ -2,7 +2,15 @@
 
 // グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
 window.initSearchSection = async function() {
-    console.log("Search section initialized.");
+    // ★修正点: カードデータがロードされるまで待機
+    try {
+        await window.TCG_ASSISTANT.cardDataReady;
+        console.log("Search section initialized (v2.0). Card data is ready.");
+    } catch (error) {
+        console.error("Search: Failed to wait for card data.", error);
+        await window.showCustomDialog('エラー', '検索機能の初期化に必要なカードデータの読み込みに失敗しました。');
+        return;
+    }
 
     // Firefox互換性のためのbrowserオブジェクトのフォールバック
     if (typeof browser === 'undefined') {
@@ -25,12 +33,13 @@ window.initSearchSection = async function() {
 
     /**
      * 検索フィルターのセットオプションを動的に追加します。
-     * window.allCardsから利用可能なセット名を抽出し、ドロップダウンに設定します。
+     * window.TCG_ASSISTANT.allCardsから利用可能なセット名を抽出し、ドロップダウンに設定します。
      */
     function populateSearchFilters() {
         const sets = new Set();
-        if (window.allCards) { // window.allCards がロードされていることを確認
-            window.allCards.forEach(card => {
+        // ★修正点: window.allCards -> window.TCG_ASSISTANT.allCards
+        if (window.TCG_ASSISTANT.allCards) {
+            window.TCG_ASSISTANT.allCards.forEach(card => {
                 if (card.info && card.info.length > 0) {
                     const setInfo = card.info.find(info => info.startsWith('このカードの収録セットは、'));
                     if (setInfo) {
@@ -52,75 +61,19 @@ window.initSearchSection = async function() {
     }
 
     /**
-     * カード情報を正規化するヘルパー関数。
-     * 半角カタカナ、ひらがなを全角カタカナに変換し、スペースを削除します。
-     * @param {string} text - 正規化する文字列。
-     * @returns {string} 正規化された文字列。
-     */
-    function normalizeText(text) {
-        // 半角カタカナを全角カタカナに変換
-        text = text.replace(/[\uFF61-\uFF9F]/g, (s) => {
-            return String.fromCharCode(s.charCodeAt(0) + 0x20);
-        });
-        // 全角ひらがなを全角カタカナに変換
-        text = text.replace(/[\u3041-\u3096]/g, (s) => {
-            return String.fromCharCode(s.charCodeAt(0) + 0x60);
-        });
-        // スペースを削除
-        text = text.replace(/\s+/g, '');
-        return text.toLowerCase();
-    }
-
-    /**
-     * レーベンシュタイン距離を計算する関数 (あいまい検索用)。
-     * 2つの文字列間の編集距離を返します。
-     * @param {string} s1 - 文字列1。
-     * @param {string} s2 - 文字列2。
-     * @returns {number} レーベンシュタイン距離。
-     */
-    function levenshteinDistance(s1, s2) {
-        s1 = normalizeText(s1);
-        s2 = normalizeText(s2);
-
-        const m = s1.length;
-        const n = s2.length;
-        const dp = Array(m + 1).fill(0).map(() => Array(n + 1).fill(0));
-
-        for (let i = 0; i <= m; i++) dp[i][0] = i;
-        for (let j = 0; j <= n; j++) dp[0][j] = j;
-
-        for (let i = 1; i <= m; i++) {
-            for (let j = 1; j <= n; j++) {
-                const cost = (s1[i - 1] === s2[j - 1]) ? 0 : 1;
-                dp[i][j] = Math.min(
-                    dp[i - 1][j] + 1,      // deletion
-                    dp[i][j - 1] + 1,      // insertion
-                    dp[i - 1][j - 1] + cost // substitution
-                );
-            }
-            // 検索クエリが長すぎる場合、パフォーマンスのために早期終了
-            if (dp[i][n] > fuzzyThreshold + 1) { 
-                return Infinity;
-            }
-        }
-        return dp[m][n];
-    }
-
-    /**
      * カード検索を実行する関数。
-     * 検索クエリとフィルターに基づいてカードを検索し、結果をUIに表示します。
      * @param {string} query - 検索クエリ。
-     * @param {string} textTarget - テキスト検索対象 ('all', 'name', 'effect', 'lore')。
+     * @param {string} textTarget - テキスト検索対象。
      * @param {string} typeFilter - カードタイプフィルター。
      * @param {string} setFilter - 収録セットフィルター。
      */
     async function performCardSearch(query, textTarget, typeFilter, setFilter) {
         if (!searchResults) return;
-        searchResults.innerHTML = '<p><div class="spinner"></div> 検索中...</p>'; // ローディングスピナー表示
+        searchResults.innerHTML = '<p><div class="spinner"></div> 検索中...</p>';
 
         const normalizedQuery = normalizeText(query);
 
-        let filteredCards = window.allCards.filter(card => { // window.allCards を使用
+        let filteredCards = window.TCG_ASSISTANT.allCards.filter(card => { // window.allCards を使用
             // テキスト検索
             let textMatches = true;
             if (query) {

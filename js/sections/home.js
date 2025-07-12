@@ -1,77 +1,76 @@
-// js/sections/home.js
+// js/sections/home.js - 修正版 v2.2
 
-// グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
 window.initHomeSection = async function() {
-    console.log("Home section initialized.");
+    console.log("Home section initialized (v2.2).");
 
-    // Firefox互換性のためのbrowserオブジェクトのフォールバック
     if (typeof browser === 'undefined') {
         var browser = chrome;
     }
 
-    // 各要素を取得
+    // === DOM要素の取得 ===
     const homeLoginStatus = document.getElementById('home-login-status');
     const homeLoginButton = document.getElementById('home-login-button');
     const homeLogoutButton = document.getElementById('home-logout-button');
 
     /**
-     * ログイン状態を更新し、UIに反映します。
+     * ログイン状態に応じてホーム画面のUIを更新します。
      */
     const updateLoginStatusUI = () => {
-        if (window.currentUserId && window.currentUsername) {
-            // ログイン済み
-            if (homeLoginStatus) homeLoginStatus.innerHTML = `現在、<strong>${window.currentUsername}</strong> としてログイン中。`;
-            if (homeLoginButton) homeLoginButton.style.display = 'none';
-            if (homeLogoutButton) homeLogoutButton.style.display = 'inline-block';
+        if (!homeLoginStatus || !homeLoginButton || !homeLogoutButton) return;
+
+        const assistant = window.TCG_ASSISTANT;
+        if (assistant.currentUserId) {
+            // ログイン済みの場合
+            homeLoginStatus.innerHTML = `現在、<strong>${assistant.currentDisplayName || assistant.currentUsername}</strong> としてログイン中です。`;
+            homeLoginButton.style.display = 'none';
+            homeLogoutButton.style.display = 'inline-block';
         } else {
-            // 未ログイン
-            if (homeLoginStatus) homeLoginStatus.innerHTML = 'ログインしていません。レート戦機能を利用するにはログインが必要です。';
-            if (homeLoginButton) homeLoginButton.style.display = 'inline-block';
-            if (homeLogoutButton) homeLogoutButton.style.display = 'none';
+            // 未ログインの場合
+            homeLoginStatus.innerHTML = 'レート戦や戦績記録などの機能を利用するには、レート戦セクションからログインしてください。';
+            homeLoginButton.style.display = 'inline-block';
+            homeLogoutButton.style.display = 'none';
         }
     };
 
-    // --- イベントハンドラ関数 ---
+    // === DOMイベントハンドラ ===
     /**
-     * ホーム画面のログイン/登録ボタンクリックハンドラ。
+     * ホーム画面の「ログイン/登録」ボタンがクリックされたときの処理。
      * レート戦セクションに移動してログインを促します。
      */
-    function handleHomeLoginButtonClick() {
+    const onHomeLoginButtonClick = () => {
         if (window.toggleContentArea) {
-            window.toggleContentArea('rateMatch', true); // 強制的にサイドバーを開き、レート戦セクションへ
+            window.toggleContentArea('rateMatch', true);
         } else {
             console.error("Home: toggleContentArea function not available.");
-            window.showCustomDialog('エラー', 'UI切り替え機能が利用できません。');
         }
-    }
+    };
 
     /**
-     * ホーム画面のログアウトボタンクリックハンドラ。
-     * rateMatch.jsのログアウト処理を呼び出します。
+     * ホーム画面の「ログアウト」ボタンがクリックされたときの処理。
+     * WebSocketを通じてログアウトリクエストを送信します。
      */
-    async function handleHomeLogoutButtonClick() {
-        if (window.handleLogoutButtonClickFromRateMatch) {
-            await window.handleLogoutButtonClickFromRateMatch();
-        } else {
-            console.error("Home: handleLogoutButtonClickFromRateMatch function not available.");
-            await window.showCustomDialog('エラー', 'ログアウト機能が利用できません。レート戦セクションからお試しください。');
+    const onHomeLogoutButtonClick = async () => {
+        const confirmed = await window.showCustomDialog('ログアウト', 'ログアウトしますか？', true);
+        if (confirmed) {
+            if (window.TCG_ASSISTANT.ws && window.TCG_ASSISTANT.ws.readyState === WebSocket.OPEN) {
+                window.TCG_ASSISTANT.ws.send(JSON.stringify({ type: 'logout' }));
+            } else {
+                // WebSocketが接続されていない場合でも、ローカルの状態はクリアする
+                window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout', { detail: { message: 'ログアウトしました。' }}));
+            }
         }
-    }
+    };
 
-    // --- イベントリスナーの再アタッチ ---
-    if (homeLoginButton) {
-        homeLoginButton.removeEventListener('click', handleHomeLoginButtonClick);
-        homeLoginButton.addEventListener('click', handleHomeLoginButtonClick);
-    }
-    if (homeLogoutButton) {
-        homeLogoutButton.removeEventListener('click', handleHomeLogoutButtonClick);
-        homeLogoutButton.addEventListener('click', handleHomeLogoutButtonClick);
-    }
+    // === イベントリスナー設定 ===
+    // DOM要素へのイベントリスナー
+    homeLoginButton?.addEventListener('click', onHomeLoginButtonClick);
+    homeLogoutButton?.addEventListener('click', onHomeLogoutButtonClick);
 
-    // ログイン状態が変更されたときにUIを更新
-    document.removeEventListener('loginStateChanged', updateLoginStatusUI);
-    document.addEventListener('loginStateChanged', updateLoginStatusUI);
+    // グローバルなTCG_ASSISTANTオブジェクトへのイベントリスナー
+    // ログイン状態が変更されたらUIを更新する
+    window.TCG_ASSISTANT.addEventListener('loginStateChanged', updateLoginStatusUI);
 
-    updateLoginStatusUI(); // 初期ロード時にもUIを更新
+    // --- 初期化処理 ---
+    // セクションが表示されたときに現在の状態でUIを即時更新
+    updateLoginStatusUI();
 };
-void 0; // Explicitly return undefined for Firefox compatibility

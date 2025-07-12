@@ -1,6 +1,5 @@
-// js/main.js (コンテンツスクリプトのメインファイル) - 安定化版 v2.9
-
-console.log("main.js: Script loaded (v2.9).");
+// js/main.js (コンテンツスクリプトのメインファイル) - 安定化版 v3.3
+console.log("main.js: Script loaded (v3.3).");
 
 // FontAwesome（アイコン表示用）のスタイルシートをページに注入
 const fontAwesomeLink = document.createElement('link');
@@ -34,17 +33,51 @@ class TcgAssistantApp extends EventTarget {
         this.isSidebarOpen = false;
         this.isMenuIconsVisible = true;
         this._injectedSectionScripts = new Set();
+
+        // [★修正] 初期ログイン処理の完了を管理するPromise
+        this._initialLoginResolved = false;
+        this.initialLoginPromise = new Promise(resolve => {
+            this._resolveInitialLogin = () => {
+                if (!this._initialLoginResolved) {
+                    this._initialLoginResolved = true;
+                    resolve();
+                }
+            };
+        });
+    }
+
+    sendWsMessage(payload) {
+        const ws = this.ws;
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(payload));
+            console.log("WS Sent:", payload);
+        } else if (ws && ws.readyState === WebSocket.CONNECTING) {
+            console.log("WS is connecting. Queuing message:", payload);
+            ws.addEventListener('open', () => {
+                console.log("WS connection opened. Sending queued message:", payload);
+                ws.send(JSON.stringify(payload));
+            }, { once: true });
+        } else {
+            console.error("WS connection not available. Re-connecting...");
+            connectWebSocket(); // 再接続を試みる
+            // 再接続後にメッセージを送信するために、少し待ってから再試行する
+            setTimeout(() => this.sendWsMessage(payload), 1000);
+        }
     }
 }
 window.TCG_ASSISTANT = new TcgAssistantApp();
 console.log("main.js: TCG_ASSISTANT namespace initialized.");
+
 
 // --- WebSocket通信 ---
 const RENDER_WS_URL = 'wss://anokoro-tcg-api.onrender.com';
 let reconnectTimer = null;
 
 function connectWebSocket() {
-    if (window.TCG_ASSISTANT.ws && window.TCG_ASSISTANT.ws.readyState === WebSocket.OPEN) return;
+    if (window.TCG_ASSISTANT.ws && (window.TCG_ASSISTANT.ws.readyState === WebSocket.OPEN || window.TCG_ASSISTANT.ws.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
     if (reconnectTimer) clearTimeout(reconnectTimer);
 
     console.log("WebSocket: Attempting to connect...");
@@ -55,26 +88,36 @@ function connectWebSocket() {
         console.log("WebSocket: Connection established.");
         browser.storage.local.get(['loggedInUserId', 'loggedInUsername'], (result) => {
             if (result.loggedInUserId && result.loggedInUsername) {
-                ws.send(JSON.stringify({
+                window.TCG_ASSISTANT.sendWsMessage({
                     type: 'auto_login',
                     userId: result.loggedInUserId,
                     username: result.loggedInUsername
-                }));
+                });
             } else {
+                // ログイン情報がない場合、即座にログアウト状態を確定させる
                 window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout'));
             }
         });
     };
 
-    ws.onclose = () => {
-        console.log(`WebSocket: Connection closed.`);
-        if (window.TCG_ASSISTANT.ws === ws) { 
-            window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout', { detail: { message: 'サーバーとの接続が切れました。再接続します...' }}));
-            reconnectTimer = setTimeout(connectWebSocket, 5000);
+    ws.onclose = (event) => {
+        console.log(`WebSocket: Connection closed. Code: ${event.code}, Reason: ${event.reason}`);
+        if (event.code !== 1000) { 
+            if (window.TCG_ASSISTANT.ws === ws) { 
+                window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout', { detail: { message: 'サーバーとの接続が切れました。5秒後に再接続します...' }}));
+                reconnectTimer = setTimeout(connectWebSocket, 5000);
+            }
         }
+        // 接続が閉じた時点でログイン状態は不確定になるため、Promiseを解決
+        window.TCG_ASSISTANT._resolveInitialLogin();
     };
 
-    ws.onerror = (error) => console.error("WebSocket: Error:", error);
+    ws.onerror = (error) => {
+        console.error("WebSocket: A connection error occurred.", error);
+        window.showCustomDialog('接続エラー', 'サーバーとの接続中にエラーが発生しました。');
+        // エラー時もPromiseを解決して、アプリが待機し続けるのを防ぐ
+        window.TCG_ASSISTANT._resolveInitialLogin();
+    };
     
     ws.onmessage = (event) => {
         try {
@@ -97,36 +140,45 @@ const handleLoginResponse = (e) => {
     }
 };
 
+// [★修正] ユーザー情報更新の応答もここで処理
 window.TCG_ASSISTANT.addEventListener('ws-login_response', handleLoginResponse);
 window.TCG_ASSISTANT.addEventListener('ws-auto_login_response', handleLoginResponse);
+window.TCG_ASSISTANT.addEventListener('ws-user_update_response', handleLoginResponse); 
 window.TCG_ASSISTANT.addEventListener('ws-logout_response', () => window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout')));
 window.TCG_ASSISTANT.addEventListener('ws-logout_forced', (e) => window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout', { detail: e.detail })));
 
 window.TCG_ASSISTANT.addEventListener('loginSuccess', (e) => {
     const data = e.detail;
+    const userData = data.updatedUserData || data;
+
     Object.assign(window.TCG_ASSISTANT, {
         isLoggedIn: true,
-        currentUserId: data.userId,
-        currentUsername: data.username,
-        currentDisplayName: data.displayName,
-        currentRate: data.rate,
-        userMatchHistory: data.matchHistory || [],
-        userMemos: data.memos || [],
-        userBattleRecords: data.battleRecords || [],
-        userRegisteredDecks: data.registeredDecks || []
+        currentUserId: userData.userId,
+        currentUsername: userData.username,
+        currentDisplayName: userData.displayName,
+        currentRate: userData.rate,
+        userMatchHistory: userData.matchHistory || [],
+        userMemos: userData.memos || [],
+        userBattleRecords: userData.battleRecords || [],
+        userRegisteredDecks: userData.registeredDecks || []
     });
-    if (e.detail.type === 'login_response') {
-        browser.storage.local.set({ loggedInUserId: data.userId, loggedInUsername: data.username });
+    
+    const persistableTypes = ['login_response', 'auto_login_response', 'user_update_response'];
+    if (persistableTypes.includes(data.type)) {
+        browser.storage.local.set({ loggedInUserId: userData.userId, loggedInUsername: userData.username });
     }
     window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginStateChanged', { detail: { isLoggedIn: true } }));
+    // [★修正] ログイン成功時にPromiseを解決
+    window.TCG_ASSISTANT._resolveInitialLogin();
 });
 
 window.TCG_ASSISTANT.addEventListener('loginFail', (e) => {
-    // 自動ログイン失敗は通知しない
     if (e.detail.type !== 'auto_login_response') {
         window.showCustomDialog('認証失敗', e.detail.message || 'ログインに失敗しました。');
     }
     window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout'));
+    // [★修正] ログイン失敗時にもPromiseを解決
+    window.TCG_ASSISTANT._resolveInitialLogin();
 });
 
 window.TCG_ASSISTANT.addEventListener('logout', (e) => {
@@ -140,6 +192,8 @@ window.TCG_ASSISTANT.addEventListener('logout', (e) => {
     });
     browser.storage.local.remove(['loggedInUserId', 'loggedInUsername']);
     window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginStateChanged', { detail: { isLoggedIn: false } }));
+    // [★修正] ログアウト時にもPromiseを解決
+    window.TCG_ASSISTANT._resolveInitialLogin();
 });
 
 
@@ -179,9 +233,6 @@ window.showCustomDialog = function(title, message, isConfirm = false) {
     });
 };
 
-/**
- * [★修正] アイコン表示の不具合を修正
- */
 function updateMenuIconsVisibility() {
     const menuContainer = document.getElementById('tcg-right-menu-container');
     const iconsWrapper = menuContainer?.querySelector('.tcg-menu-icons-wrapper');
@@ -190,11 +241,11 @@ function updateMenuIconsVisibility() {
     
     if (window.TCG_ASSISTANT.isMenuIconsVisible) {
         menuContainer.classList.add('expanded');
-        iconsWrapper.classList.remove('hidden'); // アイコンラッパーを表示
+        iconsWrapper.classList.remove('hidden');
         toggleIcon.classList.replace('fa-chevron-left', 'fa-chevron-right');
     } else {
         menuContainer.classList.remove('expanded');
-        iconsWrapper.classList.add('hidden'); // アイコンラッパーを非表示
+        iconsWrapper.classList.add('hidden');
         toggleIcon.classList.replace('fa-chevron-right', 'fa-chevron-left');
     }
 }

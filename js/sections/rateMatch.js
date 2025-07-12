@@ -1,7 +1,7 @@
-// js/sections/rateMatch.js - 修正版 v2.5
+// js/sections/rateMatch.js - 修正版 v2.6
 
 window.initRateMatchSection = async function() {
-    console.log("RateMatch section initialized (v2.5).");
+    console.log("RateMatch section initialized (v2.6).");
 
     if (typeof browser === 'undefined') { var browser = chrome; }
 
@@ -65,12 +65,36 @@ window.initRateMatchSection = async function() {
         }
     };
 
-    // === WebSocketメッセージ送信ヘルパー ===
+    // === WebSocketメッセージ送信ヘルパー (修正版) ===
     const sendWebSocketMessage = (payload) => {
         const ws = window.TCG_ASSISTANT.ws;
-        if (ws?.readyState === WebSocket.OPEN) {
+
+        // 接続が確立されるまで待機する関数
+        const waitForConnectionAndSend = (timeout = 5000) => {
+            const startTime = Date.now();
+            const interval = setInterval(() => {
+                const currentWs = window.TCG_ASSISTANT.ws;
+                // 接続が確立されたらメッセージを送信
+                if (currentWs && currentWs.readyState === WebSocket.OPEN) {
+                    clearInterval(interval);
+                    currentWs.send(JSON.stringify(payload));
+                } else if (Date.now() - startTime > timeout) {
+                    // タイムアウトしたらエラーを表示
+                    clearInterval(interval);
+                    window.showCustomDialog('エラー', 'サーバーへの接続がタイムアウトしました。');
+                }
+            }, 100); // 100msごとに接続状態をチェック
+        };
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            // 既に接続済みの場合はすぐに送信
             ws.send(JSON.stringify(payload));
+        } else if (ws && ws.readyState === WebSocket.CONNECTING) {
+            // 接続中の場合は、接続が確立されるのを待つ
+            console.log("WebSocket is connecting. Waiting to send message...");
+            waitForConnectionAndSend();
         } else {
+            // 接続がない、または切断されている場合
             window.showCustomDialog('エラー', 'サーバーに接続していません。');
         }
     };
@@ -157,8 +181,8 @@ window.initRateMatchSection = async function() {
         const msg = e.detail;
         window.showCustomDialog('結果報告', msg.message);
         if (msg.result?.startsWith('resolved') || msg.result === 'disputed') {
-            // ログイン成功時にグローバルステートが更新されるので、ここでは何もしない
-            // main.jsがloginSuccessイベントを発行し、このセクションを含む全セクションが更新される
+            // main.jsがloginSuccessイベントを発行し、グローバルステートが更新されるので、
+            // ここではUIの状態をクリアするだけで良い
             clearMatchAndP2PConnection();
         }
     };
@@ -191,27 +215,32 @@ window.initRateMatchSection = async function() {
 
     // === イベントリスナー設定 ===
     const assistant = window.TCG_ASSISTANT;
-    const addListener = (id, event, handler) => document.getElementById(id)?.addEventListener(event, handler);
+    const addListener = (id, event, handler) => {
+        const element = document.getElementById(id);
+        if (element) {
+            // 既存のリスナーを削除してから追加することで、重複を防ぐ
+            element.removeEventListener(event, handler);
+            element.addEventListener(event, handler);
+        }
+    };
 
     addListener('register-button', 'click', () => sendWebSocketMessage({ type: 'register', username: registerUsernameInput.value, password: registerPasswordInput.value }));
     addListener('login-button', 'click', () => sendWebSocketMessage({ type: 'login', username: loginUsernameInput.value, password: loginPasswordInput.value }));
     addListener('update-display-name-button', 'click', () => sendWebSocketMessage({ type: 'update_display_name', newDisplayName: newDisplayNameInput.value }));
     addListener('matching-button', 'click', onMatchingClick);
     addListener('cancel-matching-button-in-status', 'click', () => { matchingStatusDiv.dataset.isMatching = 'false'; updateUIState(); sendWebSocketMessage({ type: 'leave_queue' }); });
-    addListener('send-chat-button', 'click', () => { if (chatInput.value) dataChannel.send(chatInput.value); chatInput.value = ''; });
+    addListener('send-chat-button', 'click', () => { if (chatInput.value && dataChannel && dataChannel.readyState === 'open') { dataChannel.send(chatInput.value); displayChatMessage('あなた', chatInput.value); chatInput.value = ''; } });
     addListener('win-button', 'click', onReportResultClick);
     addListener('lose-button', 'click', onReportResultClick);
     addListener('cancel-button', 'click', onReportResultClick);
     addListener('refresh-ranking-button', 'click', () => sendWebSocketMessage({ type: 'get_ranking' }));
 
-    // ★★★ 修正点 ★★★
     // loginStateChangedイベントでUI全体を更新
     assistant.removeEventListener('loginStateChanged', updateUIState);
     assistant.addEventListener('loginStateChanged', updateUIState);
     
     // WebSocketメッセージのリスナー
-    const wsEvents = ['match_found', 'webrtc_signal', 'report_result_response', 'ranking_response', 'queue_status', 'error'];
-    const handlers = {
+    const wsEvents = {
         'ws-match_found': handleMatchFound,
         'ws-webrtc_signal': handleSignalingData,
         'ws-report_result_response': handleReportResultResponse,
@@ -219,14 +248,18 @@ window.initRateMatchSection = async function() {
         'ws-queue_status': (e) => { if(document.getElementById('matching-status-text')) document.getElementById('matching-status-text').textContent = e.detail.message; },
         'ws-error': (e) => window.showCustomDialog('サーバーエラー', e.detail.message)
     };
-    wsEvents.forEach(evt => {
-        assistant.removeEventListener(`ws-${evt}`, handlers[`ws-${evt}`]);
-        assistant.addEventListener(`ws-${evt}`, handlers[`ws-${evt}`]);
-    });
+
+    for (const [event, handler] of Object.entries(wsEvents)) {
+        assistant.removeEventListener(event, handler);
+        assistant.addEventListener(event, handler);
+    }
 
     // --- 初期化処理 ---
     updateUIState();
-    sendWebSocketMessage({ type: 'get_ranking' });
+    // ログイン済みの場合のみランキングを取得
+    if (assistant.isLoggedIn) {
+        sendWebSocketMessage({ type: 'get_ranking' });
+    }
 };
 
 void 0;

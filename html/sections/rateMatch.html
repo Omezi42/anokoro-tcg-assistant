@@ -38,15 +38,21 @@
         <ul id="match-history-list">
             <li>ログインすると対戦履歴が表示されます。</li>
         </ul>
-        <h3>ランキング</h3>
-        <p>ここにランキング情報が表示されます。</p>
+        
+        <!-- ランキング表示エリアを追加 -->
+        <div id="ranking-display">
+            <h3><i class="fas fa-trophy"></i> トッププレイヤーランキング</h3>
+            <ul id="ranking-list">
+                <li>ランキングを読み込み中...</li>
+            </ul>
+        </div>
     </div>
 
     <!-- マッチング中の表示 -->
     <div id="matching-status" style="display: none;">
         <p><span id="matching-status-text">対戦相手を検索中...</span></p> <!-- テキスト表示用のspanを追加 -->
         <div class="spinner"></div>
-        <button id="cancel-matching-button-in-status" class="cancel-button">マッチングキャンセル</button>
+        <button id="cancel-matching-button-in-status" class="cancel-button"><i class="fas fa-times-circle"></i> マッチングキャンセル</button> <!-- マッチング待機中のキャンセルボタン -->
     </div>
 
     <!-- 対戦中（マッチング後）のUI要素 -->

@@ -41,6 +41,10 @@ window.initRateMatchSection = async function() {
     const loginButton = document.getElementById('login-button');
     const logoutButton = document.getElementById('logout-button');
 
+    // --- 表示名変更UI要素 ---
+    const newDisplayNameInput = document.getElementById('new-display-name-input');
+    const updateDisplayNameButton = document.getElementById('update-display-name-button');
+
     // --- 対戦相手情報UI要素 ---
     const opponentUsernameDisplay = document.getElementById('opponent-username-display');
     const webrtcConnectionStatus = document.getElementById('webrtc-connection-status');
@@ -61,12 +65,12 @@ window.initRateMatchSection = async function() {
 
     // --- WebSocket & WebRTC 関連変数 ---
     // RenderサーバーのWebSocket URLに置き換える必要があります！
-    const RENDER_WS_URL = 'wss://anokoro-tcg-api.onrender.com'; // ★★★ ここをあなたのRenderのURLに置き換える ★★★
+    const RENDER_WS_URL = 'wss://anokoro-tcg-backend-production.onrender.com'; // ★★★ ここをあなたのRenderのURLに置き換える ★★★
 
     let peerConnection = null; // WebRTC PeerConnectionインスタンス
     let dataChannel = null; // WebRTC DataChannelインスタンス
     let opponentPlayerId = null; // 相手のユーザーID (内部的に使用)
-    let opponentUsername = null; // 相手のユーザー名 (UI表示用)
+    let opponentUsername = null; // 相手の表示名 (UI表示用)
     let isWebRTCOfferInitiator = false; // WebRTCのOfferを作成する側かどうかのフラグ
 
     // STUNサーバーの設定 (P2P接続を助けるための無料サーバー)
@@ -78,18 +82,18 @@ window.initRateMatchSection = async function() {
         ]
     };
 
-    // --- UI状態更新関数 ---
     /**
-     * ログイン状態、マッチング状態に応じてUIの表示を更新します。
-     * グローバル変数 (window.currentUserId, currentMatchId) に依存します。
+     * UIの表示状態を更新するメイン関数
+     * ログイン状態、マッチング状態に応じてUIを切り替える
      */
     const updateUIState = () => {
         // ログイン状態に応じて認証UIとメインUIを切り替え
-        if (window.currentUserId && window.currentUsername) {
+        if (window.currentUserId && window.currentDisplayName) { // 表示名でチェック
             if (authSection) authSection.style.display = 'none';
             if (loggedInUi) loggedInUi.style.display = 'block';
-            if (usernameDisplay) usernameDisplay.textContent = window.currentUsername; // 表示名を表示
+            if (usernameDisplay) usernameDisplay.textContent = window.currentDisplayName; // 表示名を表示
             if (logoutButton) logoutButton.style.display = 'block'; // ログアウトボタンを表示
+            if (newDisplayNameInput) newDisplayNameInput.value = window.currentDisplayName; // 表示名入力欄に現在の値をセット
         } else {
             if (authSection) authSection.style.display = 'block';
             if (loggedInUi) loggedInUi.style.display = 'none';
@@ -97,7 +101,7 @@ window.initRateMatchSection = async function() {
         }
 
         // マッチング状態に応じてレート戦UIを切り替え
-        if (window.currentUserId && window.currentUsername) { // ログインしている場合のみ
+        if (window.currentUserId && window.currentDisplayName) { // ログインしている場合のみ
             if (currentMatchId) { // マッチング成立後
                 if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
                 if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
@@ -143,10 +147,10 @@ window.initRateMatchSection = async function() {
             if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
             if (chatMessagesDiv) chatMessagesDiv.dataset.initialized = 'false'; // リセット
         }
-        updateRateDisplay();
+        updateRateDisplay(); // レート表示を更新
         loadMatchHistory(); // ログイン状態に応じて履歴をロード
         fetchAndDisplayRanking(); // ランキングを更新
-        // ログイン状態変更イベントを発火
+        // ログイン状態変更イベントを発火（home.jsなどがこれを受け取る）
         document.dispatchEvent(new CustomEvent('loginStateChanged'));
     };
 
@@ -398,7 +402,7 @@ window.initRateMatchSection = async function() {
                 case 'queue_status':
                     console.log("Queue status:", message.message);
                     if (matchingStatusTextSpan) matchingStatusTextSpan.textContent = message.message; // spanを更新
-                    // UI更新はupdateUIStateでまとめて行う
+                    // UI更新はupdateUIState()で既にhandleMatchingButtonClickから呼ばれているため不要
                     break;
                 case 'match_found':
                     opponentPlayerId = message.opponentUserId; // 相手のユーザーID
@@ -485,12 +489,12 @@ window.initRateMatchSection = async function() {
                     handleRankingResponse(message);
                     break;
                 default:
-                    console.warn("Unknown message type from server:", message.type);
+                    console.warn(`Unknown message type from server: ${message.type}`);
             }
         };
 
         window.ws.onclose = () => {
-            console.log("WebSocket disconnected.");
+            console.log("WebSocket: Disconnected.");
             // ログアウト状態にはしないが、マッチング関連の状態はリセット
             clearMatchAndP2PConnection();
             updateUIState();
@@ -499,7 +503,7 @@ window.initRateMatchSection = async function() {
         };
 
         window.ws.onerror = (error) => {
-            console.error("WebSocket error:", error);
+            console.error("WebSocket: ERROR:", error);
             window.showCustomDialog('エラー', 'マッチングサーバーへの接続に失敗しました。Renderサーバーが起動しているか確認してください。');
         };
     };
@@ -668,8 +672,6 @@ window.initRateMatchSection = async function() {
     window.handleLogoutButtonClickFromRateMatch = handleLogoutButtonClick;
 
     // 表示名変更ボタン
-    const newDisplayNameInput = document.getElementById('new-display-name-input');
-    const updateDisplayNameButton = document.getElementById('update-display-name-button');
     if (updateDisplayNameButton) {
         updateDisplayNameButton.removeEventListener('click', handleUpdateDisplayNameClick);
         updateDisplayNameButton.addEventListener('click', handleUpdateDisplayNameClick);
@@ -814,7 +816,7 @@ window.initRateMatchSection = async function() {
         if (matchingStatusTextSpan) matchingStatusTextSpan.textContent = '対戦相手を検索中です...'; // テキストも更新
         if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
         if (matchingButton) matchingButton.disabled = true; // マッチングボタンを無効化
-        if (cancelMatchingButtonInStatus) cancelMatchingButtonInStatus.disabled = false; // キャンセルボタンを有効化
+        if (cancelMatchingButtonInStatus) cancelMatchingButtonInStatus.disabled = false; // 新しいキャンセルボタンを有効化
 
         // マッチング開始リクエストをサーバーに送信
         window.ws.send(JSON.stringify({ type: 'join_queue', userId: window.currentUserId }));
@@ -833,7 +835,7 @@ window.initRateMatchSection = async function() {
                 await window.showCustomDialog('エラー', 'サーバーに接続していません。');
             }
             clearMatchAndP2PConnection(); // P2P接続もクリア
-            updateUIState(); // UIを元の状態に戻す
+            updateUIState(); // UIを更新
         }
     }
 

@@ -40,8 +40,9 @@ let uiInjected = false;
 // これらの変数はrateMatch.jsでサーバーからの応答に基づいて更新されます。
 // 他のセクション（memo.js, battleRecord.js, home.js）がこれらの状態を参照します。
 window.currentRate = 1500;
-window.currentUsername = null;
-window.currentUserId = null; // サーバーが発行するUUID
+window.currentUsername = null; // ログインユーザーのユーザー名 (ログイン用)
+window.currentDisplayName = null; // ログインユーザーの表示名 (UI表示用)
+window.currentUserId = null; // ログインユーザーのID (サーバーが発行するUUID)
 window.userMatchHistory = [];
 window.userMemos = [];
 window.userBattleRecords = [];
@@ -530,7 +531,8 @@ async function initializeExtensionFeatures() {
         } else {
             console.log(`Features: ${window.allCards.length} cards loaded into window.allCards.`);
         }
-    } catch (error) {
+    }
+    catch (error) {
         console.error("Features: Failed to load card data:", error);
         if (window.showCustomDialog) {
             window.showCustomDialog('エラー', `カードデータのロードに失敗しました: ${error.message}`);

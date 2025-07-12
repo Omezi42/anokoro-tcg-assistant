@@ -1,8 +1,9 @@
-<h2 class="section-title">検索</h2>
-<p>「あいまい検索」や「世界観からの検索」などを実装。</p>
+<h2 class="section-title">カード検索</h2>
+<p>カード名、効果、フレーバーテキストなどからカードを検索できます。</p>
+
 <div class="search-filters">
-    <div class="filter-group">
-        <label for="search-text-target"><i class="fas fa-font"></i> テキスト対象:</label>
+    <div class="form-group">
+        <label for="search-text-target"><i class="fas fa-font"></i> テキスト対象</label>
         <select id="search-text-target">
             <option value="all">全て</option>
             <option value="name">カード名</option>
@@ -10,8 +11,8 @@
             <option value="lore">世界観</option>
         </select>
     </div>
-    <div class="filter-group">
-        <label for="search-filter-type"><i class="fas fa-tags"></i> タイプ:</label>
+    <div class="form-group">
+        <label for="search-filter-type"><i class="fas fa-tags"></i> タイプ</label>
         <select id="search-filter-type">
             <option value="">全て</option>
             <option value="モンスター">モンスター</option>
@@ -21,18 +22,29 @@
             <option value="フィールド">フィールド</option>
         </select>
     </div>
-    <div class="filter-group">
-        <label for="search-filter-set"><i class="fas fa-box"></i> セット:</label>
+    <div class="form-group">
+        <label for="search-filter-set"><i class="fas fa-box"></i> セット</label>
         <select id="search-filter-set">
             <option value="">全て</option>
             <!-- セットは動的に追加される -->
         </select>
     </div>
 </div>
-<div style="position: relative;">
-    <input type="text" id="search-input" placeholder="キーワードで検索...">
+
+<div class="form-group" style="position: relative;">
+    <label for="search-input">検索キーワード</label>
+    <input type="text" id="search-input" placeholder="例: ドラゴン、破壊する">
     <div id="autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
 </div>
+
+<!-- ★★★ 追加: あいまい検索のトグルスイッチ ★★★ -->
+<div class="fuzzy-search-container">
+    <input type="checkbox" id="fuzzy-search-toggle">
+    <label for="fuzzy-search-toggle">あいまい検索を有効にする</label>
+</div>
+
 <button id="perform-search-button"><i class="fas fa-search"></i> 検索実行</button>
+
 <div id="search-results">
-    </div>
+    <p>検索キーワードまたはフィルターを入力して検索してください。</p>
+</div>

@@ -1,6 +1,6 @@
-// js/main.js (コンテンツスクリプトのメインファイル) - 修正版 v2.3
+// js/main.js (コンテンツスクリプトのメインファイル) - 修正版 v2.4
 
-console.log("main.js: Script loaded (v2.3).");
+console.log("main.js: Script loaded (v2.4).");
 
 // Font AwesomeのCSSをウェブページに注入
 const fontAwesomeLink = document.createElement('link');
@@ -13,7 +13,6 @@ if (typeof browser === 'undefined') {
 }
 
 // --- グローバルな状態管理オブジェクト ---
-// EventTargetを継承して、拡張機能全体でイベントをやり取りできるようにする
 class TcgAssistantApp extends EventTarget {
     constructor() {
         super();
@@ -39,13 +38,12 @@ console.log("main.js: TCG_ASSISTANT EventTarget namespace initialized.");
 
 // --- WebSocket 接続管理 ---
 const RENDER_WS_URL = 'wss://anokoro-tcg-api.onrender.com';
-let reconnectInterval = 5000; // 5秒後に再接続
+let reconnectInterval = 5000;
 
 function connectWebSocket() {
     if (window.TCG_ASSISTANT.ws && (window.TCG_ASSISTANT.ws.readyState === WebSocket.OPEN || window.TCG_ASSISTANT.ws.readyState === WebSocket.CONNECTING)) {
         return;
     }
-
     console.log("WebSocket: Attempting to connect...");
     window.TCG_ASSISTANT.ws = new WebSocket(RENDER_WS_URL);
 
@@ -60,7 +58,6 @@ function connectWebSocket() {
                     username: result.loggedInUsername
                 }));
             } else {
-                // ログイン情報がない場合はログアウトイベントを発火してUIを初期状態にする
                 window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout'));
             }
         });
@@ -69,36 +66,21 @@ function connectWebSocket() {
     window.TCG_ASSISTANT.ws.onclose = () => {
         console.log(`WebSocket: Connection closed. Reconnecting in ${reconnectInterval / 1000}s.`);
         window.TCG_ASSISTANT.ws = null;
-        // 接続が切れたらログアウト状態として扱う
         window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout', { detail: { message: 'サーバーとの接続が切れました。' }}));
         setTimeout(connectWebSocket, reconnectInterval);
     };
 
     window.TCG_ASSISTANT.ws.onerror = (error) => {
         console.error("WebSocket: Error:", error);
-        // エラー時にも onclose が呼ばれるので、そこで再接続処理を行う
         window.TCG_ASSISTANT.ws.close();
     };
 
-    // WebSocketメッセージ処理をmain.jsに一元化
     window.TCG_ASSISTANT.ws.onmessage = (event) => {
         try {
             const message = JSON.parse(event.data);
-            console.log("WebSocket [main]: Received", message.type, message);
-
-            // ログイン/ログアウト関連のイベントを発火
-            if (['login_response', 'auto_login_response'].includes(message.type)) {
-                if (message.success) {
-                    window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginSuccess', { detail: message }));
-                } else {
-                    window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginFail', { detail: message }));
-                }
-            } else if (message.type === 'logout_response' || message.type === 'logout_forced') {
-                 window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout', { detail: message }));
-            } else {
-                // その他のメッセージは汎用イベントとして発火
-                window.TCG_ASSISTANT.dispatchEvent(new CustomEvent(`ws-${message.type}`, { detail: message }));
-            }
+            console.log("WebSocket [main]: Received", message.type);
+            const eventType = `ws-${message.type}`;
+            window.TCG_ASSISTANT.dispatchEvent(new CustomEvent(eventType, { detail: message }));
         } catch (e) {
             console.error("Error parsing WebSocket message:", e);
         }
@@ -106,7 +88,28 @@ function connectWebSocket() {
 }
 
 // --- グローバルイベントリスナー ---
-// ログイン成功時の状態更新
+window.TCG_ASSISTANT.addEventListener('ws-login_response', (e) => {
+    if (e.detail.success) {
+        window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginSuccess', { detail: e.detail }));
+    } else {
+        window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginFail', { detail: e.detail }));
+    }
+});
+window.TCG_ASSISTANT.addEventListener('ws-auto_login_response', (e) => {
+    if (e.detail.success) {
+        window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginSuccess', { detail: e.detail }));
+    } else {
+        window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginFail', { detail: e.detail }));
+    }
+});
+window.TCG_ASSISTANT.addEventListener('ws-logout_response', (e) => {
+    window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout', { detail: e.detail }));
+});
+window.TCG_ASSISTANT.addEventListener('ws-logout_forced', (e) => {
+    window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout', { detail: e.detail }));
+});
+
+
 window.TCG_ASSISTANT.addEventListener('loginSuccess', (e) => {
     const data = e.detail;
     Object.assign(window.TCG_ASSISTANT, {
@@ -119,22 +122,17 @@ window.TCG_ASSISTANT.addEventListener('loginSuccess', (e) => {
         userBattleRecords: data.battleRecords || [],
         userRegisteredDecks: data.registeredDecks || []
     });
-    // 自動ログインでない場合のみストレージに保存
     if (data.type === 'login_response') {
         browser.storage.local.set({ loggedInUserId: data.userId, loggedInUsername: data.username });
     }
-    // UI更新のためのイベントを発火
     window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginStateChanged'));
 });
 
-// ログイン失敗時の処理
 window.TCG_ASSISTANT.addEventListener('loginFail', (e) => {
     window.showCustomDialog('認証失敗', e.detail.message);
-    // 状態をクリアしてUIを更新
     window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout'));
 });
 
-// ログアウト時の状態更新
 window.TCG_ASSISTANT.addEventListener('logout', (e) => {
     if (e?.detail?.message && window.TCG_ASSISTANT.isSidebarOpen) {
          window.showCustomDialog('ログアウト', e.detail.message);
@@ -145,7 +143,6 @@ window.TCG_ASSISTANT.addEventListener('logout', (e) => {
         userBattleRecords: [], userRegisteredDecks: []
     });
     browser.storage.local.remove(['loggedInUserId', 'loggedInUsername']);
-    // UI更新のためのイベントを発火
     window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginStateChanged'));
 });
 
@@ -154,19 +151,12 @@ window.TCG_ASSISTANT.addEventListener('logout', (e) => {
 window.showCustomDialog = function(title, message, isConfirm = false) {
     return new Promise((resolve) => {
         const overlay = document.getElementById('tcg-custom-dialog-overlay');
-        if (!overlay) {
-            console.error("Custom Dialog: Overlay element not found.");
-            return resolve(false);
-        }
+        if (!overlay) return resolve(false);
         const dialogTitle = overlay.querySelector('#tcg-dialog-title');
         const dialogMessage = overlay.querySelector('#tcg-dialog-message');
         const okButton = overlay.querySelector('#tcg-dialog-ok-button');
         const cancelButton = overlay.querySelector('#tcg-dialog-cancel-button');
-
-        if (!dialogTitle || !dialogMessage || !okButton || !cancelButton) {
-            console.error("Custom Dialog: Inner elements not found.");
-            return resolve(false);
-        }
+        if (!dialogTitle || !dialogMessage || !okButton || !cancelButton) return resolve(false);
 
         dialogTitle.textContent = title;
         dialogMessage.innerHTML = message;
@@ -188,7 +178,6 @@ window.showCustomDialog = function(title, message, isConfirm = false) {
                 resolve(false);
             }, { once: true });
         }
-
         overlay.style.display = 'flex';
         setTimeout(() => overlay.classList.add('show'), 10);
     });
@@ -199,7 +188,6 @@ function updateMenuIconsVisibility() {
     const menuIconsWrapper = menuContainer?.querySelector('.tcg-menu-icons-wrapper');
     const toggleButton = document.getElementById('tcg-menu-toggle-button');
     const toggleIcon = toggleButton?.querySelector('i');
-
     if (!menuContainer || !menuIconsWrapper || !toggleButton || !toggleIcon) return;
 
     if (window.TCG_ASSISTANT.isMenuIconsVisible) {
@@ -216,20 +204,14 @@ function updateMenuIconsVisibility() {
 function createRightSideMenuAndAttachListeners() {
     const menuContainer = document.getElementById('tcg-right-menu-container');
     if (!menuContainer) return;
-
     menuContainer.querySelectorAll('.tcg-menu-icon').forEach(iconButton => {
-        iconButton.addEventListener('click', (event) => {
-            const sectionId = event.currentTarget.dataset.section;
-            toggleContentArea(sectionId);
-        });
+        iconButton.addEventListener('click', (event) => toggleContentArea(event.currentTarget.dataset.section));
     });
-
     document.getElementById('tcg-menu-toggle-button').addEventListener('click', () => {
         window.TCG_ASSISTANT.isMenuIconsVisible = !window.TCG_ASSISTANT.isMenuIconsVisible;
         updateMenuIconsVisibility();
         browser.storage.local.set({ isMenuIconsVisible: window.TCG_ASSISTANT.isMenuIconsVisible });
     });
-
     browser.storage.local.get(['isMenuIconsVisible'], (result) => {
         window.TCG_ASSISTANT.isMenuIconsVisible = result.isMenuIconsVisible !== false;
         updateMenuIconsVisibility();
@@ -264,7 +246,6 @@ window.showSection = async function(sectionId) {
     if (!tcgSectionsWrapper) return;
 
     document.querySelectorAll('.tcg-section').forEach(s => s.classList.remove('active'));
-
     let targetSection = document.getElementById(`tcg-${sectionId}-section`);
     if (!targetSection) {
         targetSection = document.createElement('div');
@@ -279,7 +260,6 @@ window.showSection = async function(sectionId) {
         if (!response.ok) throw new Error(`HTML load failed: ${response.status}`);
         targetSection.innerHTML = await response.text();
     } catch (error) {
-        console.error(`Error loading section ${sectionId}:`, error);
         targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました。</p>`;
         targetSection.classList.add('active');
         return;
@@ -288,29 +268,26 @@ window.showSection = async function(sectionId) {
     const jsPath = `js/sections/${sectionId}.js`;
     const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}Section`;
 
-    if (!window.TCG_ASSISTANT._injectedSectionScripts.has(jsPath)) {
-        browser.runtime.sendMessage({
-            action: "injectSectionScript",
-            scriptPath: jsPath,
-            initFunctionName: initFunctionName
-        }, (response) => {
-            // Firefoxではレスポンスがうまく返らないことがあるため、エラーチェックのみ
-            if (browser.runtime.lastError) {
-                console.error(`Failed to inject script ${jsPath}:`, browser.runtime.lastError.message);
-                return;
-            }
-            window.TCG_ASSISTANT._injectedSectionScripts.add(jsPath);
-        });
-    } else {
+    // ★修正点: スクリプト注入と初期化のフローを改善
+    const injectAndInit = async () => {
         if (typeof window[initFunctionName] === 'function') {
-            try {
-                await window[initFunctionName]();
-            } catch (e) {
-                console.error(`Error re-initializing section ${sectionId}:`, e);
-            }
+            await window[initFunctionName]();
         } else {
             console.error(`Init function ${initFunctionName} not found.`);
         }
+    };
+
+    if (!window.TCG_ASSISTANT._injectedSectionScripts.has(jsPath)) {
+        browser.runtime.sendMessage({ action: "injectSectionScript", scriptPath: jsPath }, (response) => {
+            if (browser.runtime.lastError || !response?.success) {
+                console.error(`Failed to inject script ${jsPath}:`, browser.runtime.lastError?.message || response?.error);
+                return;
+            }
+            window.TCG_ASSISTANT._injectedSectionScripts.add(jsPath);
+            injectAndInit();
+        });
+    } else {
+        await injectAndInit();
     }
     targetSection.classList.add('active');
 };
@@ -324,7 +301,6 @@ async function injectUIIntoPage() {
         const response = await fetch(htmlPath);
         if (!response.ok) throw new Error('Failed to fetch index.html');
         uiContainer.innerHTML = await response.text();
-        // ★修正点: bodyの先頭に安全に挿入
         document.body.prepend(uiContainer);
         console.log("main.js: UI injected successfully.");
         createRightSideMenuAndAttachListeners();
@@ -351,7 +327,6 @@ function initializeExtensionFeatures() {
             resolve();
         } catch (error) {
             console.error("Features: Failed to load card data:", error);
-            // UI描画後にダイアログを表示するようにする
             setTimeout(() => window.showCustomDialog('エラー', `カードデータのロードに失敗しました: ${error.message}`), 500);
             reject(error);
         }

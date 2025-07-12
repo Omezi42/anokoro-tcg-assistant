@@ -1,10 +1,10 @@
-// js/sections/minigames.js - 修正版 v2.2
+// js/sections/minigames.js - 修正版 v2.3
 
 window.initMinigamesSection = async function() {
     // カードデータがロードされるまで待機
     try {
         await window.TCG_ASSISTANT.cardDataReady;
-        console.log("Minigames section initialized (v2.2). Card data is ready.");
+        console.log("Minigames section initialized (v2.3). Card data is ready.");
     } catch (error) {
         console.error("Minigames: Failed to wait for card data.", error);
         await window.showCustomDialog('エラー', 'クイズの初期化に必要なカードデータの読み込みに失敗しました。');
@@ -87,7 +87,6 @@ window.initMinigamesSection = async function() {
         for (let i = 0; i < maxAttempts; i++) {
             currentQuiz.card = window.TCG_ASSISTANT.allCards[Math.floor(Math.random() * window.TCG_ASSISTANT.allCards.length)];
             
-            // ★修正点: image_filenameではなく、nameプロパティを使用
             const cardFileName = currentQuiz.card.name;
             if (!cardFileName) {
                 console.warn(`Card has no name. Skipping.`);
@@ -109,7 +108,7 @@ window.initMinigamesSection = async function() {
         }
 
         if (!cardSelected) {
-            await window.showCustomDialog('エラー', 'クイズに必要な画像が利用可能なカードが見つかりませんでした。別のクイズを試すか、画像ファイルが正しく配置されているか確認してください。');
+            await window.showCustomDialog('エラー', 'クイズに必要な画像が利用可能なカードが見つかりませんでした。');
             resetQuiz();
             return;
         }
@@ -152,11 +151,10 @@ window.initMinigamesSection = async function() {
         const loadImage = (src) => new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => resolve(img);
-            img.onerror = (err) => reject(new Error(`Failed to load image at ${src}. Error: ${err}`));
+            img.onerror = (err) => reject(new Error(`Failed to load image at ${src}.`));
             img.src = src;
         });
 
-        // ★修正点: ファイル名にカード名を使用
         const baseImageUrl = browser.runtime.getURL(`images/cards/${cardFileName}.png`);
         currentQuiz.fullCardImage = await loadImage(baseImageUrl);
 
@@ -305,3 +303,6 @@ window.initMinigamesSection = async function() {
     
     resetQuiz();
 };
+
+// Firefoxでのスクリプト注入エラーを防ぐため、戻り値を明示的にundefinedにする
+void 0;

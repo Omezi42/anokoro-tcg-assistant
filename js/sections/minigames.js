@@ -1,10 +1,10 @@
-// js/sections/minigames.js - 修正版 v2.5
+// js/sections/minigames.js - 修正版 v2.6
 
 window.initMinigamesSection = async function() {
     // カードデータがロードされるまで待機
     try {
         await window.TCG_ASSISTANT.cardDataReady;
-        console.log("Minigames section initialized (v2.5). Card data is ready.");
+        console.log("Minigames section initialized (v2.6). Card data is ready.");
     } catch (error) {
         console.error("Minigames: Failed to wait for card data.", error);
         await window.showCustomDialog('エラー', 'クイズの初期化に必要なカードデータの読み込みに失敗しました。');
@@ -219,10 +219,6 @@ window.initMinigamesSection = async function() {
         }
     }
 
-    /**
-     * [修正] 拡大クイズの描画ロジック
-     * 拡大の中心を画像の中心から、上から20%の位置に変更しました。
-     */
     function drawEnlargedImage(ctx, img, attempt, destX, destY, destWidth, destHeight) {
         const displayRatioLevels = [0.02, 0.03, 0.05, 0.10, 0.15, 1.0];
         const displayRatio = displayRatioLevels[attempt] || 1.0;
@@ -230,14 +226,12 @@ window.initMinigamesSection = async function() {
         const sourceWidth = img.naturalWidth * displayRatio;
         const sourceHeight = img.naturalHeight * displayRatio;
         
-        // 拡大の中心を画像の中心から、上から20%の位置に設定
         const centerX = img.naturalWidth / 2;
-        const centerY = img.naturalHeight * 0.2; // 上から20%の位置
+        const centerY = img.naturalHeight * 0.2;
 
         let sourceX = centerX - (sourceWidth / 2);
         let sourceY = centerY - (sourceHeight / 2);
 
-        // クロップ領域が画像の範囲外に出ないように調整
         sourceX = Math.max(0, Math.min(sourceX, img.naturalWidth - sourceWidth));
         sourceY = Math.max(0, Math.min(sourceY, img.naturalHeight - sourceHeight));
 
@@ -305,16 +299,46 @@ window.initMinigamesSection = async function() {
         }
     }
 
+    /**
+     * [修正] クイズ終了時の画像表示ロジック
+     * 答えのカード画像を表示する際に、アスペクト比を維持して中央に表示するように修正。
+     */
     function endQuiz(isCorrect) {
         if (!quizAnswerInput || !quizSubmitButton || !quizNextButton || !quizAnswerDisplay || !quizResetButton) return;
         quizAnswerInput.disabled = true;
         quizSubmitButton.style.display = 'none';
         quizNextButton.style.display = 'none';
         quizAnswerDisplay.innerHTML = `正解は「<strong>${currentQuiz.card.name}</strong>」でした！`;
+
         if (currentQuiz.fullCardImage && quizCanvas) {
             const ctx = currentQuiz.quizCtx;
-            ctx.clearRect(0, 0, quizCanvas.width, quizCanvas.height);
-            ctx.drawImage(currentQuiz.fullCardImage, 0, 0, quizCanvas.width, quizCanvas.height);
+            const canvas = currentQuiz.quizCanvas;
+            const img = currentQuiz.fullCardImage;
+
+            // アスペクト比を計算
+            const canvasRatio = canvas.width / canvas.height;
+            const imgRatio = img.naturalWidth / img.naturalHeight;
+
+            let drawWidth, drawHeight, offsetX, offsetY;
+
+            // 画像がキャンバスに収まるようにサイズを計算（フィットさせる）
+            if (imgRatio > canvasRatio) {
+                // 画像がキャンバスより横長の場合
+                drawWidth = canvas.width;
+                drawHeight = drawWidth / imgRatio;
+                offsetX = 0;
+                offsetY = (canvas.height - drawHeight) / 2; // 上下中央に配置
+            } else {
+                // 画像がキャンバスより縦長（または同じ比率）の場合
+                drawHeight = canvas.height;
+                drawWidth = drawHeight * imgRatio;
+                offsetX = (canvas.width - drawWidth) / 2; // 左右中央に配置
+                offsetY = 0;
+            }
+
+            // キャンバスをクリアしてから画像を描画
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
         }
         quizResetButton.style.display = 'inline-block';
     }
@@ -335,7 +359,7 @@ window.initMinigamesSection = async function() {
     
     if (quizAnswerInput) {
         quizAnswerInput.removeEventListener('keypress', checkAnswer);
-        quizAnswerInput.addEventListener('keypress', e => e.key === 'Enter' && checkAnswer());
+        quizAnswerInput.addEventListener('keypress', e => { if (e.key === 'Enter') checkAnswer(); });
     }
     
     resetQuiz();

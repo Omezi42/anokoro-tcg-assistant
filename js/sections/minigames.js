@@ -1,10 +1,10 @@
-// js/sections/minigames.js - 修正版 v2.3
+// js/sections/minigames.js - 修正版 v2.4
 
 window.initMinigamesSection = async function() {
     // カードデータがロードされるまで待機
     try {
         await window.TCG_ASSISTANT.cardDataReady;
-        console.log("Minigames section initialized (v2.3). Card data is ready.");
+        console.log("Minigames section initialized (v2.4). Card data is ready.");
     } catch (error) {
         console.error("Minigames: Failed to wait for card data.", error);
         await window.showCustomDialog('エラー', 'クイズの初期化に必要なカードデータの読み込みに失敗しました。');
@@ -88,8 +88,8 @@ window.initMinigamesSection = async function() {
             currentQuiz.card = window.TCG_ASSISTANT.allCards[Math.floor(Math.random() * window.TCG_ASSISTANT.allCards.length)];
             
             const cardFileName = currentQuiz.card.name;
-            if (!cardFileName) {
-                console.warn(`Card has no name. Skipping.`);
+            if (!cardFileName || (type === 'cardName' && (!currentQuiz.card.info || currentQuiz.card.info.length === 0))) {
+                console.warn(`Card has no name or no hints. Skipping.`);
                 continue;
             }
 
@@ -108,7 +108,7 @@ window.initMinigamesSection = async function() {
         }
 
         if (!cardSelected) {
-            await window.showCustomDialog('エラー', 'クイズに必要な画像が利用可能なカードが見つかりませんでした。');
+            await window.showCustomDialog('エラー', 'クイズに適したカードが見つかりませんでした。');
             resetQuiz();
             return;
         }
@@ -117,6 +117,7 @@ window.initMinigamesSection = async function() {
         if (quizTitle) quizTitle.textContent = getQuizTitle(type);
 
         if (type === 'cardName') {
+            currentQuiz.hintIndex = 0;
             displayCardNameQuizHint();
         } else {
             if (quizImageArea) quizImageArea.style.display = 'flex';
@@ -135,18 +136,32 @@ window.initMinigamesSection = async function() {
         return titles[type] || 'ミニゲーム';
     }
 
+    /**
+     * [修正] カード名当てクイズのヒント表示ロジック
+     * 複数のヒントが一度に表示される問題を修正。
+     * これまでのヒントをすべて再構築して表示することで、一貫性を保ちます。
+     */
     function displayCardNameQuizHint() {
-        if (!currentQuiz.card || !quizHintArea || !quizNextButton) return;
-        if (currentQuiz.hintIndex < currentQuiz.card.info.length) {
-            quizHintArea.innerHTML += (currentQuiz.hintIndex > 0 ? '<br>' : '') + currentQuiz.card.info[currentQuiz.hintIndex];
-            currentQuiz.hintIndex++;
-            quizNextButton.style.display = 'none';
-        } else {
+        if (!currentQuiz.card || !quizHintArea) return;
+
+        let hintsHtml = '';
+        for (let i = 0; i <= currentQuiz.hintIndex; i++) {
+            if (currentQuiz.card.info[i]) {
+                hintsHtml += (i > 0 ? '<br>' : '') + currentQuiz.card.info[i];
+            }
+        }
+        quizHintArea.innerHTML = hintsHtml;
+
+        if (currentQuiz.hintIndex >= currentQuiz.card.info.length - 1) {
             quizHintArea.innerHTML += '<br><br>これ以上ヒントはありません。';
             endQuiz(false);
         }
     }
 
+    /**
+     * [修正] シルエットクイズの画像読み込みとアスペクト比計算
+     * イラスト部分の正しいアスペクト比を維持するように修正。
+     */
     async function loadImageForQuiz(cardFileName, quizType) {
         const loadImage = (src) => new Promise((resolve, reject) => {
             const img = new Image();
@@ -155,8 +170,11 @@ window.initMinigamesSection = async function() {
             img.src = src;
         });
 
+        let imageForSizing; // アスペクト比の計算に使用する画像
+
         const baseImageUrl = browser.runtime.getURL(`images/cards/${cardFileName}.png`);
         currentQuiz.fullCardImage = await loadImage(baseImageUrl);
+        imageForSizing = currentQuiz.fullCardImage; // デフォルトはカード全体の画像
 
         if (quizType === 'silhouette') {
             const transImageUrl = browser.runtime.getURL(`images/cards/${cardFileName}_transparent.png`);
@@ -165,12 +183,14 @@ window.initMinigamesSection = async function() {
                 loadImage(transImageUrl),
                 loadImage(illustImageUrl)
             ]);
+            // シルエットクイズでは、イラスト画像のいずれかを使用してアスペクト比を決定
+            imageForSizing = currentQuiz.illustrationImage || currentQuiz.transparentIllustrationImage;
         }
         
-        if(quizCanvas && currentQuiz.fullCardImage.naturalWidth > 0) {
+        if(quizCanvas && imageForSizing && imageForSizing.naturalWidth > 0) {
             const parentWidth = quizImageArea.clientWidth > 0 ? quizImageArea.clientWidth : 400;
             const parentHeight = quizImageArea.clientHeight > 0 ? quizImageArea.clientHeight : 300;
-            const aspectRatio = currentQuiz.fullCardImage.naturalWidth / currentQuiz.fullCardImage.naturalHeight;
+            const aspectRatio = imageForSizing.naturalWidth / imageForSizing.naturalHeight;
             let drawWidth = parentWidth;
             let drawHeight = parentWidth / aspectRatio;
             if (drawHeight > parentHeight) {
@@ -180,6 +200,7 @@ window.initMinigamesSection = async function() {
             quizCanvas.width = drawWidth;
             quizCanvas.height = drawHeight;
 
+            // モザイククイズ用に、カード全体の画像データを保持
             const offscreenCanvas = document.createElement('canvas');
             offscreenCanvas.width = currentQuiz.fullCardImage.naturalWidth;
             offscreenCanvas.height = currentQuiz.fullCardImage.naturalHeight;
@@ -209,13 +230,21 @@ window.initMinigamesSection = async function() {
         }
     }
 
+    /**
+     * [修正] 拡大クイズの描画ロジックと拡大率
+     * 拡大率を「2%, 3%, 5%, 10%, 15%」の順に変更。
+     * 表示領域の割合（displayRatio）として扱い、小さいほど拡大率が高い（ズームイン）状態になります。
+     */
     function drawEnlargedImage(ctx, img, attempt, destX, destY, destWidth, destHeight) {
-        const zoomLevels = [0.05, 0.1, 0.2, 0.4, 0.7, 1.0];
-        const zoom = zoomLevels[attempt] || 1.0;
-        const sourceSize = Math.min(img.naturalWidth, img.naturalHeight) * (1.0 - zoom * 0.9);
-        const sourceX = (img.naturalWidth - sourceSize) / 2;
-        const sourceY = (img.naturalHeight - sourceSize) / 2;
-        ctx.drawImage(img, sourceX, sourceY, sourceSize, sourceSize, destX, destY, destWidth, destHeight);
+        const displayRatioLevels = [0.02, 0.03, 0.05, 0.10, 0.15, 1.0];
+        const displayRatio = displayRatioLevels[attempt] || 1.0;
+        
+        const sourceWidth = img.naturalWidth * displayRatio;
+        const sourceHeight = img.naturalHeight * displayRatio;
+        const sourceX = (img.naturalWidth - sourceWidth) / 2;
+        const sourceY = (img.naturalHeight - sourceHeight) / 2;
+
+        ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight);
     }
 
     function drawSilhouetteImage(ctx, bgImg, transImg, canvasWidth, canvasHeight) {
@@ -231,9 +260,13 @@ window.initMinigamesSection = async function() {
         ctx.drawImage(offscreenCanvas, 0, 0);
     }
 
+    /**
+     * [修正] モザイククイズの難易度調整
+     * モザイクのピクセルサイズを大きくして、初期状態をより難しくしました。
+     */
     function drawMosaicImage(ctx, originalData, attempt, destX, destY, destWidth, destHeight) {
         if (!originalData) return;
-        const pixelSizeLevels = [64, 32, 16, 8, 4, 1];
+        const pixelSizeLevels = [128, 80, 48, 24, 8, 1];
         const pixelSize = pixelSizeLevels[attempt] || 1;
         const originalWidth = originalData.width;
         const originalHeight = originalData.height;
@@ -267,6 +300,7 @@ window.initMinigamesSection = async function() {
             quizResultArea.className = 'quiz-result-area incorrect';
             currentQuiz.attemptCount++;
             if (currentQuiz.type === 'cardName') {
+                currentQuiz.hintIndex++;
                 displayCardNameQuizHint();
             } else {
                 if (currentQuiz.attemptCount < 5) {
@@ -292,14 +326,25 @@ window.initMinigamesSection = async function() {
         quizResetButton.style.display = 'inline-block';
     }
 
-    const addClickListener = (id, handler) => document.getElementById(id)?.addEventListener('click', handler);
+    const addClickListener = (id, handler) => {
+        const element = document.getElementById(id);
+        if (element) {
+            // イベントリスナーの重複を防ぐため、一度削除してから追加
+            element.removeEventListener('click', handler);
+            element.addEventListener('click', handler);
+        }
+    };
     addClickListener('quiz-card-name', () => startQuiz('cardName'));
     addClickListener('quiz-illustration-enlarge', () => startQuiz('enlarge'));
     addClickListener('quiz-illustration-silhouette', () => startQuiz('silhouette'));
     addClickListener('quiz-illustration-mosaic', () => startQuiz('mosaic'));
     addClickListener('quiz-submit-button', checkAnswer);
     addClickListener('quiz-reset-button', resetQuiz);
-    quizAnswerInput?.addEventListener('keypress', e => e.key === 'Enter' && checkAnswer());
+    
+    if (quizAnswerInput) {
+        quizAnswerInput.removeEventListener('keypress', checkAnswer);
+        quizAnswerInput.addEventListener('keypress', e => e.key === 'Enter' && checkAnswer());
+    }
     
     resetQuiz();
 };

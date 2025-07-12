@@ -1,5 +1,5 @@
-// js/main.js (コンテンツスクリプトのメインファイル) - 安定化版 v3.3
-console.log("main.js: Script loaded (v3.3).");
+// js/main.js (コンテンツスクリプトのメインファイル) - 安定化版 v3.8
+console.log("main.js: Script loaded (v3.8).");
 
 // FontAwesome（アイコン表示用）のスタイルシートをページに注入
 const fontAwesomeLink = document.createElement('link');
@@ -33,17 +33,6 @@ class TcgAssistantApp extends EventTarget {
         this.isSidebarOpen = false;
         this.isMenuIconsVisible = true;
         this._injectedSectionScripts = new Set();
-
-        // [★修正] 初期ログイン処理の完了を管理するPromise
-        this._initialLoginResolved = false;
-        this.initialLoginPromise = new Promise(resolve => {
-            this._resolveInitialLogin = () => {
-                if (!this._initialLoginResolved) {
-                    this._initialLoginResolved = true;
-                    resolve();
-                }
-            };
-        });
     }
 
     sendWsMessage(payload) {
@@ -59,10 +48,8 @@ class TcgAssistantApp extends EventTarget {
                 ws.send(JSON.stringify(payload));
             }, { once: true });
         } else {
-            console.error("WS connection not available. Re-connecting...");
-            connectWebSocket(); // 再接続を試みる
-            // 再接続後にメッセージを送信するために、少し待ってから再試行する
-            setTimeout(() => this.sendWsMessage(payload), 1000);
+            console.error("WS connection not available. The app will try to reconnect automatically.");
+            connectWebSocket();
         }
     }
 }
@@ -73,18 +60,21 @@ console.log("main.js: TCG_ASSISTANT namespace initialized.");
 // --- WebSocket通信 ---
 const RENDER_WS_URL = 'wss://anokoro-tcg-api.onrender.com';
 let reconnectTimer = null;
+let isConnecting = false;
 
 function connectWebSocket() {
-    if (window.TCG_ASSISTANT.ws && (window.TCG_ASSISTANT.ws.readyState === WebSocket.OPEN || window.TCG_ASSISTANT.ws.readyState === WebSocket.CONNECTING)) {
+    if (isConnecting || (window.TCG_ASSISTANT.ws && window.TCG_ASSISTANT.ws.readyState === WebSocket.OPEN)) {
         return;
     }
     if (reconnectTimer) clearTimeout(reconnectTimer);
 
     console.log("WebSocket: Attempting to connect...");
+    isConnecting = true;
     const ws = new WebSocket(RENDER_WS_URL);
     window.TCG_ASSISTANT.ws = ws;
 
     ws.onopen = () => {
+        isConnecting = false;
         console.log("WebSocket: Connection established.");
         browser.storage.local.get(['loggedInUserId', 'loggedInUsername'], (result) => {
             if (result.loggedInUserId && result.loggedInUsername) {
@@ -94,13 +84,13 @@ function connectWebSocket() {
                     username: result.loggedInUsername
                 });
             } else {
-                // ログイン情報がない場合、即座にログアウト状態を確定させる
                 window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout'));
             }
         });
     };
 
     ws.onclose = (event) => {
+        isConnecting = false;
         console.log(`WebSocket: Connection closed. Code: ${event.code}, Reason: ${event.reason}`);
         if (event.code !== 1000) { 
             if (window.TCG_ASSISTANT.ws === ws) { 
@@ -108,15 +98,11 @@ function connectWebSocket() {
                 reconnectTimer = setTimeout(connectWebSocket, 5000);
             }
         }
-        // 接続が閉じた時点でログイン状態は不確定になるため、Promiseを解決
-        window.TCG_ASSISTANT._resolveInitialLogin();
     };
 
     ws.onerror = (error) => {
+        isConnecting = false;
         console.error("WebSocket: A connection error occurred.", error);
-        window.showCustomDialog('接続エラー', 'サーバーとの接続中にエラーが発生しました。');
-        // エラー時もPromiseを解決して、アプリが待機し続けるのを防ぐ
-        window.TCG_ASSISTANT._resolveInitialLogin();
     };
     
     ws.onmessage = (event) => {
@@ -140,7 +126,6 @@ const handleLoginResponse = (e) => {
     }
 };
 
-// [★修正] ユーザー情報更新の応答もここで処理
 window.TCG_ASSISTANT.addEventListener('ws-login_response', handleLoginResponse);
 window.TCG_ASSISTANT.addEventListener('ws-auto_login_response', handleLoginResponse);
 window.TCG_ASSISTANT.addEventListener('ws-user_update_response', handleLoginResponse); 
@@ -167,9 +152,8 @@ window.TCG_ASSISTANT.addEventListener('loginSuccess', (e) => {
     if (persistableTypes.includes(data.type)) {
         browser.storage.local.set({ loggedInUserId: userData.userId, loggedInUsername: userData.username });
     }
+    // [★修正] ログイン状態が変更されたことをブロードキャストする
     window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginStateChanged', { detail: { isLoggedIn: true } }));
-    // [★修正] ログイン成功時にPromiseを解決
-    window.TCG_ASSISTANT._resolveInitialLogin();
 });
 
 window.TCG_ASSISTANT.addEventListener('loginFail', (e) => {
@@ -177,11 +161,10 @@ window.TCG_ASSISTANT.addEventListener('loginFail', (e) => {
         window.showCustomDialog('認証失敗', e.detail.message || 'ログインに失敗しました。');
     }
     window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout'));
-    // [★修正] ログイン失敗時にもPromiseを解決
-    window.TCG_ASSISTANT._resolveInitialLogin();
 });
 
 window.TCG_ASSISTANT.addEventListener('logout', (e) => {
+    const wasLoggedIn = window.TCG_ASSISTANT.isLoggedIn;
     if (e?.detail?.message && window.TCG_ASSISTANT.isSidebarOpen) {
          window.showCustomDialog('ログアウト', e.detail.message);
     }
@@ -191,9 +174,9 @@ window.TCG_ASSISTANT.addEventListener('logout', (e) => {
         userBattleRecords: [], userRegisteredDecks: []
     });
     browser.storage.local.remove(['loggedInUserId', 'loggedInUsername']);
-    window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginStateChanged', { detail: { isLoggedIn: false } }));
-    // [★修正] ログアウト時にもPromiseを解決
-    window.TCG_ASSISTANT._resolveInitialLogin();
+    if (wasLoggedIn) {
+        window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginStateChanged', { detail: { isLoggedIn: false } }));
+    }
 });
 
 
@@ -294,6 +277,7 @@ window.toggleContentArea = function(sectionId, forceOpen = false) {
     browser.storage.local.set({ isSidebarOpen: window.TCG_ASSISTANT.isSidebarOpen, activeSection: sectionId });
 };
 
+// [★修正] セクション表示のロジックを修正
 window.showSection = async function(sectionId) {
     const tcgSectionsWrapper = document.getElementById('tcg-sections-wrapper');
     if (!tcgSectionsWrapper) return;
@@ -301,6 +285,7 @@ window.showSection = async function(sectionId) {
     document.querySelectorAll('.tcg-section').forEach(s => s.classList.remove('active'));
     
     let targetSection = document.getElementById(`tcg-${sectionId}-section`);
+
     if (!targetSection) {
         targetSection = document.createElement('div');
         targetSection.id = `tcg-${sectionId}-section`;
@@ -308,46 +293,49 @@ window.showSection = async function(sectionId) {
         tcgSectionsWrapper.appendChild(targetSection);
     }
 
-    if (!targetSection.innerHTML) {
+    const initSection = (initFunctionName) => {
+        if (typeof window[initFunctionName] === 'function') {
+            window[initFunctionName]();
+        } else {
+            console.error(`Init function ${initFunctionName} not found.`);
+        }
+    };
+
+    const jsPath = `js/sections/${sectionId}.js`;
+    const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}Section`;
+    
+    // HTMLがなければ読み込む
+    if (!targetSection.hasChildNodes()) {
         try {
             const htmlPath = browser.runtime.getURL(`html/sections/${sectionId}.html`);
             const response = await fetch(htmlPath);
             if (!response.ok) throw new Error(`HTML load failed: ${response.status}`);
             targetSection.innerHTML = await response.text();
-        } catch (error) {
-            targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました。</p>`;
-        }
-    }
-
-    const jsPath = `js/sections/${sectionId}.js`;
-    const initFunctionName = `init${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}Section`;
-
-    const injectAndInit = async () => {
-        try {
-            if (typeof window[initFunctionName] === 'function') {
-                await window[initFunctionName]();
+            
+            // HTML読み込み後にJSを注入して初期化
+            if (!window.TCG_ASSISTANT._injectedSectionScripts.has(jsPath)) {
+                const script = document.createElement('script');
+                script.src = browser.runtime.getURL(jsPath);
+                script.onload = () => {
+                    window.TCG_ASSISTANT._injectedSectionScripts.add(jsPath);
+                    initSection(initFunctionName);
+                };
+                document.head.appendChild(script);
             } else {
-                console.error(`Init function ${initFunctionName} not found.`);
+                initSection(initFunctionName);
             }
-        } catch(e) {
-            console.error(`Error initializing section ${sectionId}:`, e);
-        }
-    };
 
-    if (!window.TCG_ASSISTANT._injectedSectionScripts.has(jsPath)) {
-        browser.runtime.sendMessage({ action: "injectSectionScript", scriptPath: jsPath }, (response) => {
-            if (browser.runtime.lastError || (response && !response.success)) {
-                console.error(`Failed to inject script ${jsPath}:`, browser.runtime.lastError?.message || response?.error);
-                return;
-            }
-            window.TCG_ASSISTANT._injectedSectionScripts.add(jsPath);
-            injectAndInit();
-        });
+        } catch (error) {
+            targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました: ${error.message}</p>`;
+        }
     } else {
-        await injectAndInit();
+        // 既にHTMLとJSがある場合は、初期化関数を再実行してUIを更新
+        initSection(initFunctionName);
     }
+    
     targetSection.classList.add('active');
 };
+
 
 // --- 初期化処理 ---
 async function injectUIIntoPage() {

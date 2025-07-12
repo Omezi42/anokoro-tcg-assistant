@@ -1,12 +1,11 @@
-// js/sections/rateMatch.js (レート戦セクションのロジック) - 安定化版 v3.5
+// js/sections/rateMatch.js (レート戦セクションのロジック) - 安定化版 v3.8
 
 // 初期化済みフラグ
 let rateMatchInitialized = false;
-// UIの状態を追跡する変数
 let lastKnownLoginState = false;
 
-window.initRateMatchSection = async function() {
-    console.log("RateMatch section initialized (v3.5).");
+window.initRateMatchSection = function() {
+    console.log("RateMatch section initialized (v3.8).");
 
     if (typeof browser === 'undefined') { var browser = chrome; }
 
@@ -43,54 +42,38 @@ window.initRateMatchSection = async function() {
         const assistant = window.TCG_ASSISTANT;
         const isLoggedIn = assistant.isLoggedIn;
 
-        console.log("updateUIState called. isLoggedIn:", isLoggedIn, "lastKnownLoginState:", lastKnownLoginState);
+        console.log("updateUIState called. isLoggedIn:", isLoggedIn);
 
-        if (!authSection || !loggedInUi) {
-            console.error("Rate Match UI elements not found!");
-            return;
-        }
+        if (!authSection || !loggedInUi) return;
 
-        // ログイン状態が変化した瞬間にポップアップを表示
         if (isLoggedIn && !lastKnownLoginState) {
             window.showCustomDialog('ログイン成功', 'ようこそ！レート戦のマッチングが利用可能です。');
         }
-        lastKnownLoginState = isLoggedIn; // 現在のログイン状態を保存
+        lastKnownLoginState = isLoggedIn;
 
-        // メインのUI表示/非表示を切り替え
         authSection.style.display = isLoggedIn ? 'none' : 'block';
         loggedInUi.style.display = isLoggedIn ? 'block' : 'none';
 
         if (isLoggedIn) {
-            // ログインしている場合、詳細なユーザー情報を更新
             displayNameDisplay.textContent = assistant.currentDisplayName || assistant.currentUsername;
             newDisplayNameInput.value = assistant.currentDisplayName || assistant.currentUsername;
             rateDisplay.textContent = assistant.currentRate;
             matchHistoryList.innerHTML = (assistant.userMatchHistory || []).map(r => `<li>${r}</li>`).join('') || '<li>対戦履歴はありません。</li>';
             
-            // [★修正] CSSと連携するため、クラスを付け替える方式に変更
             const isMatching = matchingStatusDiv.dataset.isMatching === 'true';
             loggedInUi.classList.remove('state-pre-match', 'state-matching', 'state-in-match');
 
             if (currentMatchId) {
-                // 対戦中
                 loggedInUi.classList.add('state-in-match');
                 opponentUsernameDisplay.textContent = opponentDisplayName || '不明';
             } else if (isMatching) {
-                // マッチング中
                 loggedInUi.classList.add('state-matching');
             } else {
-                // マッチング前
                 loggedInUi.classList.add('state-pre-match');
             }
         }
     };
     
-    // 初期化済みの場合、UI更新のみで終了
-    if (rateMatchInitialized) {
-        window.TCG_ASSISTANT.initialLoginPromise.then(updateUIState);
-        return;
-    }
-
     // グローバルなWebSocket送信関数へのショートカット
     const sendWsMessage = window.TCG_ASSISTANT.sendWsMessage.bind(window.TCG_ASSISTANT);
     
@@ -98,9 +81,7 @@ window.initRateMatchSection = async function() {
     const setupPeerConnection = () => {
         if (peerConnection) peerConnection.close();
         peerConnection = new RTCPeerConnection(iceServers);
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate) sendWsMessage({ type: 'webrtc_signal', to: opponentPlayerId, data: { type: 'ice_candidate', candidate: event.candidate } });
-        };
+        peerConnection.onicecandidate = (event) => { if (event.candidate) sendWsMessage({ type: 'webrtc_signal', to: opponentPlayerId, data: { type: 'ice_candidate', candidate: event.candidate } }); };
         peerConnection.onconnectionstatechange = () => { if (webrtcConnectionStatus) webrtcConnectionStatus.textContent = peerConnection.connectionState; };
         peerConnection.ondatachannel = (event) => { dataChannel = event.channel; setupDataChannelListeners(dataChannel); };
     };
@@ -224,7 +205,6 @@ window.initRateMatchSection = async function() {
     addListener('cancel-button', 'click', onReportResultClick);
     addListener('refresh-ranking-button', 'click', onRefreshRanking);
 
-    // グローバルイベントのリスナー設定 (重複を避けるため一度だけ設定)
     if (!rateMatchInitialized) {
         assistant.addEventListener('loginStateChanged', updateUIState);
         assistant.addEventListener('ws-match_found', handleMatchFound);
@@ -236,15 +216,11 @@ window.initRateMatchSection = async function() {
     }
     
     // --- 初期化 ---
-    const initializeView = async () => {
-        await window.TCG_ASSISTANT.initialLoginPromise;
-        updateUIState();
-        if (window.TCG_ASSISTANT.isLoggedIn) {
-            sendWsMessage({ type: 'get_ranking' });
-        }
-    };
-
-    initializeView();
+    updateUIState();
+    if (window.TCG_ASSISTANT.isLoggedIn) {
+        sendWsMessage({ type: 'get_ranking' });
+    }
+    
     rateMatchInitialized = true;
 };
 

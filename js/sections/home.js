@@ -62,15 +62,14 @@ window.initHomeSection = async function() {
     };
 
     // === イベントリスナー設定 ===
-    // DOM要素へのイベントリスナー
     homeLoginButton?.addEventListener('click', onHomeLoginButtonClick);
     homeLogoutButton?.addEventListener('click', onHomeLogoutButtonClick);
 
-    // グローバルなTCG_ASSISTANTオブジェクトへのイベントリスナー
-    // ログイン状態が変更されたらUIを更新する
     window.TCG_ASSISTANT.addEventListener('loginStateChanged', updateLoginStatusUI);
 
     // --- 初期化処理 ---
-    // セクションが表示されたときに現在の状態でUIを即時更新
     updateLoginStatusUI();
 };
+
+// Firefoxでのスクリプト注入エラーを防ぐため、戻り値を明示的にundefinedにする
+void 0;

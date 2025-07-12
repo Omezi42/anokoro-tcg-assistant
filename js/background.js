@@ -1,4 +1,4 @@
-// background.js (バックグラウンドスクリプト) - 修正版 v2.2
+// background.js (バックグラウンドスクリプト) - 修正版 v2.3
 
 if (typeof browser === 'undefined') {
     var browser = chrome;
@@ -11,32 +11,19 @@ browser.runtime.onInstalled.addListener(() => {
 browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "injectSectionScript") {
       if (sender.tab && sender.tab.id && request.scriptPath) {
-          // ★修正点: Manifest V3のscripting APIを優先的に使用する
-          if (browser.scripting && browser.scripting.executeScript) {
-              browser.scripting.executeScript({
-                  target: { tabId: sender.tab.id },
-                  files: [request.scriptPath]
-              }).then(() => {
-                  console.log(`Background (V3): Injected ${request.scriptPath} successfully.`);
-                  sendResponse({ success: true });
-              }).catch(error => {
-                  console.error(`Background (V3): Failed to inject ${request.scriptPath}.`, error);
-                  sendResponse({ success: false, error: error.message });
-              });
-          } else {
-              // Manifest V2 (tabs.executeScript) へのフォールバック
-              browser.tabs.executeScript(sender.tab.id, {
-                  file: request.scriptPath
-              }, () => {
-                  if (browser.runtime.lastError) {
-                      console.error(`Background (V2): Failed to inject ${request.scriptPath}.`, browser.runtime.lastError.message);
-                      sendResponse({ success: false, error: browser.runtime.lastError.message });
-                  } else {
-                      console.log(`Background (V2): Injected ${request.scriptPath} successfully.`);
-                      sendResponse({ success: true });
-                  }
-              });
-          }
+          // ★修正点: Firefoxでのエラーを回避するため、browser.tabs.executeScriptを優先的に使用する
+          // Manifest V3のscripting APIはここでは考慮せず、Firefox (MV2)で安定動作するコードに絞る
+          browser.tabs.executeScript(sender.tab.id, {
+              file: request.scriptPath
+          }).then(results => {
+              // 成功した場合でも、results[0]が複雑なオブジェクトだとエラーになることがあるため、
+              // シンプルな成功応答を返す。
+              console.log(`Background (V2/Firefox): Injected ${request.scriptPath} successfully.`);
+              sendResponse({ success: true });
+          }).catch(error => {
+              console.error(`Background (V2/Firefox): Failed to inject ${request.scriptPath}.`, error);
+              sendResponse({ success: false, error: error.message });
+          });
       } else {
           sendResponse({ success: false, error: "Invalid parameters for script injection." });
       }

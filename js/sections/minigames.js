@@ -227,7 +227,7 @@ window.initMinigamesSection = async function() {
         const sourceHeight = img.naturalHeight * displayRatio;
         
         const centerX = img.naturalWidth / 2;
-        const centerY = img.naturalHeight * 0.2;
+        const centerY = img.naturalHeight * 0.25;
 
         let sourceX = centerX - (sourceWidth / 2);
         let sourceY = centerY - (sourceHeight / 2);

@@ -10,49 +10,82 @@ window.initRateMatchSection = async function() {
     }
 
     // === DOM要素の取得 ===
+    // 各要素の取得とログ出力で存在確認
     const matchingButton = document.getElementById('matching-button');
-    const cancelMatchingButtonInStatus = document.getElementById('cancel-matching-button-in-status'); // マッチング待機中のキャンセルボタン
+    console.log("RateMatch: matchingButton:", matchingButton);
+    const cancelMatchingButtonInStatus = document.getElementById('cancel-matching-button-in-status');
+    console.log("RateMatch: cancelMatchingButtonInStatus:", cancelMatchingButtonInStatus);
     const matchingStatusDiv = document.getElementById('matching-status');
-    const matchingStatusTextSpan = document.getElementById('matching-status-text'); // マッチングステータステキスト表示用
+    console.log("RateMatch: matchingStatusDiv:", matchingStatusDiv);
+    const matchingStatusTextSpan = document.getElementById('matching-status-text');
+    console.log("RateMatch: matchingStatusTextSpan:", matchingStatusTextSpan);
     const preMatchUiDiv = document.getElementById('pre-match-ui');
+    console.log("RateMatch: preMatchUiDiv:", preMatchUiDiv);
     const postMatchUiDiv = document.getElementById('post-match-ui');
+    console.log("RateMatch: postMatchUiDiv:", postMatchUiDiv);
     const matchHistoryList = document.getElementById('match-history-list');
+    console.log("RateMatch: matchHistoryList:", matchHistoryList);
 
     const chatInput = document.getElementById('chat-input');
+    console.log("RateMatch: chatInput:", chatInput);
     const sendChatButton = document.getElementById('send-chat-button');
+    console.log("RateMatch: sendChatButton:", sendChatButton);
     const chatMessagesDiv = document.getElementById('chat-messages');
+    console.log("RateMatch: chatMessagesDiv:", chatMessagesDiv);
     const chatPhraseButtons = document.querySelectorAll('.chat-phrase-button');
+    console.log("RateMatch: chatPhraseButtons count:", chatPhraseButtons.length);
 
     const winButton = document.getElementById('win-button');
+    console.log("RateMatch: winButton:", winButton);
     const loseButton = document.getElementById('lose-button');
+    console.log("RateMatch: loseButton:", loseButton);
     const cancelButton = document.getElementById('cancel-button');
+    console.log("RateMatch: cancelButton:", cancelButton);
 
     const rateDisplay = document.getElementById('rate-display');
-    const usernameDisplay = document.getElementById('username-display'); // ユーザー名表示要素
+    console.log("RateMatch: rateDisplay:", rateDisplay);
+    const usernameDisplay = document.getElementById('display-name-display'); // ユーザー名表示要素
+    console.log("RateMatch: usernameDisplay (display-name-display):", usernameDisplay);
 
     // --- 認証UI要素 ---
     const authSection = document.getElementById('auth-section');
+    console.log("RateMatch: authSection:", authSection);
     const loggedInUi = document.getElementById('logged-in-ui');
+    console.log("RateMatch: loggedInUi:", loggedInUi);
     const registerUsernameInput = document.getElementById('register-username');
+    console.log("RateMatch: registerUsernameInput:", registerUsernameInput);
     const registerPasswordInput = document.getElementById('register-password');
+    console.log("RateMatch: registerPasswordInput:", registerPasswordInput);
     const registerButton = document.getElementById('register-button');
+    console.log("RateMatch: registerButton:", registerButton);
     const loginUsernameInput = document.getElementById('login-username');
+    console.log("RateMatch: loginUsernameInput:", loginUsernameInput);
     const loginPasswordInput = document.getElementById('login-password');
+    console.log("RateMatch: loginPasswordInput:", loginPasswordInput);
     const loginButton = document.getElementById('login-button');
+    console.log("RateMatch: loginButton:", loginButton);
     const logoutButton = document.getElementById('logout-button');
+    console.log("RateMatch: logoutButton:", logoutButton);
 
     // --- 表示名変更UI要素 ---
     const newDisplayNameInput = document.getElementById('new-display-name-input');
+    console.log("RateMatch: newDisplayNameInput:", newDisplayNameInput);
     const updateDisplayNameButton = document.getElementById('update-display-name-button');
+    console.log("RateMatch: updateDisplayNameButton:", updateDisplayNameButton);
 
     // --- 対戦相手情報UI要素 ---
     const opponentUsernameDisplay = document.getElementById('opponent-username-display');
+    console.log("RateMatch: opponentUsernameDisplay:", opponentUsernameDisplay);
     const webrtcConnectionStatus = document.getElementById('webrtc-connection-status');
+    console.log("RateMatch: webrtcConnectionStatus:", webrtcConnectionStatus);
 
     // --- ランキングUI要素 ---
-    const rankingDisplayDiv = document.getElementById('ranking-display'); // ランキング表示用div (親要素)
-    const rankingList = document.getElementById('ranking-list'); // ランキングol要素
-    const refreshRankingButton = document.getElementById('refresh-ranking-button'); // ランキング更新ボタン
+    const rankingDisplayDiv = document.getElementById('ranking-display');
+    console.log("RateMatch: rankingDisplayDiv:", rankingDisplayDiv);
+    const rankingList = document.getElementById('ranking-list');
+    console.log("RateMatch: rankingList:", rankingList);
+    const refreshRankingButton = document.getElementById('refresh-ranking-button');
+    console.log("RateMatch: refreshRankingButton:", refreshRankingButton);
 
 
     // グローバルなログイン状態変数 (main.jsで初期化され、ここで参照・更新される)
@@ -65,7 +98,7 @@ window.initRateMatchSection = async function() {
 
     // --- WebSocket & WebRTC 関連変数 ---
     // RenderサーバーのWebSocket URLに置き換える必要があります！
-    const RENDER_WS_URL = 'wss://anokoro-tcg-backend-production.onrender.com'; // ★★★ ここをあなたのRenderのURLに置き換える ★★★
+    const RENDER_WS_URL = 'wss://anokoro-tcg-api.onrender.com'; // ★★★ ここをあなたのRenderのURLに置き換える ★★★
 
     let peerConnection = null; // WebRTC PeerConnectionインスタンス
     let dataChannel = null; // WebRTC DataChannelインスタンス
@@ -87,6 +120,8 @@ window.initRateMatchSection = async function() {
      * ログイン状態、マッチング状態に応じてUIを切り替える
      */
     const updateUIState = () => {
+        console.log(`RateMatch: updateUIState called. currentUserId: ${window.currentUserId}, currentMatchId: ${currentMatchId}`);
+
         // ログイン状態に応じて認証UIとメインUIを切り替え
         if (window.currentUserId && window.currentDisplayName) { // 表示名でチェック
             if (authSection) authSection.style.display = 'none';
@@ -94,14 +129,16 @@ window.initRateMatchSection = async function() {
             if (usernameDisplay) usernameDisplay.textContent = window.currentDisplayName; // 表示名を表示
             if (logoutButton) logoutButton.style.display = 'block'; // ログアウトボタンを表示
             if (newDisplayNameInput) newDisplayNameInput.value = window.currentDisplayName; // 表示名入力欄に現在の値をセット
+            console.log("RateMatch: UI State: Logged In. Displaying loggedInUi.");
         } else {
             if (authSection) authSection.style.display = 'block';
             if (loggedInUi) loggedInUi.style.display = 'none';
             if (logoutButton) logoutButton.style.display = 'none'; // ログアウトボタンを非表示
+            console.log("RateMatch: UI State: Not Logged In. Displaying authSection.");
         }
 
-        // マッチング状態に応じてレート戦UIを切り替え
-        if (window.currentUserId && window.currentDisplayName) { // ログインしている場合のみ
+        // マッチング状態に応じてレート戦UIを切り替え (ログインしている場合のみ意味がある)
+        if (window.currentUserId && window.currentDisplayName) {
             if (currentMatchId) { // マッチング成立後
                 if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
                 if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
@@ -122,6 +159,7 @@ window.initRateMatchSection = async function() {
                 // チャット入力と送信ボタンの有効化はDataChannelオープン時に行う
                 if (chatInput) chatInput.disabled = true;
                 if (sendChatButton) sendChatButton.disabled = true;
+                console.log("RateMatch: UI State: Match Active. Displaying postMatchUiDiv.");
 
             } else if (matchingStatusDiv && matchingStatusDiv.style.display === 'flex') { // マッチング待機中
                 // マッチングボタンを押した直後にこの状態になる
@@ -130,6 +168,7 @@ window.initRateMatchSection = async function() {
                 if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
                 if (matchingButton) matchingButton.disabled = true; // マッチング中は無効
                 if (cancelMatchingButtonInStatus) cancelMatchingButtonInStatus.disabled = false; // キャンセルボタンは有効
+                console.log("RateMatch: UI State: Matching Pending. Displaying matchingStatusDiv.");
             }
             else { // マッチング前 (デフォルト状態)
                 if (preMatchUiDiv) preMatchUiDiv.style.display = 'block';
@@ -137,15 +176,15 @@ window.initRateMatchSection = async function() {
                 if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
                 if (matchingButton) matchingButton.disabled = false; // マッチングボタンを有効
                 if (cancelMatchingButtonInStatus) cancelMatchingButtonInStatus.disabled = true; // キャンセルボタンは無効
+                console.log("RateMatch: UI State: Pre-Match. Displaying preMatchUiDiv.");
             }
             if (chatMessagesDiv) chatMessagesDiv.dataset.initialized = 'false'; // チャットエリアの初期化フラグリセット
         } else { // 未ログインの場合、すべてのマッチングUIを非表示
-            if (authSection) authSection.style.display = 'block';
-            if (loggedInUi) loggedInUi.style.display = 'none';
             if (preMatchUiDiv) preMatchUiDiv.style.display = 'none';
             if (matchingStatusDiv) matchingStatusDiv.style.display = 'none';
             if (postMatchUiDiv) postMatchUiDiv.style.display = 'none';
             if (chatMessagesDiv) chatMessagesDiv.dataset.initialized = 'false'; // リセット
+            console.log("RateMatch: UI State: Not Logged In, Hiding all match UIs.");
         }
         updateRateDisplay(); // レート表示を更新
         loadMatchHistory(); // ログイン状態に応じて履歴をロード
@@ -494,7 +533,7 @@ window.initRateMatchSection = async function() {
         };
 
         window.ws.onclose = () => {
-            console.log("WebSocket: Disconnected.");
+            console.log("WebSocket disconnected.");
             // ログアウト状態にはしないが、マッチング関連の状態はリセット
             clearMatchAndP2PConnection();
             updateUIState();
@@ -503,7 +542,7 @@ window.initRateMatchSection = async function() {
         };
 
         window.ws.onerror = (error) => {
-            console.error("WebSocket: ERROR:", error);
+            console.error("WebSocket error:", error);
             window.showCustomDialog('エラー', 'マッチングサーバーへの接続に失敗しました。Renderサーバーが起動しているか確認してください。');
         };
     };

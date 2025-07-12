@@ -1,10 +1,10 @@
-// js/sections/home.js - 修正版 v2.5
+// js/sections/home.js
 
-let homeInitialized = false;
+// グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
+window.initHomeSection = async function() { // async を維持
+    console.log("Home section initialized.");
 
-window.initHomeSection = async function() {
-    console.log("Home section initialized (v2.5).");
-
+    // Firefox互換性のためのbrowserオブジェクトのフォールバック
     if (typeof browser === 'undefined') {
         var browser = chrome;
     }
@@ -13,49 +13,53 @@ window.initHomeSection = async function() {
     const homeLoginButton = document.getElementById('home-login-button');
     const homeLogoutButton = document.getElementById('home-logout-button');
 
+    // ログイン状態を更新する関数
     const updateLoginStatusUI = () => {
-        if (!homeLoginStatus || !homeLoginButton || !homeLogoutButton) return;
-        const assistant = window.TCG_ASSISTANT;
-        
-        if (assistant.isLoggedIn) {
-            homeLoginStatus.innerHTML = `現在、<strong>${assistant.currentDisplayName || assistant.currentUsername}</strong> としてログイン中です。`;
-            homeLoginButton.style.display = 'none';
-            homeLogoutButton.style.display = 'inline-block';
+        if (window.currentUserId && window.currentUsername) {
+            if (homeLoginStatus) homeLoginStatus.innerHTML = `現在、<strong>${window.currentUsername}</strong> としてログイン中。`;
+            if (homeLoginButton) homeLoginButton.style.display = 'none';
+            if (homeLogoutButton) homeLogoutButton.style.display = 'inline-block';
         } else {
-            homeLoginStatus.innerHTML = 'レート戦や戦績記録などの機能を利用するには、レート戦セクションからログインしてください。';
-            homeLoginButton.style.display = 'inline-block';
-            homeLogoutButton.style.display = 'none';
+            if (homeLoginStatus) homeLoginStatus.innerHTML = 'ログインしていません。レート戦機能を利用するにはログインが必要です。';
+            if (homeLoginButton) homeLoginButton.style.display = 'inline-block';
+            if (homeLogoutButton) homeLogoutButton.style.display = 'none';
         }
     };
 
-    if (homeInitialized) {
-        updateLoginStatusUI();
-        return;
+    // イベントリスナーを再アタッチ
+    if (homeLoginButton) {
+        homeLoginButton.removeEventListener('click', handleHomeLoginButtonClick);
+        homeLoginButton.addEventListener('click', handleHomeLoginButtonClick);
+    }
+    if (homeLogoutButton) {
+        homeLogoutButton.removeEventListener('click', handleHomeLogoutButtonClick);
+        homeLogoutButton.addEventListener('click', handleHomeLogoutButtonClick);
     }
 
-    const onHomeLoginButtonClick = () => {
+    // イベントハンドラ関数
+    function handleHomeLoginButtonClick() {
+        // レート戦セクションに移動してログインを促す
         if (window.toggleContentArea) {
-            window.toggleContentArea('rateMatch', true);
+            window.toggleContentArea('rateMatch', true); // 強制的にサイドバーを開く
+        } else {
+            console.error("toggleContentArea function not available.");
         }
-    };
+    }
 
-    const onHomeLogoutButtonClick = async () => {
-        const confirmed = await window.showCustomDialog('ログアウト', 'ログアウトしますか？', true);
-        if (confirmed) {
-            if (window.TCG_ASSISTANT.ws && window.TCG_ASSISTANT.ws.readyState === WebSocket.OPEN) {
-                window.TCG_ASSISTANT.ws.send(JSON.stringify({ type: 'logout' }));
-            } else {
-                window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('logout', { detail: { message: 'ログアウトしました。' }}));
-            }
+    async function handleHomeLogoutButtonClick() {
+        // rateMatch.jsのログアウト処理を呼び出す
+        if (window.handleLogoutButtonClickFromRateMatch) {
+            await window.handleLogoutButtonClickFromRateMatch();
+        } else {
+            console.error("handleLogoutButtonClickFromRateMatch function not available.");
+            await window.showCustomDialog('エラー', 'ログアウト機能が利用できません。レート戦セクションからお試しください。');
         }
-    };
+    }
 
-    homeLoginButton?.addEventListener('click', onHomeLoginButtonClick);
-    homeLogoutButton?.addEventListener('click', onHomeLogoutButtonClick);
-    window.TCG_ASSISTANT.addEventListener('loginStateChanged', updateLoginStatusUI);
+    // ログイン状態が変更されたときにUIを更新
+    document.removeEventListener('loginStateChanged', updateLoginStatusUI);
+    document.addEventListener('loginStateChanged', updateLoginStatusUI);
 
-    updateLoginStatusUI();
-    homeInitialized = true;
+    updateLoginStatusUI(); // 初期ロード時にもUIを更新
 };
-
-void 0;
+void 0; // Explicitly return undefined for Firefox compatibility

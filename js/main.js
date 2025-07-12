@@ -1,6 +1,6 @@
-// js/main.js (コンテンツスクリプトのメインファイル) - 安定化版 v2.7
+// js/main.js (コンテンツスクリプトのメインファイル) - 安定化版 v2.8
 
-console.log("main.js: Script loaded (v2.7).");
+console.log("main.js: Script loaded (v2.8).");
 
 // FontAwesome（アイコン表示用）のスタイルシートをページに注入
 const fontAwesomeLink = document.createElement('link');
@@ -36,6 +36,7 @@ class TcgAssistantApp extends EventTarget {
 
         // --- UIの状態 ---
         this.isSidebarOpen = false;
+        this.isMenuIconsVisible = true; // ★修正: メニュー表示状態を管理
         this._injectedSectionScripts = new Set(); // 読み込み済みのセクションスクリプトを記録
     }
 }
@@ -128,11 +129,12 @@ window.TCG_ASSISTANT.addEventListener('ws-logout_forced', (e) => window.TCG_ASSI
 window.TCG_ASSISTANT.addEventListener('loginSuccess', (e) => {
     const data = e.detail;
     // グローバルステートにユーザー情報を設定
+    // ★修正: バックエンドのキー名 (userId, displayName) に合わせる
     Object.assign(window.TCG_ASSISTANT, {
         isLoggedIn: true,
-        currentUserId: data.user_id,
+        currentUserId: data.userId,
         currentUsername: data.username,
-        currentDisplayName: data.display_name,
+        currentDisplayName: data.displayName,
         currentRate: data.rate,
         userMatchHistory: data.matchHistory || [],
         userMemos: data.memos || [],
@@ -141,7 +143,7 @@ window.TCG_ASSISTANT.addEventListener('loginSuccess', (e) => {
     });
     // 手動ログインの場合のみ、ローカルストレージに情報を保存
     if (e.detail.type === 'login_response') {
-        browser.storage.local.set({ loggedInUserId: data.user_id, loggedInUsername: data.username });
+        browser.storage.local.set({ loggedInUserId: data.userId, loggedInUsername: data.username });
     }
     // ログイン状態が変わったことを全コンポーネントに通知
     window.TCG_ASSISTANT.dispatchEvent(new CustomEvent('loginStateChanged', { detail: { isLoggedIn: true } }));
@@ -194,7 +196,6 @@ window.showCustomDialog = function(title, message, isConfirm = false) {
         dialogMessage.innerHTML = message;
         cancelButton.style.display = isConfirm ? 'inline-block' : 'none';
 
-        // イベントリスナーの重複を防ぐために、ボタンをクローンして置き換える
         const newOkButton = okButton.cloneNode(true);
         okButton.parentNode.replaceChild(newOkButton, okButton);
         const newCancelButton = cancelButton.cloneNode(true);
@@ -217,7 +218,22 @@ window.showCustomDialog = function(title, message, isConfirm = false) {
 };
 
 /**
- * 右側メニューの表示/非表示を切り替える
+ * [★修正] 右側メニューの表示/非表示を切り替えるロジックを修正
+ */
+function updateMenuIconsVisibility() {
+    const menuContainer = document.getElementById('tcg-right-menu-container');
+    if (!menuContainer) return;
+    
+    // `expanded` クラスの付け外しでCSS側で表示を制御する
+    if (window.TCG_ASSISTANT.isMenuIconsVisible) {
+        menuContainer.classList.add('expanded');
+    } else {
+        menuContainer.classList.remove('expanded');
+    }
+}
+
+/**
+ * [★修正] 右側メニューのイベントリスナー設定を修正
  */
 function createRightSideMenuAndAttachListeners() {
     const menuContainer = document.getElementById('tcg-right-menu-container');
@@ -229,7 +245,18 @@ function createRightSideMenuAndAttachListeners() {
 
     const toggleButton = document.getElementById('tcg-menu-toggle-button');
     toggleButton.addEventListener('click', () => {
-        menuContainer.classList.toggle('expanded');
+        // isMenuIconsVisible の状態をトグルし、表示を更新
+        window.TCG_ASSISTANT.isMenuIconsVisible = !window.TCG_ASSISTANT.isMenuIconsVisible;
+        updateMenuIconsVisibility();
+        // 状態をローカルストレージに保存
+        browser.storage.local.set({ isMenuIconsVisible: window.TCG_ASSISTANT.isMenuIconsVisible });
+    });
+    
+    // 起動時にローカルストレージから表示状態を復元
+    browser.storage.local.get(['isMenuIconsVisible'], (result) => {
+        // 保存された値がなければデフォルトで表示(true)
+        window.TCG_ASSISTANT.isMenuIconsVisible = result.isMenuIconsVisible !== false;
+        updateMenuIconsVisibility();
     });
 }
 

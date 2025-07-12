@@ -4,6 +4,13 @@
 window.initRateMatchSection = async function() {
     console.log("RateMatch section initialized.");
 
+    // Firebaseが利用可能になるまで待機 (Replit DB移行により不要だが、他のセクションの依存関係のため残す)
+    // if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.auth || !window.db || !window.auth || !window.currentUserId) {
+    //     console.log("Firebase SDKs or global instances not yet ready. Waiting for firebaseAuthReady event...");
+    //     await new Promise(resolve => document.addEventListener('firebaseAuthReady', resolve, { once: true }));
+    //     console.log("Firebase is now ready!");
+    // }
+
     // Firefox互換性のためのbrowserオブジェクトのフォールバック (main.jsにもありますが、念のためここでも)
     if (typeof browser === 'undefined') {
         var browser = chrome;
@@ -14,7 +21,7 @@ window.initRateMatchSection = async function() {
     const matchingButton = document.getElementById('matching-button');
     const cancelMatchingButtonInStatus = document.getElementById('cancel-matching-button-in-status'); // 新しいキャンセルボタン
     const matchingStatusDiv = document.getElementById('matching-status');
-    const preMatchUiDiv = document.getElementById('pre-match-ui');
+    const preMatchUiDiv = document = document.getElementById('pre-match-ui');
     const postMatchUiDiv = document.getElementById('post-match-ui');
     const matchHistoryList = document.getElementById('match-history-list');
 

@@ -364,7 +364,8 @@ window.initRateMatchSection = async function() {
     };
 
     const setupPeerConnection = async () => {
-        clearMatchAndP2PConnection(); // Clear any previous connection
+        // **[FIXED]** The call to clearMatchAndP2PConnection() was removed from here.
+        // It was prematurely clearing the match info on the server.
         peerConnection = new RTCPeerConnection(iceServers);
 
         peerConnection.onconnectionstatechange = () => {
@@ -394,10 +395,8 @@ window.initRateMatchSection = async function() {
             console.log("WebRTC: DataChannel received from remote peer.");
         };
 
-        // **[FIXED]** Use onnegotiationneeded for the initiator to create the offer
         peerConnection.onnegotiationneeded = async () => {
             try {
-                // Only the initiator should create and send the offer.
                 if (isWebRTCOfferInitiator) {
                     console.log("WebRTC: negotiationneeded event fired. Creating offer.");
                     const offer = await peerConnection.createOffer();
@@ -411,7 +410,6 @@ window.initRateMatchSection = async function() {
         };
 
         if (isWebRTCOfferInitiator) {
-            // The initiator creates the data channel, which will trigger 'onnegotiationneeded'.
             dataChannel = peerConnection.createDataChannel("chat");
             setupDataChannelListeners();
             console.log("WebRTC: DataChannel created by initiator. Waiting for negotiation...");

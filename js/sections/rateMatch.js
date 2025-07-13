@@ -17,8 +17,17 @@ window.initRateMatchSection = async function() {
     const preMatchUiDiv = document.getElementById('pre-match-ui');
     const postMatchUiDiv = document.getElementById('post-match-ui');
     const matchHistoryList = document.getElementById('match-history-list');
-    const rankingList = document.getElementById('ranking-list'); // [NEW]
-    const refreshRankingButton = document.getElementById('refresh-ranking-button'); // [NEW]
+    const rankingList = document.getElementById('ranking-list');
+    const refreshRankingButton = document.getElementById('refresh-ranking-button');
+
+    // [NEW] Username edit elements
+    const usernameContainer = document.getElementById('username-container');
+    const editUsernameButton = document.getElementById('edit-username-button');
+    const editUsernameForm = document.getElementById('edit-username-form');
+    const newUsernameInput = document.getElementById('new-username-input');
+    const saveUsernameButton = document.getElementById('save-username-button');
+    const cancelEditUsernameButton = document.getElementById('cancel-edit-username-button');
+
 
     const chatInput = document.getElementById('chat-input');
     const sendChatButton = document.getElementById('send-chat-button');
@@ -155,7 +164,6 @@ window.initRateMatchSection = async function() {
         }
     };
 
-    // [NEW] Function to request ranking data
     const requestRanking = () => {
         if (window.ws && window.ws.readyState === WebSocket.OPEN) {
             console.log("Requesting ranking data...");
@@ -165,16 +173,19 @@ window.initRateMatchSection = async function() {
         }
     };
 
-    // [NEW] Function to display ranking data
     const displayRanking = (rankingData) => {
         if (!rankingList) return;
-        rankingList.innerHTML = ''; // Clear previous list
+        rankingList.innerHTML = '';
         if (!rankingData || rankingData.length === 0) {
             rankingList.innerHTML = '<li>ランキングデータがありません。</li>';
             return;
         }
         rankingData.forEach((user, index) => {
             const listItem = document.createElement('li');
+            // [FIX] Highlight current user in ranking
+            if (user.username === window.currentUsername) {
+                listItem.classList.add('current-user');
+            }
             listItem.innerHTML = `
                 <span class="rank">${index + 1}.</span>
                 <span class="username">${user.username}</span>
@@ -277,7 +288,6 @@ window.initRateMatchSection = async function() {
                         await window.showCustomDialog('結果報告失敗', message.message);
                     }
                     break;
-                // [NEW] Handle ranking data from server
                 case 'ranking_data':
                     if (message.success) {
                         displayRanking(message.data);
@@ -285,6 +295,19 @@ window.initRateMatchSection = async function() {
                         console.error("Failed to fetch ranking:", message.message);
                         if(rankingList) rankingList.innerHTML = `<li>${message.message}</li>`;
                     }
+                    break;
+                // [NEW] Handle username change response
+                case 'change_username_response':
+                    await window.showCustomDialog('ユーザー名変更', message.message);
+                    if (message.success) {
+                        window.currentUsername = message.newUsername;
+                        browser.storage.local.set({ loggedInUsername: window.currentUsername });
+                        updateUIState();
+                        requestRanking(); // Refresh ranking to show new name
+                    }
+                    // Hide form regardless of success/failure
+                    if(usernameContainer) usernameContainer.style.display = 'flex';
+                    if(editUsernameForm) editUsernameForm.style.display = 'none';
                     break;
                 case 'error':
                     await window.showCustomDialog('エラー', message.message);
@@ -333,7 +356,7 @@ window.initRateMatchSection = async function() {
                         await window.showCustomDialog('ログイン成功', message.message);
                     }
                     browser.storage.local.set({ loggedInUserId: window.currentUserId, loggedInUsername: window.currentUsername });
-                    requestRanking(); // [NEW] Request ranking after login
+                    requestRanking();
                 } else {
                     await window.showCustomDialog('ログイン失敗', message.message);
                     browser.storage.local.remove(['loggedInUserId', 'loggedInUsername']);
@@ -510,7 +533,10 @@ window.initRateMatchSection = async function() {
         if (loseButton) loseButton.addEventListener('click', () => handleReportResultClick('lose'));
         if (cancelButton) cancelButton.addEventListener('click', () => handleReportResultClick('cancel'));
 
-        if (refreshRankingButton) refreshRankingButton.addEventListener('click', requestRanking); // [NEW]
+        if (refreshRankingButton) refreshRankingButton.addEventListener('click', requestRanking);
+        if (editUsernameButton) editUsernameButton.addEventListener('click', handleEditUsernameClick);
+        if (saveUsernameButton) saveUsernameButton.addEventListener('click', handleSaveUsernameClick);
+        if (cancelEditUsernameButton) cancelEditUsernameButton.addEventListener('click', handleCancelEditUsernameClick);
     };
     // --- End Event Listeners Setup ---
 
@@ -592,6 +618,36 @@ window.initRateMatchSection = async function() {
         }
     }
 
+    // [NEW] Username change handlers
+    function handleEditUsernameClick() {
+        if(usernameContainer) usernameContainer.style.display = 'none';
+        if(editUsernameForm) editUsernameForm.style.display = 'flex';
+        if(newUsernameInput) newUsernameInput.value = window.currentUsername;
+        if(newUsernameInput) newUsernameInput.focus();
+    }
+
+    function handleCancelEditUsernameClick() {
+        if(usernameContainer) usernameContainer.style.display = 'flex';
+        if(editUsernameForm) editUsernameForm.style.display = 'none';
+    }
+
+    async function handleSaveUsernameClick() {
+        const newUsername = newUsernameInput ? newUsernameInput.value.trim() : '';
+        if (!newUsername || newUsername === window.currentUsername) {
+            handleCancelEditUsernameClick(); // No change, just cancel
+            return;
+        }
+        if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+            window.ws.send(JSON.stringify({
+                type: 'change_username',
+                newUsername: newUsername
+            }));
+        } else {
+            await window.showCustomDialog('エラー', 'サーバーに接続していません。');
+        }
+    }
+
+
     async function handleSendChatButtonClick() {
         if (!chatInput || !dataChannel || dataChannel.readyState !== 'open') {
             await window.showCustomDialog('エラー', 'チャットを送信できません。P2P接続が確立されているか確認してください。');
@@ -640,7 +696,7 @@ window.initRateMatchSection = async function() {
     addEventListeners();
     connectWebSocket();
     updateUIState();
-    requestRanking(); // [NEW] Request ranking on initial load
+    requestRanking();
     // --- End Initial Load ---
 
 };

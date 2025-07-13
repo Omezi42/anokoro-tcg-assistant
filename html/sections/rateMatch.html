@@ -6,7 +6,15 @@
     </div>
     <div class="info-box">
         <h3>あなたのユーザー名</h3>
-        <p id="username-display">未ログイン</p>
+        <div id="username-container">
+            <p id="username-display">未ログイン</p>
+            <button id="edit-username-button" title="ユーザー名を変更"><i class="fas fa-edit"></i></button>
+        </div>
+        <div id="edit-username-form" style="display: none;">
+            <input type="text" id="new-username-input">
+            <button id="save-username-button">保存</button>
+            <button id="cancel-edit-username-button">キャンセル</button>
+        </div>
     </div>
 </div>
 
@@ -34,7 +42,6 @@
         <button id="matching-button">オンラインマッチング</button>
         <button id="logout-button">ログアウト</button>
         
-        <!-- [NEW] Ranking Section -->
         <div id="ranking-section">
             <div class="ranking-header">
                 <h3>ランキング</h3>

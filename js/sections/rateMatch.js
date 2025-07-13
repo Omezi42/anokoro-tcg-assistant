@@ -70,7 +70,7 @@ window.initRateMatchSection = async function() {
     let opponentPlayerId = null; // 相手のユーザーID (内部的に使用)
     let opponentUsername = null; // 相手のユーザー名 (UI表示用)
     let isWebRTCOfferInitiator = false; // WebRTCのOfferを作成する側かどうかのフラグ
-    let iceCandidateBuffer = []; // **[FIX]** ICE候補を一時的に保存するバッファ
+    let iceCandidateBuffer = []; // ICE候補を一時的に保存するバッファ
 
     // STUNサーバーの設定 (P2P接続を助けるための無料サーバー)
     const iceServers = {
@@ -330,15 +330,17 @@ window.initRateMatchSection = async function() {
         }
         try {
             if (signal.sdp) {
+                // SDP (offer or answer) received
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-                console.log("WebRTC: Remote description set.");
+                console.log("WebRTC: Remote description set for", signal.type);
 
-                // **[FIX]** Process any buffered ICE candidates now that remote description is set
+                // Process any buffered ICE candidates now that remote description is set
                 iceCandidateBuffer.forEach(candidate => {
                     peerConnection.addIceCandidate(candidate).catch(e => console.error("Error adding buffered ICE candidate:", e));
                 });
                 iceCandidateBuffer = []; // Clear the buffer
 
+                // If we received an offer, we need to create an answer
                 if (signal.type === 'offer') {
                     const answer = await peerConnection.createAnswer();
                     await peerConnection.setLocalDescription(answer);
@@ -346,7 +348,8 @@ window.initRateMatchSection = async function() {
                     console.log("WebRTC: Answer created and sent.");
                 }
             } else if (signal.candidate) {
-                // **[FIX]** Buffer candidates if remote description is not yet set
+                // ICE candidate received
+                // Buffer candidates if remote description is not yet set
                 if (peerConnection.remoteDescription) {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(signal));
                     console.log("WebRTC: ICE candidate added.");
@@ -391,15 +394,27 @@ window.initRateMatchSection = async function() {
             console.log("WebRTC: DataChannel received from remote peer.");
         };
 
+        // **[FIXED]** Use onnegotiationneeded for the initiator to create the offer
+        peerConnection.onnegotiationneeded = async () => {
+            try {
+                // Only the initiator should create and send the offer.
+                if (isWebRTCOfferInitiator) {
+                    console.log("WebRTC: negotiationneeded event fired. Creating offer.");
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    window.ws.send(JSON.stringify({ type: 'webrtc_signal', signal: peerConnection.localDescription }));
+                    console.log("WebRTC: Offer created and sent from onnegotiationneeded.");
+                }
+            } catch (e) {
+                console.error("WebRTC: Error during negotiation:", e);
+            }
+        };
+
         if (isWebRTCOfferInitiator) {
+            // The initiator creates the data channel, which will trigger 'onnegotiationneeded'.
             dataChannel = peerConnection.createDataChannel("chat");
             setupDataChannelListeners();
-            console.log("WebRTC: DataChannel created by initiator.");
-            
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            window.ws.send(JSON.stringify({ type: 'webrtc_signal', signal: peerConnection.localDescription }));
-            console.log("WebRTC: Offer created and sent.");
+            console.log("WebRTC: DataChannel created by initiator. Waiting for negotiation...");
         }
     };
 
@@ -436,7 +451,7 @@ window.initRateMatchSection = async function() {
         opponentUsername = null;
         currentMatchId = null;
         isWebRTCOfferInitiator = false;
-        iceCandidateBuffer = []; // **[FIX]** Clear buffer on cleanup
+        iceCandidateBuffer = [];
         if (peerConnection) {
             peerConnection.close();
             peerConnection = null;

@@ -88,6 +88,117 @@ window.showCustomDialog = function(title, message, isConfirm = false) {
 };
 
 /**
+ * カード詳細モーダルを表示します。
+ * @param {object} card - 表示するカードのオブジェクト。
+ * @param {number} currentIndex - 現在のカードの検索結果内でのインデックス。
+ * @param {Array} searchResults - 現在の検索結果の全カード配列。
+ */
+window.showCardDetailModal = function(card, currentIndex, searchResults) {
+    if (!card) {
+        window.showCustomDialog('エラー', 'カード情報が見つかりません。');
+        return;
+    }
+
+    // 既存のモーダルがあれば削除
+    const existingModal = document.getElementById('tcg-card-detail-modal-overlay');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    const cardImageUrl = browser.runtime.getURL(`images/cards/${card.name}.png`);
+    
+    // card.infoから必要な情報を抽出
+    const getInfo = (prefix) => card.info.find(i => i.startsWith(prefix))?.replace(prefix, '').replace('です。', '') || 'N/A';
+    const getEffect = () => card.info.find(i => i.startsWith("このカードの効果は、「"))?.replace("このカードの効果は、「", "").replace("」です。", "") || '（効果なし）';
+    const getLore = () => card.info.find(i => i.startsWith("このカードの世界観は、「"))?.replace("このカードの世界観は、「", "").replace("」です。", "");
+
+    const cost = getInfo("このカードのコストは");
+    const effect = getEffect();
+    const lore = getLore();
+
+    const modalHtml = `
+        <div class="tcg-card-detail-modal-content">
+            <div class="card-preview-pane">
+                 <img src="${cardImageUrl}" alt="${card.name}" onerror="this.src='https://placehold.co/200x280/eee/333?text=No+Image'">
+            </div>
+            <div class="card-info-pane">
+                <div class="card-info-header">
+                    <div class="card-info-cost">${cost}</div>
+                    <h2>${card.name}</h2>
+                </div>
+                <div class="card-info-body">
+                    <p class="card-info-effect">${effect}</p>
+                </div>
+                <div class="card-info-footer">
+                    <button id="lore-button" ${lore ? '' : 'style="display:none;"'}>世界観</button>
+                    <div class="nav-buttons">
+                        <button id="prev-card-button">前</button>
+                        <button id="next-card-button">次</button>
+                    </div>
+                </div>
+            </div>
+            <button id="tcg-card-detail-close-button" title="閉じる">&times;</button>
+        </div>
+    `;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'tcg-card-detail-modal-overlay';
+    overlay.innerHTML = modalHtml;
+    document.body.appendChild(overlay);
+
+    const closeModal = () => {
+        overlay.classList.remove('show');
+        overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+    };
+
+    // イベントリスナー設定
+    overlay.querySelector('#tcg-card-detail-close-button').addEventListener('click', closeModal);
+    
+    const loreButton = overlay.querySelector('#lore-button');
+    const effectDisplay = overlay.querySelector('.card-info-effect');
+    let isShowingLore = false;
+
+    if (lore) {
+        loreButton.addEventListener('click', () => {
+            isShowingLore = !isShowingLore;
+            effectDisplay.textContent = isShowingLore ? lore : effect;
+            loreButton.textContent = isShowingLore ? '効果' : '世界観';
+        });
+    }
+
+    const prevButton = overlay.querySelector('#prev-card-button');
+    const nextButton = overlay.querySelector('#next-card-button');
+
+    // 前へボタンのロジック
+    if (currentIndex > 0) {
+        prevButton.addEventListener('click', () => {
+            window.showCardDetailModal(searchResults[currentIndex - 1], currentIndex - 1, searchResults);
+        });
+    } else {
+        prevButton.disabled = true;
+    }
+
+    // 次へボタンのロジック
+    if (currentIndex < searchResults.length - 1) {
+        nextButton.addEventListener('click', () => {
+            window.showCardDetailModal(searchResults[currentIndex + 1], currentIndex + 1, searchResults);
+        });
+    } else {
+        nextButton.disabled = true;
+    }
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            closeModal();
+        }
+    });
+
+    // 少し遅れてshowクラスを追加してアニメーションを発火
+    setTimeout(() => overlay.classList.add('show'), 10);
+};
+
+
+/**
  * コンテンツエリア（サイドバー）の表示/非表示を切り替えます。
  * @param {string | null} sectionId - 表示するセクションのID。nullの場合は現在の状態をトグル。
  * @param {boolean} forceOpen - サイドバーが閉じている場合でも強制的に開くか。

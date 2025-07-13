@@ -28,6 +28,10 @@
             <!-- セットは動的に追加される -->
         </select>
     </div>
+    <div class="filter-group filter-group-full-width">
+        <label for="fuzzy-threshold-slider"><i class="fas fa-magic"></i> あいまい検索のゆるさ: <span id="fuzzy-threshold-value">2</span></label>
+        <input type="range" id="fuzzy-threshold-slider" min="0" max="5" value="2">
+    </div>
 </div>
 <div style="position: relative;">
     <input type="text" id="search-input" placeholder="キーワードで検索...">
@@ -35,4 +39,4 @@
 </div>
 <button id="perform-search-button"><i class="fas fa-search"></i> 検索実行</button>
 <div id="search-results">
-    </div>
+</div>

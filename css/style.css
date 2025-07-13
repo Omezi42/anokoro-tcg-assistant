@@ -219,6 +219,13 @@ button:hover, .button-style:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
+button:disabled {
+    background-color: #ccc !important;
+    color: #888 !important;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
 
 /* フォーム要素 */
 input[type="text"],
@@ -258,7 +265,7 @@ label {
 }
 
 /* --- モーダルダイアログ --- */
-#tcg-custom-dialog-overlay {
+#tcg-custom-dialog-overlay, #tcg-card-detail-modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -274,7 +281,7 @@ label {
     transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
-#tcg-custom-dialog-overlay.show {
+#tcg-custom-dialog-overlay.show, #tcg-card-detail-modal-overlay.show {
     opacity: 1;
     visibility: visible;
 }
@@ -292,7 +299,8 @@ label {
     transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-#tcg-custom-dialog-overlay.show .tcg-modal-content {
+#tcg-custom-dialog-overlay.show .tcg-modal-content,
+#tcg-card-detail-modal-overlay.show .tcg-card-detail-modal-content {
     transform: scale(1);
 }
 
@@ -323,6 +331,117 @@ label {
 }
 .dialog-buttons button:last-child:hover {
     background-color: #5a6268;
+}
+
+/* --- カード詳細モーダル --- */
+.tcg-card-detail-modal-content {
+    display: flex;
+    gap: 20px;
+    background-color: var(--color-background);
+    padding: 20px;
+    border-radius: 20px;
+    border: 3px solid var(--color-primary);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    transform: scale(0.9);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+}
+.card-preview-pane {
+    flex: 0 0 200px;
+    text-align: center;
+    position: relative;
+}
+.card-preview-pane img {
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    border: 2px solid var(--color-border);
+    background-color: var(--color-white);
+}
+.card-info-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.card-info-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 2px solid var(--color-border);
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+}
+.card-info-cost {
+    background-color: var(--color-secondary);
+    color: var(--color-white);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1em;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.card-info-header h2 {
+    margin: 0;
+    font-size: 1.5em;
+    color: var(--color-text-main);
+    font-weight: 700;
+}
+.card-info-body {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+.card-info-effect {
+    background-color: var(--color-white);
+    padding: 15px;
+    border-radius: 8px;
+    min-height: 100px;
+    margin-bottom: 15px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.card-info-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 15px;
+    border-top: 2px solid var(--color-border);
+    margin-top: auto;
+}
+#lore-button, .nav-buttons button {
+    border: 2px solid var(--color-primary);
+    background-color: var(--color-white);
+    color: var(--color-primary);
+    font-weight: 700;
+}
+#lore-button:hover, .nav-buttons button:hover {
+    background-color: var(--color-primary);
+    color: var(--color-white);
+}
+#tcg-card-detail-close-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 2em;
+    color: var(--color-text-light);
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+}
+#tcg-card-detail-close-button:hover {
+    color: var(--color-text-main);
 }
 
 
@@ -551,6 +670,14 @@ label {
     background-color: var(--color-light-gray);
     border-radius: 12px;
 }
+.filter-group-full-width {
+    grid-column: 1 / -1;
+}
+#fuzzy-threshold-slider {
+    width: 100%;
+    margin-top: 5px;
+}
+
 #perform-search-button {
     background-color: var(--color-primary);
     color: var(--color-white);
@@ -568,9 +695,9 @@ label {
     border-radius: 12px;
 }
 #search-results ul { padding-left: 20px; }
-#search-results li { background: none; border: none; box-shadow: none; padding: 5px 0; border-bottom: 1px solid var(--color-border); }
+#search-results li { background: none; border: none; box-shadow: none; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
 #search-results li:last-child { border-bottom: none; }
-.card-name-link { color: var(--color-primary); text-decoration: none; font-weight: 700; }
+.card-name-link { color: var(--color-primary); text-decoration: none; font-weight: 700; cursor: pointer; }
 .card-name-link:hover { text-decoration: underline; }
 
 .autocomplete-suggestions {
@@ -587,30 +714,6 @@ label {
 }
 .autocomplete-suggestions div { padding: 8px 12px; cursor: pointer; }
 .autocomplete-suggestions div:hover { background-color: var(--color-light-gray); }
-
-.card-detail-popup {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: var(--color-background);
-    border: 2px solid var(--color-border);
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    padding: 25px;
-    z-index: 10003;
-    max-width: 500px;
-    width: 90%;
-    max-height: 80%;
-    overflow-y: auto;
-}
-.card-detail-popup h3 { color: var(--color-primary); margin-top: 0; }
-.card-detail-popup button {
-    background-color: var(--color-text-light);
-    color: var(--color-white);
-    margin-top: 20px;
-}
-.card-detail-popup button:hover { background-color: #5a6268; }
 
 /* ミニゲーム */
 .minigame-list {

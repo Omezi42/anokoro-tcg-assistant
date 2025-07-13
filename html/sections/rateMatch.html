@@ -6,7 +6,7 @@
     </div>
     <div class="info-box">
         <h3>あなたのユーザー名</h3>
-        <p id="username-display">未ログイン</p> <!-- ユーザー名表示のみ -->
+        <p id="username-display">未ログイン</p>
     </div>
 </div>
 
@@ -25,7 +25,6 @@
         <input type="password" id="login-password" placeholder="パスワード" required>
         <button id="login-button">ログイン</button>
     </div>
-    <button id="logout-button" style="display: none;">ログアウト</button> <!-- ログアウトボタンはログイン後に表示 -->
 </div>
 
 <!-- ログイン後のUI要素 -->
@@ -33,19 +32,30 @@
     <!-- マッチング前のUI要素 -->
     <div id="pre-match-ui">
         <button id="matching-button">オンラインマッチング</button>
+        <button id="logout-button">ログアウト</button>
+        
+        <!-- [NEW] Ranking Section -->
+        <div id="ranking-section">
+            <div class="ranking-header">
+                <h3>ランキング</h3>
+                <button id="refresh-ranking-button" title="ランキングを更新"><i class="fas fa-sync-alt"></i></button>
+            </div>
+            <ol id="ranking-list">
+                <li>ランキングを読み込み中...</li>
+            </ol>
+        </div>
+
         <h3>対戦履歴</h3>
         <ul id="match-history-list">
             <li>ログインすると対戦履歴が表示されます。</li>
         </ul>
-        <h3>ランキング</h3>
-        <p>ここにランキング情報が表示されます。</p>
     </div>
 
     <!-- マッチング中の表示 -->
     <div id="matching-status" style="display: none;">
-        <p id="matching-status-text">対戦相手を検索中...</p> <!-- [FIX] IDを追加 -->
+        <p id="matching-status-text">対戦相手を検索中...</p>
         <div class="spinner"></div>
-        <button id="cancel-matching-button-in-status" class="cancel-button">マッチングキャンセル</button>
+        <button id="cancel-matching-button-in-status">マッチングキャンセル</button>
     </div>
 
     <!-- 対戦中（マッチング後）のUI要素 -->

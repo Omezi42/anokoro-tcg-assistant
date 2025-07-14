@@ -1,0 +1,179 @@
+/* css/options.css */
+@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap');
+
+:root {
+    --font-family-main: 'M PLUS Rounded 1c', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+    --color-background: #fdfaf4;
+    --color-primary: #3a8c6a;
+    --color-secondary: #f3ae4b;
+    --color-text-main: #3a3a3a;
+    --color-text-light: #6c6c6c;
+    --color-border: #dcd6c9;
+    --color-white: #ffffff;
+    --color-light-gray: #f4f0e8;
+}
+
+body {
+    font-family: var(--font-family-main);
+    background-color: var(--color-background);
+    color: var(--color-text-main);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    margin: 0;
+    padding: 40px 20px;
+    box-sizing: border-box;
+}
+
+.options-container {
+    background-color: var(--color-white);
+    padding: 40px;
+    border-radius: 20px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 600px;
+    text-align: center;
+    border: 2px solid var(--color-border);
+}
+
+.options-header {
+    margin-bottom: 30px;
+}
+
+.options-header .icon {
+    font-size: 3em;
+    color: var(--color-primary);
+    margin-bottom: 10px;
+}
+
+.options-header h1 {
+    color: var(--color-primary);
+    font-size: 2em;
+    margin: 0 0 10px 0;
+}
+
+.options-header p {
+    color: var(--color-text-light);
+    font-size: 1em;
+}
+
+.options-content {
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.setting-item {
+    padding: 20px;
+    background-color: var(--color-light-gray);
+    border-radius: 12px;
+}
+
+.setting-item h2 {
+    margin-top: 0;
+    color: var(--color-text-main);
+    font-size: 1.2em;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.setting-row label {
+    font-weight: 700;
+}
+
+.setting-description {
+    font-size: 0.9em;
+    color: var(--color-text-light);
+    margin: 0;
+}
+
+/* トグルスイッチのスタイル */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: var(--color-primary);
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px var(--color-primary);
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+.options-footer {
+    margin-top: 30px;
+    text-align: center;
+}
+
+#save-button {
+    background-color: var(--color-accent);
+    color: var(--color-white);
+    padding: 12px 30px;
+    font-size: 1.1em;
+}
+#save-button:hover {
+    background-color: #d16a4c;
+}
+
+#save-status {
+    margin-top: 15px;
+    color: var(--color-primary);
+    font-weight: bold;
+    height: 1em;
+}

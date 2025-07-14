@@ -250,3 +250,82 @@ browser.commands.onCommand.addListener((command) => {
     }
   });
 });
+// 通知を作成するヘルパー関数
+function createNotification(id, title, message, iconUrl = "../images/icon128.png") {
+    browser.notifications.create(id, {
+        type: 'basic',
+        iconUrl: browser.runtime.getURL(iconUrl),
+        title: title,
+        message: message,
+        priority: 2
+    });
+}
+
+// マッチング待機中のユーザー数を管理（デモ用）
+let matchingUsersCount = 0;
+
+// コンテンツスクリプトからのメッセージを受け取るリスナー
+browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "start_matching") {
+        matchingUsersCount++;
+        createNotification(
+            "matching-started",
+            "マッチング開始",
+            "対戦相手を探しています..."
+        );
+        sendResponse({status: "matching started"});
+    } 
+    else if (request.action === "cancel_matching") {
+        matchingUsersCount = Math.max(0, matchingUsersCount - 1);
+        sendResponse({status: "matching canceled"});
+    }
+    else if (request.action === "match_found") {
+        matchingUsersCount = Math.max(0, matchingUsersCount - 2); // 自分と相手
+         createNotification(
+            "match-found",
+            "対戦相手が見つかりました！",
+            `${request.opponentName}さんとの対戦が始まります。`
+        );
+        sendResponse({status: "match found"});
+    }
+    else if (request.action === "get_matching_info") {
+        // popup.jsからのリクエストに応答
+        sendResponse({ count: matchingUsersCount });
+    }
+    else if (request.action === "injectSectionScript") {
+        // Manifest V3 (Chrome) and Firefox
+        if (browser.scripting && browser.scripting.executeScript) {
+             browser.scripting.executeScript({
+                target: { tabId: sender.tab.id },
+                files: [request.scriptPath]
+            }).then(() => {
+                browser.scripting.executeScript({
+                    target: { tabId: sender.tab.id },
+                    func: (functionName) => {
+                        if (typeof window[functionName] === 'function') {
+                            window[functionName]();
+                        }
+                    },
+                    args: [request.initFunctionName]
+                });
+                sendResponse({success: true});
+            }).catch(error => {
+                console.error(`Failed to inject script ${request.scriptPath}:`, error);
+                sendResponse({success: false, error: error.message});
+            });
+        } else { // Manifest V2 (older Firefox)
+            browser.tabs.executeScript(sender.tab.id, { file: request.scriptPath })
+            .then(() => {
+                 browser.tabs.executeScript(sender.tab.id, {
+                    code: `if (typeof window['${request.initFunctionName}'] === 'function') { window['${request.initFunctionName}'](); }`
+                });
+                sendResponse({success: true});
+            })
+            .catch(error => {
+                console.error(`Failed to inject script ${request.scriptPath}:`, error);
+                sendResponse({success: false, error: error.message});
+            });
+        }
+        return true; // Indicates that the response is sent asynchronously
+    }
+});

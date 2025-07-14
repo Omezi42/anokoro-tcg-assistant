@@ -6,6 +6,7 @@
     --color-background: #fdfaf4;
     --color-primary: #3a8c6a;
     --color-secondary: #f3ae4b;
+    --color-accent: #e87a5a;
     --color-text-main: #3a3a3a;
     --color-text-light: #6c6c6c;
     --color-border: #dcd6c9;
@@ -17,13 +18,14 @@ body {
     background-color: var(--color-background);
     width: 280px;
     margin: 0;
-    padding: 15px;
+    padding: 0;
 }
 
 .popup-container {
     display: flex;
     flex-direction: column;
     align-items: center;
+    padding: 15px;
 }
 
 .popup-header {
@@ -36,19 +38,86 @@ body {
     width: 60px;
     height: 60px;
     margin-bottom: 5px;
+    animation: bird-float 3s ease-in-out infinite;
+}
+
+@keyframes bird-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
 }
 
 .popup-header h1 {
     font-size: 1.5em;
     color: var(--color-primary);
-    margin: 0 0 5px 0;
+    margin: 0;
     font-weight: 700;
 }
 
-.popup-header p {
-    font-size: 0.9em;
+.main-action {
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.go-to-game-button {
+    width: 100%;
+    padding: 12px;
+    font-size: 1.1em;
+    font-weight: 700;
+    background-color: var(--color-accent);
+    color: var(--color-white);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.go-to-game-button:hover {
+    background-color: #d16a4c;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.info-panel {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 15px;
+    box-sizing: border-box;
+}
+
+.info-item {
+    text-align: center;
+    flex: 1;
+}
+
+.info-item:first-child {
+    border-right: 1px solid var(--color-border);
+}
+
+.info-label {
+    display: block;
+    font-size: 0.8em;
     color: var(--color-text-light);
-    margin: 0;
+    margin-bottom: 4px;
+}
+
+.info-label .fas {
+    margin-right: 4px;
+}
+
+.info-value {
+    display: block;
+    font-size: 1.2em;
+    font-weight: 700;
+    color: var(--color-primary);
 }
 
 .popup-nav {
@@ -56,6 +125,8 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
     width: 100%;
+    border-top: 1px dashed var(--color-border);
+    padding-top: 15px;
 }
 
 .popup-button {
@@ -67,9 +138,9 @@ body {
     color: var(--color-text-main);
     border: 1px solid var(--color-border);
     border-radius: 12px;
-    padding: 15px 10px;
+    padding: 12px 8px;
     cursor: pointer;
-    font-size: 0.9em;
+    font-size: 0.85em;
     font-weight: 500;
     text-align: center;
     transition: all 0.2s ease;
@@ -84,7 +155,7 @@ body {
 }
 
 .popup-button .icon {
-    font-size: 1.8em;
+    font-size: 1.6em;
     margin-bottom: 8px;
     color: var(--color-primary);
     transition: color 0.2s ease;
@@ -96,4 +167,28 @@ body {
 
 .popup-button span {
     font-weight: 700;
+}
+
+.popup-footer {
+    margin-top: 15px;
+    width: 100%;
+    text-align: right;
+}
+
+.options-link {
+    background: none;
+    border: none;
+    color: var(--color-text-light);
+    font-size: 0.9em;
+    cursor: pointer;
+    padding: 5px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.2s ease;
+}
+
+.options-link:hover {
+    color: var(--color-primary);
 }

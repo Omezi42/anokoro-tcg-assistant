@@ -7,32 +7,61 @@ if (typeof browser === 'undefined') {
 
 // ポップアップがロードされたときに実行されます
 document.addEventListener('DOMContentLoaded', () => {
-    // すべてのセクションボタンを取得
+    const rateDisplay = document.getElementById('rate-display');
+    const matchingCountDisplay = document.getElementById('matching-count-display');
+    const goToGameButton = document.getElementById('go-to-game-button');
     const buttons = document.querySelectorAll('.popup-button');
     const optionsButton = document.getElementById('options-button');
 
-    // 各セクションボタンにクリックイベントリスナーを追加
+    // --- データ取得・表示 ---
+
+    // ユーザーのレートをストレージから取得して表示
+    browser.storage.local.get('currentRate', (data) => {
+        if (rateDisplay) {
+            rateDisplay.textContent = data.currentRate || '----';
+        }
+    });
+
+    // backgroundから現在のマッチング情報を取得して表示
+    browser.runtime.sendMessage({ action: "get_matching_info" }, (response) => {
+        if (browser.runtime.lastError) {
+            console.error("Error getting matching info:", browser.runtime.lastError.message);
+            if(matchingCountDisplay) matchingCountDisplay.textContent = '??人';
+            return;
+        }
+        if (matchingCountDisplay) {
+            matchingCountDisplay.textContent = `${response.count || 0}人`;
+        }
+    });
+
+    // --- イベントリスナー ---
+
+    // 「ゲームへ」ボタン
+    if (goToGameButton) {
+        goToGameButton.addEventListener('click', () => {
+            browser.tabs.create({ url: "https://unityroom.com/games/anokorotcg" });
+            window.close();
+        });
+    }
+
+    // 各セクションボタン
     buttons.forEach(button => {
         button.addEventListener('click', () => {
             const section = button.dataset.section;
 
-            // 現在アクティブなタブ（ゲームが実行されているタブ）を取得
             browser.tabs.query({active: true, currentWindow: true}, (tabs) => {
                 const gameTab = tabs[0];
-                if (gameTab && gameTab.url && gameTab.url.startsWith('https://unityroom.com/games/anokorotcg')) {
-                    // 現在のタブが指定のゲームURLであれば、メッセージを送信し、指定されたセクションを表示するよう要求
+                if (gameTab && gameTab.id && gameTab.url && gameTab.url.startsWith('https://unityroom.com/games/anokorotcg')) {
                     browser.tabs.sendMessage(gameTab.id, {action: "showSection", section: section, forceOpenSidebar: true});
                 } else {
-                    // ゲームページでない場合はユーザーに通知
                     alert('この拡張機能は「あの頃の自作TCG」のゲームページでのみ動作します。');
                 }
-                // ポップアップを閉じる
                 window.close();
             });
         });
     });
 
-    // 設定ボタンにクリックイベントリスナーを追加
+    // 設定ボタン
     if (optionsButton) {
         optionsButton.addEventListener('click', () => {
             browser.runtime.openOptionsPage();

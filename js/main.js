@@ -105,7 +105,8 @@ window.showCardDetailModal = function(card, currentIndex, searchResults) {
         existingModal.remove();
     }
 
-    const cardImageUrl = browser.runtime.getURL(`images/cards/${card.name}.png`);
+    // *** 画像URLを外部サーバーから取得するように変更 ***
+    const cardImageUrl = `https://omezi42.github.io/tcg-assistant-images/cards/${encodeURIComponent(card.name)}.png`;
     
     // card.infoから必要な情報を抽出
     const getInfo = (prefix) => card.info.find(i => i.startsWith(prefix))?.replace(prefix, '').replace('です。', '') || 'N/A';

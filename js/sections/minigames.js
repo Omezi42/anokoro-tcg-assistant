@@ -75,48 +75,26 @@ window.initMinigamesSection = async function() { // async を追加
 
     // クイズ開始共通ロジック
     async function startQuiz(type) {
-        // allCards が main.js でロードされていることを確認
         if (!window.allCards || window.allCards.length === 0) {
-            await window.showCustomDialog('エラー', 'カードデータがロードされていません。拡張機能の初期化が完了しているか確認してください。');
+            await window.showCustomDialog('エラー', 'カードデータがロードされていません。');
             return;
         }
-        // カード名当てクイズが重複するバグを防ぐため、常にリセットをかける
         resetQuiz();
         currentQuiz.type = type;
 
         let cardSelected = false;
-        const maxAttemptsForImageLoad = 20;
-        for (let i = 0; i < maxAttemptsForImageLoad; i++) {
-            currentQuiz.card = window.allCards[Math.floor(Math.random() * window.allCards.length)]; // window.allCards を使用
+        const maxAttempts = 20;
+        for (let i = 0; i < maxAttempts; i++) {
+            currentQuiz.card = window.allCards[Math.floor(Math.random() * window.allCards.length)];
             if (type !== 'cardName') {
-                const cardName = currentQuiz.card.name;
-                // CHANGE: ファイル名に日本語などが含まれる場合を考慮し、URLエンコードを行う
-                const encodedCardName = encodeURIComponent(cardName);
-                const imageUrl = browser.runtime.getURL(`images/cards/${encodedCardName}.png`);
                 try {
-                    const response = await fetch(imageUrl, { method: 'HEAD' });
-                    if (response.ok) {
-                        if (type === 'silhouette') {
-                            const transparentImageUrl = browser.runtime.getURL(`images/cards/${encodedCardName}_transparent.png`);
-                            const transResponse = await fetch(transparentImageUrl, { method: 'HEAD' });
-                            
-                            if (transResponse.ok) {
-                                await loadImageForQuiz(cardName, type);
-                                cardSelected = true;
-                                break;
-                            } else {
-                                console.warn(`シルエットクイズに必要な画像が見つかりません: ${cardName}_transparent.png`);
-                            }
-                        } else {
-                            await loadImageForQuiz(cardName, type);
-                            cardSelected = true;
-                            break;
-                        }
-                    } else {
-                        console.warn(`画像ファイルが見つかりません: ${imageUrl}`);
-                    }
+                    // 画像の存在を事前に確認する必要はなくなりますが、
+                    // 読み込みに成功したかどうかで判断します。
+                    await loadImageForQuiz(currentQuiz.card.name, type);
+                    cardSelected = true;
+                    break;
                 } catch (error) {
-                    console.warn(`画像ファイルの確認中にエラーが発生しました: ${error}`);
+                    console.warn(`クイズ用の画像読み込みに失敗: ${currentQuiz.card.name}`, error);
                 }
             } else {
                 cardSelected = true;
@@ -125,14 +103,13 @@ window.initMinigamesSection = async function() { // async を追加
         }
 
         if (!cardSelected) {
-            await window.showCustomDialog('エラー', 'クイズに必要な画像が利用可能なカードが見つかりませんでした。別のクイズを試すか、画像ファイルが正しく配置されているか確認してください。');
+            await window.showCustomDialog('エラー', 'クイズを開始できませんでした。');
             resetQuiz();
             return;
         }
 
         if (quizDisplayArea) quizDisplayArea.style.display = 'block';
         if (quizImageArea) quizImageArea.style.display = 'none';
-
         if (quizTitle) quizTitle.textContent = getQuizTitle(type);
 
         if (type === 'cardName') {
@@ -188,73 +165,52 @@ window.initMinigamesSection = async function() { // async を追加
 
     // 画像をCanvasにロード
     async function loadImageForQuiz(cardName, quizType) {
-        return new Promise(async (resolve, reject) => {
-            // CHANGE: ファイル名に日本語などが含まれる場合を考慮し、URLエンコードを行う
-            const encodedCardName = encodeURIComponent(cardName);
-
-            currentQuiz.fullCardImage = new Image();
-            currentQuiz.fullCardImage.src = browser.runtime.getURL(`images/cards/${encodedCardName}.png`);
-
-            let loadPromises = [
-                new Promise((res, rej) => {
-                    currentQuiz.fullCardImage.onload = res;
-                    currentQuiz.fullCardImage.onerror = () => {
-                        console.error(`フルカード画像のロードに失敗しました: ${currentQuiz.fullCardImage.src}`);
-                        rej(new Error('Full card image load failed'));
-                    };
-                })
-            ];
-
-            if (quizType === 'silhouette') {
-                currentQuiz.transparentIllustrationImage = new Image();
-                currentQuiz.transparentIllustrationImage.src = browser.runtime.getURL(`images/cards/${encodedCardName}_transparent.png`);
-                loadPromises.push(new Promise((res, rej) => {
-                    currentQuiz.transparentIllustrationImage.onload = res;
-                    currentQuiz.transparentIllustrationImage.onerror = () => {
-                        console.error(`透過イラスト画像のロードに失敗しました: ${currentQuiz.transparentIllustrationImage.src}`);
-                        rej(new Error('Transparent illustration image load failed'));
-                    };
-                }));
-            }
-
-            try {
-                await Promise.all(loadPromises);
-
-                const parentWidth = quizImageArea ? (quizImageArea.clientWidth > 0 ? quizImageArea.clientWidth : 400) : 400;
-                const parentHeight = quizImageArea ? (quizImageArea.clientHeight > 0 ? quizImageArea.clientHeight : 300) : 300;
-
-                const imgNaturalWidth = currentQuiz.fullCardImage.naturalWidth;
-                const imgNaturalHeight = currentQuiz.fullCardImage.naturalHeight;
-                const aspectRatio = imgNaturalWidth / imgNaturalHeight;
-
-                let drawWidth = parentWidth;
-                let drawHeight = parentWidth / aspectRatio;
-
-                if (drawHeight > parentHeight) {
-                    drawHeight = parentHeight;
-                    drawWidth = parentHeight * aspectRatio;
-                }
-                
-                if (quizCanvas) {
-                    quizCanvas.width = drawWidth;
-                    quizCanvas.height = drawHeight;
-    
-                    const offscreenCanvas = document.createElement('canvas');
-                    offscreenCanvas.width = imgNaturalWidth;
-                    offscreenCanvas.height = imgNaturalHeight;
-                    const offscreenCtx = offscreenCanvas.getContext('2d');
-                    offscreenCtx.drawImage(currentQuiz.fullCardImage, 0, 0);
-                    currentQuiz.originalImageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-                }
-                resolve();
-            } catch (error) {
-                console.error(`画像のロードに失敗しました: ${error}`);
-                if (quizImageArea && quizCanvas) {
-                    quizImageArea.innerHTML = `<p style="color: red;">画像のロードに失敗しました。<br>（${cardName}.png または ${cardName}_transparent.png）<br>コンソールで詳細を確認してください。</p><img src="https://placehold.co/${quizCanvas.width || 200}x${quizCanvas.height || 200}/eee/333?text=No+Image" alt="Placeholder Image">`;
-                }
-                reject(new Error('Image load failed'));
-            }
+        const loadImage = (src) => new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "Anonymous"; // CORSポリシーのために必要
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+            img.src = src;
         });
+
+        const encodedCardName = encodeURIComponent(cardName);
+        const baseUrl = 'https://omezi42.github.io/tcg-assistant-images/cards/';
+        
+        try {
+            currentQuiz.fullCardImage = await loadImage(`${baseUrl}${encodedCardName}.png`);
+            
+            if (quizType === 'silhouette') {
+                // シルエット用の透過画像も外部から読み込む
+                // 注意：このファイルがサーバーに存在しない場合、エラーになります。
+                currentQuiz.transparentIllustrationImage = await loadImage(`${baseUrl}${encodedCardName}_transparent.png`);
+            }
+
+            // Canvasのサイズ設定とオリジナルデータの取得
+            const parentWidth = quizImageArea ? (quizImageArea.clientWidth > 0 ? quizImageArea.clientWidth : 400) : 400;
+            const parentHeight = quizImageArea ? (quizImageArea.clientHeight > 0 ? quizImageArea.clientHeight : 300) : 300;
+            const imgNaturalWidth = currentQuiz.fullCardImage.naturalWidth;
+            const imgNaturalHeight = currentQuiz.fullCardImage.naturalHeight;
+            const aspectRatio = imgNaturalWidth / imgNaturalHeight;
+            let drawWidth = parentWidth;
+            let drawHeight = parentWidth / aspectRatio;
+            if (drawHeight > parentHeight) {
+                drawHeight = parentHeight;
+                drawWidth = parentHeight * aspectRatio;
+            }
+            if (quizCanvas) {
+                quizCanvas.width = drawWidth;
+                quizCanvas.height = drawHeight;
+                const offscreenCanvas = document.createElement('canvas');
+                offscreenCanvas.width = imgNaturalWidth;
+                offscreenCanvas.height = imgNaturalHeight;
+                const offscreenCtx = offscreenCanvas.getContext('2d');
+                offscreenCtx.drawImage(currentQuiz.fullCardImage, 0, 0);
+                currentQuiz.originalImageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+            }
+        } catch (error) {
+            console.error(`画像読み込みエラー for ${cardName}:`, error);
+            throw error; // エラーを呼び出し元に伝播させる
+        }
     }
 
     // クイズ画像をCanvasに描画

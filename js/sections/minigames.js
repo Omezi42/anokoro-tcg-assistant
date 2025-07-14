@@ -17,7 +17,6 @@ window.initMinigamesSection = async function() { // async を追加
         quizCtx: null,
         fullCardImage: null, // フルカード画像用 (例: cardName.png)
         transparentIllustrationImage: null, // 透過イラスト画像用 (シルエット用: cardName_transparent.png)
-        illustrationImage: null, // シルエットクイズの背景イラスト画像用 (cardName_illust.png)
         originalImageData: null // モザイク化クイズ用 (これはフルカード画像から取得)
     };
 
@@ -56,7 +55,6 @@ window.initMinigamesSection = async function() { // async を追加
         currentQuiz.attemptCount = 0;
         currentQuiz.fullCardImage = null;
         currentQuiz.transparentIllustrationImage = null;
-        currentQuiz.illustrationImage = null;
         currentQuiz.originalImageData = null;
 
         if (quizDisplayArea) quizDisplayArea.style.display = 'none';
@@ -82,6 +80,7 @@ window.initMinigamesSection = async function() { // async を追加
             await window.showCustomDialog('エラー', 'カードデータがロードされていません。拡張機能の初期化が完了しているか確認してください。');
             return;
         }
+        // カード名当てクイズが重複するバグを防ぐため、常にリセットをかける
         resetQuiz();
         currentQuiz.type = type;
 
@@ -91,23 +90,22 @@ window.initMinigamesSection = async function() { // async を追加
             currentQuiz.card = window.allCards[Math.floor(Math.random() * window.allCards.length)]; // window.allCards を使用
             if (type !== 'cardName') {
                 const cardName = currentQuiz.card.name;
-                const imageUrl = browser.runtime.getURL(`images/cards/${cardName}.png`);
+                // CHANGE: ファイル名に日本語などが含まれる場合を考慮し、URLエンコードを行う
+                const encodedCardName = encodeURIComponent(cardName);
+                const imageUrl = browser.runtime.getURL(`images/cards/${encodedCardName}.png`);
                 try {
                     const response = await fetch(imageUrl, { method: 'HEAD' });
                     if (response.ok) {
                         if (type === 'silhouette') {
-                            const transparentImageUrl = browser.runtime.getURL(`images/cards/${cardName}_transparent.png`);
-                            const illustImageUrl = browser.runtime.getURL(`images/cards/${cardName}_illust.png`);
-                            const [transResponse, illustResponse] = await Promise.all([
-                                fetch(transparentImageUrl, { method: 'HEAD' }),
-                                fetch(illustImageUrl, { method: 'HEAD' })
-                            ]);
-                            if (transResponse.ok && illustResponse.ok) {
+                            const transparentImageUrl = browser.runtime.getURL(`images/cards/${encodedCardName}_transparent.png`);
+                            const transResponse = await fetch(transparentImageUrl, { method: 'HEAD' });
+                            
+                            if (transResponse.ok) {
                                 await loadImageForQuiz(cardName, type);
                                 cardSelected = true;
                                 break;
                             } else {
-                                console.warn(`シルエットクイズに必要な画像が見つかりません: ${cardName}_transparent.png or ${cardName}_illust.png`);
+                                console.warn(`シルエットクイズに必要な画像が見つかりません: ${cardName}_transparent.png`);
                             }
                         } else {
                             await loadImageForQuiz(cardName, type);
@@ -157,14 +155,32 @@ window.initMinigamesSection = async function() { // async を追加
         }
     }
 
-    // カード名当てクイズのヒント表示
+    // カード名当てクイズのヒント表示ロジック
     function displayCardNameQuizHint() {
-        if (!currentQuiz.card || !quizHintArea || !quizNextButton) return;
+        if (!currentQuiz.card || !quizHintArea) return;
+    
+        // 不正解時に次のヒントを表示するために、まず現在のヒントインデックスまでのヒントを再構築する
+        let newHintHTML = '';
+        // hintIndexは次に出すヒントの番号なので、i < currentQuiz.hintIndex で正しい
+        for (let i = 0; i < currentQuiz.hintIndex && i < currentQuiz.card.info.length; i++) {
+            if (i > 0) {
+                newHintHTML += '<br>';
+            }
+            newHintHTML += currentQuiz.card.info[i];
+        }
+    
+        // これから表示する新しいヒントを追加
         if (currentQuiz.hintIndex < currentQuiz.card.info.length) {
-            quizHintArea.innerHTML += (currentQuiz.hintIndex > 0 ? '<br>' : '') + currentQuiz.card.info[currentQuiz.hintIndex];
+            if (currentQuiz.hintIndex > 0) {
+                newHintHTML += '<br>';
+            }
+            newHintHTML += currentQuiz.card.info[currentQuiz.hintIndex];
+            
+            quizHintArea.innerHTML = newHintHTML;
             currentQuiz.hintIndex++;
-            quizNextButton.style.display = 'none';
         } else {
+            // すべてのヒントを表示しきった場合
+            quizHintArea.innerHTML = newHintHTML; // 最後のヒントまでのリストを表示
             quizHintArea.innerHTML += '<br><br>これ以上ヒントはありません。';
             endQuiz(false);
         }
@@ -173,8 +189,11 @@ window.initMinigamesSection = async function() { // async を追加
     // 画像をCanvasにロード
     async function loadImageForQuiz(cardName, quizType) {
         return new Promise(async (resolve, reject) => {
+            // CHANGE: ファイル名に日本語などが含まれる場合を考慮し、URLエンコードを行う
+            const encodedCardName = encodeURIComponent(cardName);
+
             currentQuiz.fullCardImage = new Image();
-            currentQuiz.fullCardImage.src = browser.runtime.getURL(`images/cards/${cardName}.png`);
+            currentQuiz.fullCardImage.src = browser.runtime.getURL(`images/cards/${encodedCardName}.png`);
 
             let loadPromises = [
                 new Promise((res, rej) => {
@@ -188,22 +207,12 @@ window.initMinigamesSection = async function() { // async を追加
 
             if (quizType === 'silhouette') {
                 currentQuiz.transparentIllustrationImage = new Image();
-                currentQuiz.transparentIllustrationImage.src = browser.runtime.getURL(`images/cards/${cardName}_transparent.png`);
+                currentQuiz.transparentIllustrationImage.src = browser.runtime.getURL(`images/cards/${encodedCardName}_transparent.png`);
                 loadPromises.push(new Promise((res, rej) => {
                     currentQuiz.transparentIllustrationImage.onload = res;
                     currentQuiz.transparentIllustrationImage.onerror = () => {
                         console.error(`透過イラスト画像のロードに失敗しました: ${currentQuiz.transparentIllustrationImage.src}`);
                         rej(new Error('Transparent illustration image load failed'));
-                    };
-                }));
-
-                currentQuiz.illustrationImage = new Image();
-                currentQuiz.illustrationImage.src = browser.runtime.getURL(`images/cards/${cardName}_illust.png`);
-                loadPromises.push(new Promise((res, rej) => {
-                    currentQuiz.illustrationImage.onload = res;
-                    currentQuiz.illustrationImage.onerror = () => {
-                        console.error(`イラスト背景画像のロードに失敗しました: ${currentQuiz.illustrationImage.src}`);
-                        rej(new Error('Illustration background image load failed'));
                     };
                 }));
             }
@@ -241,7 +250,7 @@ window.initMinigamesSection = async function() { // async を追加
             } catch (error) {
                 console.error(`画像のロードに失敗しました: ${error}`);
                 if (quizImageArea && quizCanvas) {
-                    quizImageArea.innerHTML = `<p style="color: red;">画像のロードに失敗しました。<br>（${cardName}.png または ${cardName}_transparent.png または ${cardName}_illust.png）<br>コンソールで詳細を確認してください。</p><img src="https://placehold.co/${quizCanvas.width || 200}x${quizCanvas.height || 200}/eee/333?text=No+Image" alt="Placeholder Image">`;
+                    quizImageArea.innerHTML = `<p style="color: red;">画像のロードに失敗しました。<br>（${cardName}.png または ${cardName}_transparent.png）<br>コンソールで詳細を確認してください。</p><img src="https://placehold.co/${quizCanvas.width || 200}x${quizCanvas.height || 200}/eee/333?text=No+Image" alt="Placeholder Image">`;
                 }
                 reject(new Error('Image load failed'));
             }
@@ -274,7 +283,7 @@ window.initMinigamesSection = async function() { // async を追加
                 drawEnlargedImage(ctx, img, currentQuiz.attemptCount, destX, destY, destWidth, destHeight);
                 break;
             case 'silhouette':
-                drawSilhouetteImage(ctx, currentQuiz.illustrationImage, currentQuiz.transparentIllustrationImage, currentQuiz.quizCanvas.width, currentQuiz.quizCanvas.height); 
+                drawSilhouetteImage(ctx, currentQuiz.fullCardImage, currentQuiz.transparentIllustrationImage, currentQuiz.quizCanvas.width, currentQuiz.quizCanvas.height); 
                 break;
             case 'mosaic':
                 drawMosaicImage(ctx, img, currentQuiz.attemptCount, destX, destY, destWidth, destHeight);
@@ -305,76 +314,106 @@ window.initMinigamesSection = async function() { // async を追加
         );
     }
 
-    // イラストシルエットクイズの描画ロジック
-    function drawSilhouetteImage(ctx, bgIllustrationImg, transparentImg, canvasWidth, canvasHeight) {
+    /**
+     * シルエットクイズの画像を描画します。
+     * 背景にはフルカード画像を切り抜いて使用し、その上に透過イラストから生成した黒いシルエットを重ねます。
+     * @param {CanvasRenderingContext2D} ctx - 描画コンテキスト
+     * @param {HTMLImageElement} fullCardImg - フルカード画像 (cardName.png)
+     * @param {HTMLImageElement} transparentImg - 透過イラスト画像 (cardName_transparent.png)
+     * @param {number} canvasWidth - キャンバスの幅
+     * @param {number} canvasHeight - キャンバスの高さ
+     */
+    function drawSilhouetteImage(ctx, fullCardImg, transparentImg, canvasWidth, canvasHeight) {
         ctx.clearRect(0, 0, canvasWidth, canvasHeight);
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-        function calculateDrawDims(image) {
-            const imgAspectRatio = image.naturalWidth / image.naturalHeight;
+        // --- 背景の描画 (フルカード画像からの切り抜き) ---
+        if (fullCardImg && fullCardImg.complete && fullCardImg.naturalWidth > 0) {
+            const cropX = 20;
+            const cropY = 90;
+            const cropWidth = 457 - 20;
+            const cropHeight = 310 - 90;
+
+            // 切り抜いた画像の比率を保ったまま中央に描画するロジック
+            const cropAspectRatio = cropWidth / cropHeight;
             const canvasAspectRatio = canvasWidth / canvasHeight;
 
             let drawWidth, drawHeight, offsetX, offsetY;
 
-            if (imgAspectRatio > canvasAspectRatio) {
+            if (cropAspectRatio > canvasAspectRatio) {
+                // 切り抜き画像の方が横長の場合
                 drawWidth = canvasWidth;
-                drawHeight = canvasWidth / imgAspectRatio;
+                drawHeight = canvasWidth / cropAspectRatio;
                 offsetX = 0;
                 offsetY = (canvasHeight - drawHeight) / 2;
             } else {
+                // 切り抜き画像の方が縦長（または同じ比率）の場合
                 drawHeight = canvasHeight;
-                drawWidth = canvasHeight * imgAspectRatio;
+                drawWidth = canvasHeight * cropAspectRatio;
                 offsetX = (canvasWidth - drawWidth) / 2;
                 offsetY = 0;
             }
-            return { drawWidth, drawHeight, offsetX, offsetY };
-        }
 
-        if (bgIllustrationImg && bgIllustrationImg.complete && bgIllustrationImg.naturalWidth > 0) {
-            const { drawWidth, drawHeight, offsetX, offsetY } = calculateDrawDims(bgIllustrationImg);
-            ctx.drawImage(bgIllustrationImg, offsetX, offsetY, drawWidth, drawHeight);
+            ctx.drawImage(
+                fullCardImg,
+                cropX, cropY, cropWidth, cropHeight, // 元画像の切り抜き範囲
+                offsetX, offsetY, drawWidth, drawHeight // 比率を維持して中央に描画
+            );
         } else {
-            console.error("シルエットクイズ用の背景イラスト画像がロードされていないか、無効です。");
+            console.error("シルエットクイズ用のフルカード画像がロードされていないか、無効です。");
             ctx.fillStyle = 'red';
             ctx.font = '20px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('画像エラー', canvasWidth / 2, canvasHeight / 2);
-            ctx.fillText('(背景イラスト画像が見つからないか無効です)', canvasWidth / 2, canvasHeight / 2 + 30);
+            ctx.fillText('(背景用のカード画像が見つかりません)', canvasWidth / 2, canvasHeight / 2 + 30);
             return;
         }
 
-        let blackMaskAlpha = 1.0;
-
-        if (blackMaskAlpha === 0) {
-            return;
-        }
-
+        // --- シルエットの描画 ---
         if (transparentImg && transparentImg.complete && transparentImg.naturalWidth > 0) {
+            const calculateDrawDims = (image) => {
+                const imgAspectRatio = image.naturalWidth / image.naturalHeight;
+                const canvasAspectRatio = canvasWidth / canvasHeight;
+                let drawWidth, drawHeight, offsetX, offsetY;
+                if (imgAspectRatio > canvasAspectRatio) {
+                    drawWidth = canvasWidth;
+                    drawHeight = canvasWidth / imgAspectRatio;
+                    offsetX = 0;
+                    offsetY = (canvasHeight - drawHeight) / 2;
+                } else {
+                    drawHeight = canvasHeight;
+                    drawWidth = canvasHeight * imgAspectRatio;
+                    offsetX = (canvasWidth - drawWidth) / 2;
+                    offsetY = 0;
+                }
+                return { drawWidth, drawHeight, offsetX, offsetY };
+            };
+
             const offscreenCanvas = document.createElement('canvas');
             offscreenCanvas.width = canvasWidth;
             offscreenCanvas.height = canvasHeight;
             const offscreenCtx = offscreenCanvas.getContext('2d');
 
-            const { drawWidth: transDrawWidth, drawHeight: transDrawHeight, offsetX: transOffsetX, offsetY: transOffsetY } = calculateDrawDims(transparentImg);
-            offscreenCtx.drawImage(transparentImg, transOffsetX, transOffsetY, transDrawWidth, transDrawHeight);
+            const { drawWidth, drawHeight, offsetX, offsetY } = calculateDrawDims(transparentImg);
+            offscreenCtx.drawImage(transparentImg, offsetX, offsetY, drawWidth, drawHeight);
 
             offscreenCtx.globalCompositeOperation = 'source-in';
             offscreenCtx.fillStyle = 'black';
             offscreenCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
 
-            ctx.globalAlpha = blackMaskAlpha;
             ctx.drawImage(offscreenCanvas, 0, 0);
-            ctx.globalAlpha = 1.0;
+
         } else {
             console.error("シルエットクイズ用の透過イラスト画像がロードされていないか、無効です。");
-            ctx.fillStyle = 'red';
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
             ctx.font = '20px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('画像エラー', canvasWidth / 2, canvasCanvas.height / 2);
-            ctx.fillText('(_transparent.pngが見つからないか無効です)', canvasWidth / 2, canvasHeight / 2 + 30);
+            ctx.fillText('画像エラー', canvasWidth / 2, canvasHeight / 2);
+            ctx.fillText('(_transparent.pngが見つかりません)', canvasWidth / 2, canvasHeight / 2 + 30);
         }
     }
+
 
     // イラストモザイク化クイズの描画ロジック
     function drawMosaicImage(ctx, img, attempt, destX, destY, destWidth, destHeight) {

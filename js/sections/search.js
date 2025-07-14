@@ -119,8 +119,10 @@ window.initSearchSection = async function() {
                     case 'lore': cardText = card.info.find(info => info.startsWith("このカードの世界観は、「")) || ''; break;
                     default: cardText = card.name + ' ' + card.info.join(' '); break;
                 }
-                // 修正：あいまい検索と部分一致検索を正しく評価
-                textMatches = levenshteinDistance(normalizeText(cardText), normalizeText(query)) <= fuzzyThreshold;
+                const normalizedCardText = normalizeText(cardText);
+                const normalizedQuery = normalizeText(query);
+                // 修正：部分一致検索とあいまい検索を正しく組み合わせる
+                textMatches = normalizedCardText.includes(normalizedQuery) || levenshteinDistance(normalizedCardText, normalizedQuery) <= fuzzyThreshold;
             }
             const typeMatches = !typeFilter || card.info.some(info => info.includes(`このカードは${typeFilter}`));
             const setMatches = !setFilter || card.info.some(info => info.includes(`このカードの収録セットは、${setFilter}`));

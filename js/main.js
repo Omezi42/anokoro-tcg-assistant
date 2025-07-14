@@ -344,9 +344,7 @@ async function injectUIIntoPage() {
     const birdImageUrl = browser.runtime.getURL('images/irust_桜小鳥.png');
 
     const uiHtml = `
-        <!-- サイドバー本体 -->
         <div id="tcg-content-area">
-            <!-- サイドバーヘッダー (メニューアイコン) -->
             <div id="tcg-sidebar-header">
                 <button class="tcg-menu-icon" data-section="home" title="ホーム"><i class="fas fa-home"></i></button>
                 <button class="tcg-menu-icon" data-section="rateMatch" title="レート戦"><i class="fas fa-fist-raised"></i></button>
@@ -355,21 +353,17 @@ async function injectUIIntoPage() {
                 <button class="tcg-menu-icon" data-section="search" title="検索"><i class="fas fa-search"></i></button>
                 <button class="tcg-menu-icon" data-section="minigames" title="ミニゲーム"><i class="fas fa-gamepad"></i></button>
             </div>
-            <!-- 各セクションのコンテンツラッパー -->
             <div id="tcg-sections-wrapper"></div>
         </div>
 
-        <!-- 桜小鳥トグルボタン -->
         <div id="tcg-menu-toggle-bird" style="background-image: url('${birdImageUrl}')" title="アシスタントメニューを開く"></div>
 
-        <!-- カスタムダイアログ -->
         <div id="tcg-custom-dialog-overlay">
             <div class="tcg-modal-content">
                 <h3 id="tcg-dialog-title"></h3>
                 <p id="tcg-dialog-message"></p>
                 <div class="dialog-buttons" id="tcg-dialog-buttons">
-                    <!-- ボタンはJSで動的に追加 -->
-                </div>
+                    </div>
             </div>
         </div>
     `;

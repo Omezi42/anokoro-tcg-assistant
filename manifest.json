@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "あの頃の自作TCG拡張機能",
-  "version": "1.6",
+  "version": "1.0.0",
   "description": "unityroomの『あの頃の自作TCG』の体験を向上させるための拡張機能です。",
   "permissions": [
     "activeTab",
@@ -82,6 +82,12 @@
         "mac": "MacCtrl+Shift+S"
       },
       "description": "サイドバーの表示/非表示を切り替える"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "anokoro-tcg@your-domain.com",
+      "strict_min_version": "91.1"
     }
   }
 }

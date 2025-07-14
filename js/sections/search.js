@@ -55,6 +55,7 @@ window.initSearchSection = async function() {
      */
     function normalizeText(text) {
         if (typeof text !== 'string') return '';
+        // 半角カタカナを全角カタカナに、ひらがなをカタカナに変換し、スペースを削除して小文字化
         return text.replace(/[\uFF61-\uFF9F]/g, s => String.fromCharCode(s.charCodeAt(0) + 0x20))
                    .replace(/[\u3041-\u3096]/g, s => String.fromCharCode(s.charCodeAt(0) + 0x60))
                    .replace(/\s+/g, '')
@@ -68,8 +69,6 @@ window.initSearchSection = async function() {
      * @returns {number} ２つの文字列の距離
      */
     function levenshteinDistance(s1, s2) {
-        s1 = normalizeText(s1);
-        s2 = normalizeText(s2);
         const m = s1.length;
         const n = s2.length;
         const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(null));
@@ -120,7 +119,8 @@ window.initSearchSection = async function() {
                     case 'lore': cardText = card.info.find(info => info.startsWith("このカードの世界観は、「")) || ''; break;
                     default: cardText = card.name + ' ' + card.info.join(' '); break;
                 }
-                textMatches = levenshteinDistance(cardText, query) <= fuzzyThreshold || normalizeText(cardText).includes(normalizeText(query));
+                // 修正：あいまい検索と部分一致検索を正しく評価
+                textMatches = levenshteinDistance(normalizeText(cardText), normalizeText(query)) <= fuzzyThreshold;
             }
             const typeMatches = !typeFilter || card.info.some(info => info.includes(`このカードは${typeFilter}`));
             const setMatches = !setFilter || card.info.some(info => info.includes(`このカードの収録セットは、${setFilter}`));

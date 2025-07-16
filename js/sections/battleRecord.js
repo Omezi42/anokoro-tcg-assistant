@@ -14,14 +14,19 @@
         // --- グローバル変数 (このスコープ内) ---
         let mediaRecorder;
         let recordedChunks = [];
-        let currentStream;
+        let replayStream;
         let db;
+        let broadcastStream;
+        let peerConnection;
+        let spectateConnection;
+        let currentRoomId = null;
 
         // --- IndexedDB関連の定数 ---
         const DB_NAME = 'TcgReplayDB';
         const DB_VERSION = 1;
         const META_STORE_NAME = 'replaysMeta';
         const CHUNKS_STORE_NAME = 'replayChunks';
+        const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
 
         // --- DOM要素の取得 ---
         const sectionContainer = document.getElementById('tcg-battlerecord-section');
@@ -33,7 +38,6 @@
         // =================================================================
         // データ管理 (ログイン状態を考慮)
         // =================================================================
-
         const getDecks = async () => window.currentUserId ? (window.userRegisteredDecks || []) : JSON.parse(localStorage.getItem('registeredDecksLocal') || '[]');
         const saveDecks = async (decks) => {
             if (window.currentUserId) {
@@ -56,34 +60,26 @@
         // =================================================================
         // ヘルパー関数
         // =================================================================
-
-        const openDB = () => {
-            return new Promise((resolve, reject) => {
-                if (db) return resolve(db);
-                if (!window.indexedDB) return reject(new Error("このブラウザまたはプライバシー設定ではIndexedDBがサポートされていません。"));
-                
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
-                request.onerror = (event) => reject("Database error: " + event.target.error.message);
-                request.onupgradeneeded = (event) => {
-                    const tempDb = event.target.result;
-                    if (!tempDb.objectStoreNames.contains(META_STORE_NAME)) tempDb.createObjectStore(META_STORE_NAME, { keyPath: 'id' });
-                    if (!tempDb.objectStoreNames.contains(CHUNKS_STORE_NAME)) {
-                        const chunkStore = tempDb.createObjectStore(CHUNKS_STORE_NAME, { autoIncrement: true });
-                        chunkStore.createIndex('replayId', 'replayId', { unique: false });
-                    }
-                };
-                request.onsuccess = (event) => {
-                    db = event.target.result;
-                    resolve(db);
-                };
-            });
-        };
+        const openDB = () => new Promise((resolve, reject) => {
+            if (db) return resolve(db);
+            if (!window.indexedDB) return reject(new Error("IndexedDBがサポートされていません。"));
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            request.onerror = (e) => reject("DB Error: " + e.target.error.message);
+            request.onupgradeneeded = (e) => {
+                const tempDb = e.target.result;
+                if (!tempDb.objectStoreNames.contains(META_STORE_NAME)) tempDb.createObjectStore(META_STORE_NAME, { keyPath: 'id' });
+                if (!tempDb.objectStoreNames.contains(CHUNKS_STORE_NAME)) {
+                    const store = tempDb.createObjectStore(CHUNKS_STORE_NAME, { autoIncrement: true });
+                    store.createIndex('replayId', 'replayId', { unique: false });
+                }
+            };
+            request.onsuccess = (e) => { db = e.target.result; resolve(db); };
+        });
 
         const updateUIForRecording = (isRecording) => {
             const startBtn = sectionContainer.querySelector('#start-replay-record-button');
             const stopBtn = sectionContainer.querySelector('#stop-replay-record-button');
             const statusEl = sectionContainer.querySelector('#record-status');
-
             if (startBtn) startBtn.style.display = isRecording ? 'none' : 'inline-flex';
             if (stopBtn) stopBtn.style.display = isRecording ? 'inline-flex' : 'none';
             if (statusEl) {
@@ -93,26 +89,20 @@
         };
 
         // =================================================================
-        // 機能ロジック
+        // リプレイ機能ロジック
         // =================================================================
-
         const startRecording = async () => {
             try {
-                currentStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: true,
-                    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-                    preferCurrentTab: true,
-                    systemAudio: 'include'
+                replayStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true, audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+                    preferCurrentTab: true, systemAudio: 'include'
                 });
                 updateUIForRecording(true);
-                currentStream.getVideoTracks()[0].onended = () => stopRecording();
+                replayStream.getVideoTracks()[0].onended = () => stopRecording();
                 recordedChunks = [];
                 const options = { mimeType: 'video/webm;codecs=vp9,opus' };
-                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                    console.warn(`${options.mimeType} is not supported, falling back to default.`);
-                    delete options.mimeType;
-                }
-                mediaRecorder = new MediaRecorder(currentStream, options);
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) delete options.mimeType;
+                mediaRecorder = new MediaRecorder(replayStream, options);
                 mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) recordedChunks.push(event.data); };
                 mediaRecorder.onstop = async () => {
                     sectionContainer.querySelector('#record-status').textContent = "ステータス: 処理中...";
@@ -122,20 +112,15 @@
                         const metaTx = db.transaction(META_STORE_NAME, 'readwrite');
                         metaTx.objectStore(META_STORE_NAME).put({ id: replayId, timestamp: Date.now() });
                         await new Promise((res, rej) => { metaTx.oncomplete = res; metaTx.onerror = rej; });
-
                         const chunkTx = db.transaction(CHUNKS_STORE_NAME, 'readwrite');
                         const chunkStore = chunkTx.objectStore(CHUNKS_STORE_NAME);
                         for (const chunk of recordedChunks) chunkStore.add({ replayId, chunk });
                         await new Promise((res, rej) => { chunkTx.oncomplete = res; chunkTx.onerror = rej; });
-                        
                         recordedChunks = [];
                         await updateReplayList();
                         window.showCustomDialog('録画完了', 'リプレイが保存されました。');
-                    } catch (e) {
-                        window.showCustomDialog('保存エラー', `リプレイの保存に失敗しました: ${e.message}`);
-                    } finally {
-                        updateUIForRecording(false);
-                    }
+                    } catch (e) { window.showCustomDialog('保存エラー', `リプレイの保存に失敗しました: ${e.message}`); }
+                    finally { updateUIForRecording(false); }
                 };
                 mediaRecorder.start(5000);
             } catch (err) {
@@ -147,11 +132,11 @@
 
         const stopRecording = () => {
             if (mediaRecorder?.state === "recording") mediaRecorder.stop();
-            currentStream?.getTracks().forEach(track => track.stop());
-            currentStream = null;
+            replayStream?.getTracks().forEach(track => track.stop());
+            replayStream = null;
             updateUIForRecording(false);
         };
-
+        
         const updateReplayList = async () => {
             const replaysListEl = sectionContainer.querySelector('#replays-list');
             if (!replaysListEl) return;
@@ -252,19 +237,162 @@
             }
         };
 
+        // =================================================================
+        // 観戦機能ロジック (WebRTC with WebSocket Signaling)
+        // =================================================================
+        const startBroadcast = async () => {
+            if (!window.ws || window.ws.readyState !== WebSocket.OPEN) {
+                return window.showCustomDialog('エラー', 'サーバーに接続していません。レート戦タブからログインしてください。');
+            }
+            try {
+                broadcastStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                updateUIForBroadcast(true);
+                broadcastStream.getVideoTracks()[0].onended = () => stopBroadcast();
+
+                peerConnection = new RTCPeerConnection(RTC_CONFIG);
+                broadcastStream.getTracks().forEach(track => peerConnection.addTrack(track, broadcastStream));
+
+                peerConnection.onicecandidate = event => {
+                    if (event.candidate) {
+                        window.ws.send(JSON.stringify({
+                            type: 'spectate_signal',
+                            roomId: currentRoomId,
+                            signal: { candidate: event.candidate }
+                        }));
+                    }
+                };
+                
+                // サーバーに配信開始を通知し、ルームIDを受け取る
+                window.ws.send(JSON.stringify({ type: 'start_broadcast' }));
+
+            } catch (err) {
+                console.error("Broadcast failed to start:", err);
+                window.showCustomDialog('配信エラー', `配信を開始できませんでした: ${err.message}`);
+                stopBroadcast();
+            }
+        };
+        
+        const stopBroadcast = () => {
+            if (window.ws && window.ws.readyState === WebSocket.OPEN && currentRoomId) {
+                window.ws.send(JSON.stringify({ type: 'stop_broadcast', roomId: currentRoomId }));
+            }
+            broadcastStream?.getTracks().forEach(track => track.stop());
+            peerConnection?.close();
+            peerConnection = null;
+            broadcastStream = null;
+            currentRoomId = null;
+            updateUIForBroadcast(false);
+        };
+
+        const updateUIForBroadcast = (isBroadcasting) => {
+            sectionContainer.querySelector('#start-broadcast-button').style.display = isBroadcasting ? 'none' : 'block';
+            sectionContainer.querySelector('#stop-broadcast-button').style.display = isBroadcasting ? 'block' : 'none';
+            sectionContainer.querySelector('#broadcast-status').style.display = isBroadcasting ? 'block' : 'none';
+        };
+
+        const startSpectating = async () => {
+            if (!window.ws || window.ws.readyState !== WebSocket.OPEN) {
+                return window.showCustomDialog('エラー', 'サーバーに接続していません。レート戦タブからログインしてください。');
+            }
+            const roomId = sectionContainer.querySelector('#spectate-room-id-input').value.trim();
+            if (!roomId) return window.showCustomDialog('エラー', 'ルームIDを入力してください。');
+            
+            currentRoomId = roomId;
+            updateUIForSpectate(true);
+
+            window.ws.send(JSON.stringify({ type: 'join_spectate_room', roomId: roomId }));
+        };
+
+        const stopSpectating = () => {
+            if (window.ws && window.ws.readyState === WebSocket.OPEN && currentRoomId) {
+                window.ws.send(JSON.stringify({ type: 'leave_spectate_room', roomId: currentRoomId }));
+            }
+            spectateConnection?.close();
+            spectateConnection = null;
+            currentRoomId = null;
+            updateUIForSpectate(false);
+            const videoEl = sectionContainer.querySelector('#spectate-video');
+            if(videoEl) videoEl.srcObject = null;
+        };
+
+        const updateUIForSpectate = (isSpectating) => {
+            sectionContainer.querySelector('#spectate-form').style.display = isSpectating ? 'none' : 'flex';
+            sectionContainer.querySelector('#spectate-view').style.display = isSpectating ? 'block' : 'none';
+        };
+        
+        // WebSocketメッセージを処理するグローバルハンドラ
+        window.handleSpectateSignal = async (message) => {
+            const { roomId, signal } = message;
+
+            // 自分が配信者側の場合
+            if (peerConnection && signal.answer) {
+                if (peerConnection.signalingState !== "stable") {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.answer));
+                }
+            }
+            if (peerConnection && signal.candidate) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            }
+
+            // 自分が視聴者側の場合
+            if (roomId === currentRoomId && signal.offer) {
+                spectateConnection = new RTCPeerConnection(RTC_CONFIG);
+                spectateConnection.onicecandidate = event => {
+                    if (event.candidate) {
+                        window.ws.send(JSON.stringify({
+                            type: 'spectate_signal',
+                            roomId: currentRoomId,
+                            signal: { candidate: event.candidate }
+                        }));
+                    }
+                };
+                spectateConnection.ontrack = event => {
+                    const videoEl = sectionContainer.querySelector('#spectate-video');
+                    if (videoEl && videoEl.srcObject !== event.streams[0]) {
+                        videoEl.srcObject = event.streams[0];
+                    }
+                };
+                await spectateConnection.setRemoteDescription(new RTCSessionDescription(signal.offer));
+                const answer = await spectateConnection.createAnswer();
+                await spectateConnection.setLocalDescription(answer);
+                window.ws.send(JSON.stringify({
+                    type: 'spectate_signal',
+                    roomId: currentRoomId,
+                    signal: { answer: answer }
+                }));
+            }
+            if (spectateConnection && signal.candidate) {
+                await spectateConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            }
+        };
+        
+        window.handleBroadcastStarted = async (message) => {
+            currentRoomId = message.roomId;
+            sectionContainer.querySelector('#broadcast-room-id').value = currentRoomId;
+            
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            
+            window.ws.send(JSON.stringify({
+                type: 'spectate_signal',
+                roomId: currentRoomId,
+                signal: { offer: offer }
+            }));
+        };
+        
+        // =================================================================
+        // 戦績・デッキ管理ロジック
+        // =================================================================
         const loadRegisteredDecks = async () => {
             const decks = await getDecks();
             const registeredDecksList = sectionContainer.querySelector('#registered-decks-list');
             const myDeckSelect = sectionContainer.querySelector('#my-deck-select');
             const opponentDeckSelect = sectionContainer.querySelector('#opponent-deck-select');
-            
             if (!registeredDecksList || !myDeckSelect || !opponentDeckSelect) return;
-
             const sortedDecks = [...decks].sort((a, b) => a.name.localeCompare(b.name));
             registeredDecksList.innerHTML = '';
             myDeckSelect.innerHTML = '<option value="">登録済みデッキから選択</option>';
             opponentDeckSelect.innerHTML = '<option value="">登録済みデッキから選択</option>';
-            
             if (sortedDecks.length === 0) {
                 registeredDecksList.innerHTML = `<li>まだ登録されたデッキがありません。</li>`;
             } else {
@@ -283,7 +411,6 @@
             const records = await getRecords();
             const battleRecordsList = sectionContainer.querySelector('#battle-records-list');
             if (!battleRecordsList) return;
-
             battleRecordsList.innerHTML = '';
             if (records.length === 0) {
                 battleRecordsList.innerHTML = `<li>まだ対戦記録がありません。</li>`;
@@ -305,30 +432,27 @@
         const calculateAndDisplayStats = (records) => {
             const container = sectionContainer.querySelector('#battle-stats');
             if (!container) return;
-
             const totalGames = records.length;
             const wins = records.filter(r => r.result === 'win').length;
             const losses = totalGames - wins;
             const winRate = totalGames > 0 ? (wins / totalGames * 100).toFixed(1) : '0.0';
-            
             container.querySelector('#total-games').textContent = totalGames;
             container.querySelector('#total-wins').textContent = wins;
             container.querySelector('#total-losses').textContent = losses;
             container.querySelector('#win-rate').textContent = `${winRate}%`;
-            // 他の統計も同様に計算・表示
         };
 
+        // =================================================================
+        // タブ切り替え
+        // =================================================================
         const showBattleRecordTab = (tabId) => {
-            sectionContainer.querySelectorAll('.battle-record-tab-content').forEach(content => content.classList.remove('active'));
-            sectionContainer.querySelectorAll('.battle-record-tab-button').forEach(button => button.classList.remove('active'));
-            
+            sectionContainer.querySelectorAll('.battle-record-tab-content').forEach(c => c.classList.remove('active'));
+            sectionContainer.querySelectorAll('.battle-record-tab-button').forEach(b => b.classList.remove('active'));
             const targetContent = sectionContainer.querySelector(`#battle-record-tab-${tabId}`);
             const targetButton = sectionContainer.querySelector(`.battle-record-tab-button[data-tab="${tabId}"]`);
-            
             if (targetContent) targetContent.classList.add('active');
             if (targetButton) targetButton.classList.add('active');
 
-            // タブに応じたデータロード処理
             if (tabId === 'replay') updateReplayList();
             else if (tabId === 'deck-management' || tabId === 'new-record') loadRegisteredDecks();
             else if (tabId === 'past-records' || tabId === 'stats-summary') loadBattleRecords();
@@ -337,18 +461,13 @@
         // =================================================================
         // イベントリスナー設定 (イベント委譲)
         // =================================================================
-
         sectionContainer.addEventListener('click', async (event) => {
             const button = event.target.closest('button');
             if (!button) return;
 
-            // タブ切り替え
-            if (button.matches('.battle-record-tab-button')) {
-                showBattleRecordTab(button.dataset.tab);
-                return;
-            }
-
-            // リプレイ機能
+            // タブ
+            if (button.matches('.battle-record-tab-button')) showBattleRecordTab(button.dataset.tab);
+            // リプレイ
             if (button.id === 'start-replay-record-button') startRecording();
             if (button.id === 'stop-replay-record-button') stopRecording();
             if (button.id === 'close-replay-player-button') {
@@ -362,21 +481,27 @@
                     deleteReplay(button.dataset.id);
                 }
             }
-
-            // デッキ管理
+            // 観戦
+            if (button.id === 'start-broadcast-button') startBroadcast();
+            if (button.id === 'stop-broadcast-button') stopBroadcast();
+            if (button.id === 'start-spectate-button') startSpectating();
+            if (button.id === 'stop-spectate-button') stopSpectating();
+            if (button.id === 'copy-room-id-button') {
+                const roomIdInput = sectionContainer.querySelector('#broadcast-room-id');
+                roomIdInput.select();
+                document.execCommand('copy');
+                window.showCustomDialog('成功', 'ルームIDをコピーしました。');
+            }
             if (button.id === 'register-deck-button') {
                 const nameInput = sectionContainer.querySelector('#new-deck-name');
                 const typeSelect = sectionContainer.querySelector('#new-deck-type');
                 const deckName = nameInput.value.trim();
                 const deckType = typeSelect.value;
                 if (!deckName || !deckType) return window.showCustomDialog('エラー', 'デッキ名とタイプは必須です。');
-                
                 const decks = await getDecks();
                 if (decks.some(d => d.name === deckName)) return window.showCustomDialog('エラー', '同じ名前のデッキが既に登録されています。');
-                
                 decks.push({ name: deckName, type: deckType });
                 await saveDecks(decks);
-                
                 window.showCustomDialog('成功', 'デッキを登録しました。');
                 nameInput.value = '';
                 typeSelect.value = '';
@@ -391,7 +516,6 @@
                     await loadRegisteredDecks();
                 }
             }
-            
             // 戦績記録
             if (button.id === 'save-battle-record-button') {
                 const myDeckSelect = sectionContainer.querySelector('#my-deck-select');
@@ -399,17 +523,10 @@
                 const winLossSelect = sectionContainer.querySelector('#win-loss-select');
                 const firstSecondSelect = sectionContainer.querySelector('#first-second-select');
                 const notesTextarea = sectionContainer.querySelector('#notes-textarea');
-
-                if (!myDeckSelect.value || !opponentDeckSelect.value || !firstSecondSelect.value) {
-                    return window.showCustomDialog('エラー', '必須項目を入力してください。');
-                }
+                if (!myDeckSelect.value || !opponentDeckSelect.value || !firstSecondSelect.value) return window.showCustomDialog('エラー', '必須項目を入力してください。');
                 const newRecord = {
-                    timestamp: new Date().toLocaleString(),
-                    myDeck: myDeckSelect.value,
-                    opponentDeck: opponentDeckSelect.value,
-                    result: winLossSelect.value,
-                    firstSecond: firstSecondSelect.value,
-                    notes: notesTextarea.value.trim()
+                    timestamp: new Date().toLocaleString(), myDeck: myDeckSelect.value, opponentDeck: opponentDeckSelect.value,
+                    result: winLossSelect.value, firstSecond: firstSecondSelect.value, notes: notesTextarea.value.trim()
                 };
                 const records = await getRecords();
                 records.push(newRecord);
@@ -432,9 +549,8 @@
         });
 
         // =================================================================
-        // 初期表示処理
+        // 初期化
         // =================================================================
-        
         showBattleRecordTab('replay');
         isInitialized = true;
     };

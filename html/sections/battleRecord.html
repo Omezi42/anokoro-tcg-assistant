@@ -1,15 +1,51 @@
 <!-- このセクション全体を囲むコンテナを追加 -->
 <div id="tcg-battlerecord-section">
     <h2 class="section-title">戦いの記録</h2>
-    <p>対戦記録、デッキ管理、そして試合のリプレイ機能を利用できます。</p>
+    <p>対戦記録、デッキ管理、そして試合のリプレイ・観戦機能を利用できます。</p>
 
     <div class="battle-record-tabs">
-        <button class="battle-record-tab-button active" data-tab="replay"><i class="fas fa-video"></i> リプレイ</button>
-        <button class="battle-record-tab-button" data-tab="new-record"><i class="fas fa-plus-circle"></i> 新しい対戦記録</button>
+        <button class="battle-record-tab-button" data-tab="new-record"><i class="fas fa-plus-circle"></i> 新規記録</button>
         <button class="battle-record-tab-button" data-tab="deck-management"><i class="fas fa-layer-group"></i> デッキ管理</button>
         <button class="battle-record-tab-button" data-tab="stats-summary"><i class="fas fa-chart-bar"></i> 集計結果</button>
-        <button class="battle-record-tab-button" data-tab="past-records"><i class="fas fa-history"></i> 過去の対戦記録</button>
+        <button class="battle-record-tab-button" data-tab="past-records"><i class="fas fa-history"></i> 過去の記録</button>
+        <button class="battle-record-tab-button" data-tab="replay"><i class="fas fa-video"></i> リプレイ</button>
+        <button class="battle-record-tab-button" data-tab="spectate"><i class="fas fa-tv"></i> 観戦</button>
     </div>
+
+    <!-- 観戦機能タブ -->
+    <div id="battle-record-tab-spectate" class="battle-record-tab-content">
+        <h3><i class="fas fa-tv"></i> 観戦モード (グローバル対応版)</h3>
+        <div class="spectate-section">
+            <!-- 配信側UI -->
+            <div class="spectate-box">
+                <h4><i class="fas fa-satellite-dish"></i> 自分のゲームを配信する</h4>
+                <p>現在のゲーム画面を他の人が観戦できるように配信します。</p>
+                <button id="start-broadcast-button" class="button-style"><i class="fas fa-play-circle"></i> 配信を開始</button>
+                <button id="stop-broadcast-button" class="button-style" style="display: none;"><i class="fas fa-stop-circle"></i> 配信を停止</button>
+                <div id="broadcast-status" style="display: none;">
+                    <p>配信中です。ルームID: <strong id="broadcast-room-id-display"></strong></p>
+                </div>
+            </div>
+            <!-- 視聴側UI -->
+            <div class="spectate-box">
+                <h4><i class="fas fa-binoculars"></i> 他人のゲームを観戦する</h4>
+                <div id="broadcast-list-wrapper">
+                    <div class="broadcast-list-header">
+                        <h5><i class="fas fa-list-alt"></i> 配信中リスト</h5>
+                        <button id="refresh-broadcast-list-button" class="button-style" title="リストを更新"><i class="fas fa-sync-alt"></i></button>
+                    </div>
+                    <ul id="broadcast-list">
+                        <li>現在、配信中のルームはありません。</li>
+                    </ul>
+                </div>
+                <div id="spectate-view" style="display: none;">
+                    <video id="spectate-video" autoplay playsinline></video>
+                    <button id="stop-spectate-button" class="button-style"><i class="fas fa-sign-out-alt"></i> 観戦を終了</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- リプレイ機能タブ -->
     <div id="battle-record-tab-replay" class="battle-record-tab-content active">
@@ -39,6 +75,7 @@
 
 
     <div id="battle-record-tab-new-record" class="battle-record-tab-content">
+        <h3><i class="fas fa-plus-circle"></i> 新しい対戦記録</h3>
         <div class="battle-record-form">
             <label for="my-deck-select">自分のデッキ名:</label>
             <select id="my-deck-select">
@@ -66,11 +103,12 @@
             <label for="notes-textarea">特記事項 (任意):</label>
             <textarea id="notes-textarea" placeholder="メモや反省点など" rows="3"></textarea>
 
-            <button id="save-battle-record-button"><i class="fas fa-save"></i> 記録を保存</button>
+            <button id="save-battle-record-button" class="button-style"><i class="fas fa-save"></i> 記録を保存</button>
         </div>
     </div>
 
     <div id="battle-record-tab-deck-management" class="battle-record-tab-content">
+        <h3><i class="fas fa-layer-group"></i> デッキ管理</h3>
         <div class="deck-management-section">
             <div class="deck-register-form">
                 <label for="new-deck-name">デッキ名:</label>
@@ -84,7 +122,7 @@
                     <option value="コンボ">コンボ</option>
                     <option value="その他">その他</option>
                 </select>
-                <button id="register-deck-button"><i class="fas fa-plus"></i> デッキを登録</button>
+                <button id="register-deck-button" class="button-style"><i class="fas fa-plus"></i> デッキを登録</button>
             </div>
             <h4>登録済みデッキリスト</h4>
             <ul id="registered-decks-list">
@@ -94,6 +132,7 @@
     </div>
 
     <div id="battle-record-tab-stats-summary" class="battle-record-tab-content">
+        <h3><i class="fas fa-chart-bar"></i> 集計結果</h3>
         <div id="battle-stats">
             <p>総対戦数: <span id="total-games">0</span></p>
             <p>勝利数: <span id="total-wins">0</span></p>

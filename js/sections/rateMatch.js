@@ -377,6 +377,28 @@ window.initRateMatchSection = async function() {
                 clearMatchAndP2PConnection();
                 updateUIState();
                 break;
+            case 'broadcast_started':
+                    if (window.handleBroadcastStarted) {
+                        window.handleBroadcastStarted(message);
+                    }
+                    break;
+                
+                case 'spectate_signal':
+                    if (window.handleSpectateSignal) {
+                        window.handleSpectateSignal(message);
+                    }
+                    break;
+
+                case 'broadcast_stopped':
+                    if (window.handleBroadcastStopped) {
+                        window.handleBroadcastStopped(message);
+                    }
+                    break;
+                
+                case 'broadcast_list_update':
+                    if (window.updateBroadcastList) window.updateBroadcastList(message.list);
+                    break;
+
         }
     };
     

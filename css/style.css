@@ -886,6 +886,115 @@ label {
 }
 #refresh-ranking-button:hover { color: var(--color-primary); }
 
+
+/* --- リプレイ機能のスタイル --- */
+.replay-section {
+    background-color: var(--color-light-gray);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 10px;
+}
+
+#replay-controls {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed var(--color-border);
+}
+
+#replay-controls .button-style {
+    margin-right: 10px;
+}
+
+#start-replay-record-button {
+    background-color: var(--color-danger);
+    color: var(--color-white);
+}
+#start-replay-record-button:hover {
+    background-color: #c82333;
+}
+
+#stop-replay-record-button {
+    background-color: var(--color-text-light);
+    color: var(--color-white);
+}
+#stop-replay-record-button:hover {
+    background-color: #5a6268;
+}
+
+#record-status {
+    margin-top: 15px;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+#record-status.record-status-idle { color: var(--color-text-light); }
+#record-status.record-status-recording { color: var(--color-danger); }
+#record-status.record-status-processing { color: var(--color-info); }
+
+#replay-player-wrapper {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: var(--color-white);
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+}
+
+#replay-video {
+    width: 100%;
+    max-height: 300px;
+    border-radius: 8px;
+    background-color: #000;
+    margin-bottom: 10px;
+}
+
+#close-replay-player-button {
+    width: 100%;
+    background-color: var(--color-text-light);
+    color: var(--color-white);
+}
+
+#replay-list-wrapper {
+    margin-top: 20px;
+}
+
+#replays-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.replay-item-info {
+    flex-grow: 1;
+}
+
+.replay-item-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.replay-item-actions button {
+    padding: 5px 10px;
+    font-size: 0.9em;
+}
+
+.play-replay-button {
+    background-color: var(--color-success);
+    color: var(--color-white);
+}
+.play-replay-button:hover {
+    background-color: #218838;
+}
+.delete-replay-button {
+    background-color: var(--color-danger);
+    color: var(--color-white);
+}
+.delete-replay-button:hover {
+    background-color: #c82333;
+}
+
+
 /* レスポンシブ対応 */
 @media (max-width: 480px) {
     :root {

@@ -2,7 +2,11 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     // FirefoxとChromeのAPI名前空間の互換性を確保
-    const a = self.browser || self.chrome;
+    const a = (typeof browser !== "undefined") ? browser : chrome;
+    if (typeof a === "undefined" || typeof a.runtime === "undefined") {
+        console.error("TCG Assistant Popup: Could not find browser/chrome runtime API.");
+        return;
+    }
 
     const rateDisplay = document.getElementById('rate-display');
     const goToGameButton = document.getElementById('go-to-game-button');

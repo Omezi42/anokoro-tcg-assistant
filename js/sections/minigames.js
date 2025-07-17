@@ -1,472 +1,295 @@
 // js/sections/minigames.js
+export function initialize() {
+    if (document.body.dataset.minigamesInitialized === 'true') {
+        setupEventListeners(); // Re-attach listeners if section is re-initialized
+        return;
+    }
+    document.body.dataset.minigamesInitialized = 'true';
 
-// グローバルなallCardsとshowCustomDialog関数を受け取るための初期化関数
-window.initMinigamesSection = async function() { // async を追加
     console.log("Minigames section initialized.");
+    
+    const a = (typeof browser !== "undefined") ? browser : chrome;
 
-    // allCards は main.js でロードされ、グローバル変数として利用可能
-    // showCustomDialog も main.js でグローバル関数として定義されている
-
-    // 現在のクイズの状態を管理する変数
-    let currentQuiz = {
-        type: null, // 'cardName', 'enlarge', 'silhouette', 'mosaic'
-        card: null,
-        hintIndex: 0,
-        attemptCount: 0, // イラストクイズ用
-        quizCanvas: null,
-        quizCtx: null,
-        fullCardImage: null, // フルカード画像用 (例: cardName.png)
-        transparentIllustrationImage: null, // 透過イラスト画像用 (シルエット用: cardName_transparent.png)
-        originalImageData: null // モザイク化クイズ用 (これはフルカード画像から取得)
+    const currentQuiz = {
+        type: null, card: null, hintIndex: 0, attemptCount: 0,
+        quizCanvas: null, quizCtx: null, fullCardImage: null,
+        originalImageData: null
     };
 
-    // 各要素を関数内で取得
-    const quizCardNameButton = document.getElementById('quiz-card-name');
-    const quizIllustrationEnlargeButton = document.getElementById('quiz-illustration-enlarge');
-    const quizIllustrationSilhouetteButton = document.getElementById('quiz-illustration-silhouette');
-    const quizIllustrationMosaicButton = document.getElementById('quiz-illustration-mosaic');
+    const getElement = (id) => document.getElementById(id);
+    const elements = {
+        quizCardNameButton: getElement('quiz-card-name'),
+        quizIllustrationEnlargeButton: getElement('quiz-illustration-enlarge'),
+        quizIllustrationSilhouetteButton: getElement('quiz-illustration-silhouette'),
+        quizIllustrationMosaicButton: getElement('quiz-illustration-mosaic'),
+        quizDisplayArea: getElement('quiz-display-area'),
+        quizTitle: getElement('quiz-title'),
+        quizHintArea: getElement('quiz-hint-area'),
+        quizImageArea: getElement('quiz-image-area'),
+        quizCanvas: getElement('quiz-canvas'),
+        quizAnswerInput: getElement('quiz-answer-input'),
+        quizSubmitButton: getElement('quiz-submit-button'),
+        quizResultArea: getElement('quiz-result-area'),
+        quizAnswerDisplay: getElement('quiz-answer-display'),
+        quizNextButton: getElement('quiz-next-button'),
+        quizResetButton: getElement('quiz-reset-button'),
+    };
 
-    const quizDisplayArea = document.getElementById('quiz-display-area');
-    const quizTitle = document.getElementById('quiz-title');
-    const quizHintArea = document.getElementById('quiz-hint-area');
-    const quizImageArea = document.getElementById('quiz-image-area');
-    const quizCanvas = document.getElementById('quiz-canvas');
-    const quizAnswerInput = document.getElementById('quiz-answer-input');
-    const quizSubmitButton = document.getElementById('quiz-submit-button');
-    const quizResultArea = document.getElementById('quiz-result-area');
-    const quizAnswerDisplay = document.getElementById('quiz-answer-display');
-    const quizNextButton = document.getElementById('quiz-next-button');
-    const quizResetButton = document.getElementById('quiz-reset-button');
-
-    // quizCanvasとquizCtxがnullでないことを確認
-    if (quizCanvas) {
-        currentQuiz.quizCanvas = quizCanvas;
-        currentQuiz.quizCtx = quizCanvas.getContext('2d');
+    if (elements.quizCanvas) {
+        currentQuiz.quizCanvas = elements.quizCanvas;
+        currentQuiz.quizCtx = elements.quizCanvas.getContext('2d');
     }
 
-    /**
-     * クイズの初期化
-     * クイズの状態をリセットし、UIを初期表示に戻します。
-     */
     function resetQuiz() {
-        currentQuiz.type = null;
-        currentQuiz.card = null;
-        currentQuiz.hintIndex = 0;
-        currentQuiz.attemptCount = 0;
-        currentQuiz.fullCardImage = null;
-        currentQuiz.transparentIllustrationImage = null;
-        currentQuiz.originalImageData = null;
+        Object.assign(currentQuiz, {
+            type: null, card: null, hintIndex: 0, attemptCount: 0,
+            fullCardImage: null, originalImageData: null
+        });
 
-        if (quizDisplayArea) quizDisplayArea.style.display = 'none';
-        if (quizTitle) quizTitle.textContent = '';
-        if (quizHintArea) quizHintArea.innerHTML = '';
-        if (quizImageArea) quizImageArea.style.display = 'none';
-        if (quizCanvas) quizCanvas.style.display = 'none';
-        if (quizAnswerInput) quizAnswerInput.value = '';
-        if (quizResultArea) {
-            quizResultArea.textContent = '';
-            quizResultArea.className = 'quiz-result-area';
+        if (elements.quizDisplayArea) elements.quizDisplayArea.style.display = 'none';
+        if (elements.quizTitle) elements.quizTitle.textContent = '';
+        if (elements.quizHintArea) elements.quizHintArea.innerHTML = '';
+        if (elements.quizImageArea) elements.quizImageArea.style.display = 'none';
+        if (elements.quizCanvas) elements.quizCanvas.style.display = 'none';
+        if (elements.quizAnswerInput) {
+            elements.quizAnswerInput.value = '';
+            elements.quizAnswerInput.disabled = false;
         }
-        if (quizAnswerDisplay) quizAnswerDisplay.textContent = '';
-        if (quizNextButton) quizNextButton.style.display = 'none';
-        if (quizSubmitButton) quizSubmitButton.style.display = 'inline-block';
-        if (quizAnswerInput) quizAnswerInput.disabled = false;
+        if (elements.quizResultArea) {
+            elements.quizResultArea.textContent = '';
+            elements.quizResultArea.className = 'quiz-result-area';
+        }
+        if (elements.quizAnswerDisplay) elements.quizAnswerDisplay.textContent = '';
+        if (elements.quizNextButton) elements.quizNextButton.style.display = 'none';
+        if (elements.quizSubmitButton) elements.quizSubmitButton.style.display = 'inline-block';
+        if (elements.quizResetButton) elements.quizResetButton.textContent = 'リセット';
     }
 
-    // クイズ開始共通ロジック
     async function startQuiz(type) {
-        if (!window.allCards || window.allCards.length === 0) {
-            await window.showCustomDialog('エラー', 'カードデータがロードされていません。');
-            return;
+        const { allCards } = window.tcgAssistant;
+        if (!allCards || allCards.length === 0) {
+            return window.showCustomDialog('エラー', 'カードデータがまだ読み込まれていません。少し待ってからもう一度お試しください。');
         }
         resetQuiz();
         currentQuiz.type = type;
 
-        let cardSelected = false;
-        const maxAttempts = 20;
-        for (let i = 0; i < maxAttempts; i++) {
-            currentQuiz.card = window.allCards[Math.floor(Math.random() * window.allCards.length)];
-            if (type !== 'cardName') {
+        let cardFound = false;
+
+        if (type === 'cardName') {
+            currentQuiz.card = allCards[Math.floor(Math.random() * allCards.length)];
+            cardFound = true;
+        } else {
+            const imageCards = allCards
+                .filter(c => c.image_filename)
+                .sort(() => 0.5 - Math.random()); 
+
+            if (imageCards.length === 0) {
+                return window.showCustomDialog('エラー', 'クイズに適した画像付きカードが見つかりません。');
+            }
+
+            for (const card of imageCards) {
                 try {
-                    // 画像の存在を事前に確認する必要はなくなりますが、
-                    // 読み込みに成功したかどうかで判断します。
-                    await loadImageForQuiz(currentQuiz.card.name, type);
-                    cardSelected = true;
+                    await loadImageForQuiz(card.image_filename);
+                    currentQuiz.card = card;
+                    cardFound = true;
                     break;
                 } catch (error) {
-                    console.warn(`クイズ用の画像読み込みに失敗: ${currentQuiz.card.name}`, error);
+                    console.warn(`Failed to load image for ${card.name}, trying next card. Error:`, error);
                 }
-            } else {
-                cardSelected = true;
-                break;
             }
         }
 
-        if (!cardSelected) {
-            await window.showCustomDialog('エラー', 'クイズを開始できませんでした。');
-            resetQuiz();
-            return;
+        if (!cardFound) {
+            return window.showCustomDialog('エラー', 'クイズの開始に失敗しました。有効なカードが見つかりません。');
         }
 
-        if (quizDisplayArea) quizDisplayArea.style.display = 'block';
-        if (quizImageArea) quizImageArea.style.display = 'none';
-        if (quizTitle) quizTitle.textContent = getQuizTitle(type);
+        if (elements.quizDisplayArea) elements.quizDisplayArea.style.display = 'block';
+        if (elements.quizTitle) elements.quizTitle.textContent = getQuizTitle(type);
 
         if (type === 'cardName') {
             displayCardNameQuizHint();
         } else {
-            if (quizImageArea) quizImageArea.style.display = 'flex';
-            if (quizCanvas) quizCanvas.style.display = 'block';
+            if (elements.quizImageArea) elements.quizImageArea.style.display = 'flex';
+            if (elements.quizCanvas) elements.quizCanvas.style.display = 'block';
             drawQuizImage();
         }
     }
 
-    // クイズタイトル取得
     function getQuizTitle(type) {
-        switch (type) {
-            case 'cardName': return 'カード名当てクイズ';
-            case 'enlarge': return 'イラスト拡大クイズ';
-            case 'silhouette': return 'イラストシルエットクイズ';
-            case 'mosaic': return 'イラストモザイク化クイズ';
-            default: return 'ミニゲーム';
-        }
+        const titles = {
+            cardName: 'カード名当てクイズ', enlarge: 'イラスト拡大クイズ',
+            silhouette: 'イラストシルエットクイズ', mosaic: 'イラストモザイク化クイズ'
+        };
+        return titles[type] || 'ミニゲーム';
     }
 
-    // カード名当てクイズのヒント表示ロジック
     function displayCardNameQuizHint() {
-        if (!currentQuiz.card || !quizHintArea) return;
-    
-        // 不正解時に次のヒントを表示するために、まず現在のヒントインデックスまでのヒントを再構築する
-        let newHintHTML = '';
-        // hintIndexは次に出すヒントの番号なので、i < currentQuiz.hintIndex で正しい
-        for (let i = 0; i < currentQuiz.hintIndex && i < currentQuiz.card.info.length; i++) {
-            if (i > 0) {
-                newHintHTML += '<br>';
-            }
-            newHintHTML += currentQuiz.card.info[i];
-        }
-    
-        // これから表示する新しいヒントを追加
-        if (currentQuiz.hintIndex < currentQuiz.card.info.length) {
-            if (currentQuiz.hintIndex > 0) {
-                newHintHTML += '<br>';
-            }
-            newHintHTML += currentQuiz.card.info[currentQuiz.hintIndex];
-            
-            quizHintArea.innerHTML = newHintHTML;
-            currentQuiz.hintIndex++;
-        } else {
-            // すべてのヒントを表示しきった場合
-            quizHintArea.innerHTML = newHintHTML; // 最後のヒントまでのリストを表示
-            quizHintArea.innerHTML += '<br><br>これ以上ヒントはありません。';
+        if (!currentQuiz.card || !elements.quizHintArea) return;
+        
+        const hintsToShow = currentQuiz.card.info.slice(0, currentQuiz.hintIndex + 1);
+        elements.quizHintArea.innerHTML = hintsToShow.join('<br>');
+
+        currentQuiz.hintIndex++;
+        if (currentQuiz.hintIndex >= currentQuiz.card.info.length) {
+            elements.quizHintArea.innerHTML += '<br><br>これ以上ヒントはありません。';
             endQuiz(false);
         }
     }
 
-    // 画像をCanvasにロード
-    async function loadImageForQuiz(cardName, quizType) {
-        const loadImage = (src) => new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = "Anonymous"; // CORSポリシーのために必要
-            img.onload = () => resolve(img);
-            img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
-            img.src = src;
+    async function loadImageForQuiz(imageFilename) {
+        const imageUrl = `https://omezi42.github.io/tcg-assistant-images/cards/${encodeURIComponent(imageFilename)}.png`;
+        
+        // FIX: Request the background script to fetch the image to bypass CORS
+        const response = await a.runtime.sendMessage({
+            action: 'fetchImageAsDataURL',
+            url: imageUrl
         });
 
-        const encodedCardName = encodeURIComponent(cardName);
-        const baseUrl = 'https://omezi42.github.io/tcg-assistant-images/cards/';
-        
-        try {
-            currentQuiz.fullCardImage = await loadImage(`${baseUrl}${encodedCardName}.png`);
-            
-            if (quizType === 'silhouette') {
-                // シルエット用の透過画像も外部から読み込む
-                // 注意：このファイルがサーバーに存在しない場合、エラーになります。
-                currentQuiz.transparentIllustrationImage = await loadImage(`${baseUrl}${encodedCardName}_transparent.png`);
-            }
+        if (!response || !response.success) {
+            throw new Error(response.error || 'Failed to fetch image from background script.');
+        }
 
-            // Canvasのサイズ設定とオリジナルデータの取得
-            const parentWidth = quizImageArea ? (quizImageArea.clientWidth > 0 ? quizImageArea.clientWidth : 400) : 400;
-            const parentHeight = quizImageArea ? (quizImageArea.clientHeight > 0 ? quizImageArea.clientHeight : 300) : 300;
-            const imgNaturalWidth = currentQuiz.fullCardImage.naturalWidth;
-            const imgNaturalHeight = currentQuiz.fullCardImage.naturalHeight;
-            const aspectRatio = imgNaturalWidth / imgNaturalHeight;
+        const dataUrl = response.dataUrl;
+
+        const loadImage = (src) => new Promise((resolve, reject) => {
+            const img = new Image();
+            // No crossOrigin needed for data URLs
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error(`Failed to load image from data URL.`));
+            img.src = src;
+        });
+        
+        currentQuiz.fullCardImage = await loadImage(dataUrl);
+
+        if (elements.quizCanvas) {
+            const canvas = elements.quizCanvas;
+            const img = currentQuiz.fullCardImage;
+            const parentWidth = elements.quizImageArea.clientWidth;
+            const parentHeight = elements.quizImageArea.clientHeight;
+            const imgAspectRatio = img.naturalWidth / img.naturalHeight;
             let drawWidth = parentWidth;
-            let drawHeight = parentWidth / aspectRatio;
+            let drawHeight = parentWidth / imgAspectRatio;
             if (drawHeight > parentHeight) {
                 drawHeight = parentHeight;
-                drawWidth = parentHeight * aspectRatio;
+                drawWidth = parentHeight * imgAspectRatio;
             }
-            if (quizCanvas) {
-                quizCanvas.width = drawWidth;
-                quizCanvas.height = drawHeight;
-                const offscreenCanvas = document.createElement('canvas');
-                offscreenCanvas.width = imgNaturalWidth;
-                offscreenCanvas.height = imgNaturalHeight;
-                const offscreenCtx = offscreenCanvas.getContext('2d');
-                offscreenCtx.drawImage(currentQuiz.fullCardImage, 0, 0);
-                currentQuiz.originalImageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-            }
-        } catch (error) {
-            console.error(`画像読み込みエラー for ${cardName}:`, error);
-            throw error; // エラーを呼び出し元に伝播させる
+            canvas.width = drawWidth;
+            canvas.height = drawHeight;
+            
+            const offscreenCanvas = document.createElement('canvas');
+            offscreenCanvas.width = img.naturalWidth;
+            offscreenCanvas.height = img.naturalHeight;
+            const offscreenCtx = offscreenCanvas.getContext('2d');
+            offscreenCtx.drawImage(img, 0, 0);
+            currentQuiz.originalImageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
         }
     }
 
-    // クイズ画像をCanvasに描画
     function drawQuizImage() {
         if (!currentQuiz.quizCtx || !currentQuiz.quizCanvas || !currentQuiz.fullCardImage) return;
-
-        const ctx = currentQuiz.quizCtx;
-        const img = currentQuiz.fullCardImage;
-        ctx.clearRect(0, 0, currentQuiz.quizCanvas.width, currentQuiz.quizCanvas.height);
-
-        if (!img || !img.complete || img.naturalWidth === 0) {
-            console.warn("画像がまだロードされていないか、無効です。");
-            return;
-        }
-
-        const destX = 0;
-        const destY = 0;
-        const destWidth = currentQuiz.quizCanvas.width;
-        const destHeight = currentQuiz.quizCanvas.height;
-        
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, currentQuiz.quizCanvas.width, currentQuiz.quizCanvas.height);
+        const { quizCtx: ctx, quizCanvas: canvas, fullCardImage: img, attemptCount } = currentQuiz;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         switch (currentQuiz.type) {
-            case 'enlarge':
-                drawEnlargedImage(ctx, img, currentQuiz.attemptCount, destX, destY, destWidth, destHeight);
-                break;
-            case 'silhouette':
-                drawSilhouetteImage(ctx, currentQuiz.fullCardImage, currentQuiz.transparentIllustrationImage, currentQuiz.quizCanvas.width, currentQuiz.quizCanvas.height); 
-                break;
-            case 'mosaic':
-                drawMosaicImage(ctx, img, currentQuiz.attemptCount, destX, destY, destWidth, destHeight);
-                break;
+            case 'enlarge': drawEnlargedImage(ctx, img, attemptCount, canvas.width, canvas.height); break;
+            case 'silhouette': drawSilhouetteImage(ctx, img, canvas.width, canvas.height); break;
+            case 'mosaic': drawMosaicImage(ctx, attemptCount, canvas.width, canvas.height); break;
         }
     }
 
-    // イラスト拡大クイズの描画ロジック
-    function drawEnlargedImage(ctx, img, attempt, destX, destY, destWidth, destHeight) {
-        const imgWidth = img.naturalWidth;
-        const imgHeight = img.naturalHeight;
-
-        const initialDisplaySize = 10;
-        const sizeIncrement = 10;
-        let displaySize = initialDisplaySize + attempt * sizeIncrement;
-
-        if (displaySize > Math.min(imgWidth, imgHeight)) {
-            displaySize = Math.min(imgWidth, imgHeight);
-        }
-
-        const sourceX = Math.floor(imgWidth / 2 - displaySize / 2);
-        const sourceY = Math.floor(imgHeight * 0.25 - displaySize / 2);
-
-        ctx.drawImage(
-            img,
-            sourceX, sourceY, displaySize, displaySize,
-            destX, destY, destWidth, destHeight
-        );
-    }
-
-    /**
-     * シルエットクイズの画像を描画します。
-     * 背景にはフルカード画像を切り抜いて使用し、その上に透過イラストから生成した黒いシルエットを重ねます。
-     * @param {CanvasRenderingContext2D} ctx - 描画コンテキスト
-     * @param {HTMLImageElement} fullCardImg - フルカード画像 (cardName.png)
-     * @param {HTMLImageElement} transparentImg - 透過イラスト画像 (cardName_transparent.png)
-     * @param {number} canvasWidth - キャンバスの幅
-     * @param {number} canvasHeight - キャンバスの高さ
-     */
-    function drawSilhouetteImage(ctx, fullCardImg, transparentImg, canvasWidth, canvasHeight) {
-        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-        // --- 背景の描画 (フルカード画像からの切り抜き) ---
-        if (fullCardImg && fullCardImg.complete && fullCardImg.naturalWidth > 0) {
-            const cropX = 20;
-            const cropY = 90;
-            const cropWidth = 457 - 20;
-            const cropHeight = 310 - 90;
-
-            // 切り抜いた画像の比率を保ったまま中央に描画するロジック
-            const cropAspectRatio = cropWidth / cropHeight;
-            const canvasAspectRatio = canvasWidth / canvasHeight;
-
-            let drawWidth, drawHeight, offsetX, offsetY;
-
-            if (cropAspectRatio > canvasAspectRatio) {
-                // 切り抜き画像の方が横長の場合
-                drawWidth = canvasWidth;
-                drawHeight = canvasWidth / cropAspectRatio;
-                offsetX = 0;
-                offsetY = (canvasHeight - drawHeight) / 2;
-            } else {
-                // 切り抜き画像の方が縦長（または同じ比率）の場合
-                drawHeight = canvasHeight;
-                drawWidth = canvasHeight * cropAspectRatio;
-                offsetX = (canvasWidth - drawWidth) / 2;
-                offsetY = 0;
-            }
-
-            ctx.drawImage(
-                fullCardImg,
-                cropX, cropY, cropWidth, cropHeight, // 元画像の切り抜き範囲
-                offsetX, offsetY, drawWidth, drawHeight // 比率を維持して中央に描画
-            );
-        } else {
-            console.error("シルエットクイズ用のフルカード画像がロードされていないか、無効です。");
-            ctx.fillStyle = 'red';
-            ctx.font = '20px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('画像エラー', canvasWidth / 2, canvasHeight / 2);
-            ctx.fillText('(背景用のカード画像が見つかりません)', canvasWidth / 2, canvasHeight / 2 + 30);
-            return;
-        }
-
-        // --- シルエットの描画 ---
-        if (transparentImg && transparentImg.complete && transparentImg.naturalWidth > 0) {
-            const calculateDrawDims = (image) => {
-                const imgAspectRatio = image.naturalWidth / image.naturalHeight;
-                const canvasAspectRatio = canvasWidth / canvasHeight;
-                let drawWidth, drawHeight, offsetX, offsetY;
-                if (imgAspectRatio > canvasAspectRatio) {
-                    drawWidth = canvasWidth;
-                    drawHeight = canvasWidth / imgAspectRatio;
-                    offsetX = 0;
-                    offsetY = (canvasHeight - drawHeight) / 2;
-                } else {
-                    drawHeight = canvasHeight;
-                    drawWidth = canvasHeight * imgAspectRatio;
-                    offsetX = (canvasWidth - drawWidth) / 2;
-                    offsetY = 0;
-                }
-                return { drawWidth, drawHeight, offsetX, offsetY };
-            };
-
-            const offscreenCanvas = document.createElement('canvas');
-            offscreenCanvas.width = canvasWidth;
-            offscreenCanvas.height = canvasHeight;
-            const offscreenCtx = offscreenCanvas.getContext('2d');
-
-            const { drawWidth, drawHeight, offsetX, offsetY } = calculateDrawDims(transparentImg);
-            offscreenCtx.drawImage(transparentImg, offsetX, offsetY, drawWidth, drawHeight);
-
-            offscreenCtx.globalCompositeOperation = 'source-in';
-            offscreenCtx.fillStyle = 'black';
-            offscreenCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-
-            ctx.drawImage(offscreenCanvas, 0, 0);
-
-        } else {
-            console.error("シルエットクイズ用の透過イラスト画像がロードされていないか、無効です。");
-            ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
-            ctx.font = '20px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('画像エラー', canvasWidth / 2, canvasHeight / 2);
-            ctx.fillText('(_transparent.pngが見つかりません)', canvasWidth / 2, canvasHeight / 2 + 30);
-        }
-    }
-
-
-    // イラストモザイク化クイズの描画ロジック
-    function drawMosaicImage(ctx, img, attempt, destX, destY, destWidth, destHeight) {
-        const pixelSizeLevels = [128, 64, 32, 16, 8, 4];
-        const pixelSize = pixelSizeLevels[attempt] || 1;
-
-        if (!currentQuiz.originalImageData || !quizCanvas) {
-            ctx.drawImage(img, destX, destY, destWidth, destHeight);
-            return;
-        }
-
-        const originalData = currentQuiz.originalImageData.data;
-        const originalWidth = currentQuiz.originalImageData.width;
-        const originalHeight = currentQuiz.originalImageData.height;
-
-        ctx.clearRect(0, 0, quizCanvas.width, quizCanvas.height);
+    function drawEnlargedImage(ctx, img, attempt, canvasWidth, canvasHeight) {
+        const zoomLevels = [0.05, 0.1, 0.2, 0.4, 0.7, 1.0];
+        const zoom = zoomLevels[attempt] || 1.0;
         
-        const mosaicDrawWidth = destWidth;
-        const mosaicDrawHeight = destHeight;
-        const mosaicOffsetX = destX;
-        const mosaicOffsetY = destY;
+        const sourceWidth = img.naturalWidth * zoom;
+        const sourceHeight = img.naturalHeight * zoom;
+        const sourceX = (img.naturalWidth - sourceWidth) / 2;
+        const sourceY = (img.naturalHeight - sourceHeight) / 4;
+
+        ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvasWidth, canvasHeight);
+    }
+
+    function drawSilhouetteImage(ctx, img, canvasWidth, canvasHeight) {
+        const offscreenCanvas = document.createElement('canvas');
+        offscreenCanvas.width = img.naturalWidth;
+        offscreenCanvas.height = img.naturalHeight;
+        const offscreenCtx = offscreenCanvas.getContext('2d');
+        
+        offscreenCtx.drawImage(img, 0, 0);
+        const imageData = offscreenCtx.getImageData(0, 0, img.naturalWidth, img.naturalHeight);
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i + 3] !== 0) {
+                data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 255;
+            }
+        }
+        offscreenCtx.putImageData(imageData, 0, 0);
+        ctx.drawImage(offscreenCanvas, 0, 0, canvasWidth, canvasHeight);
+    }
+
+    function drawMosaicImage(ctx, attempt, canvasWidth, canvasHeight) {
+        const pixelSizeLevels = [64, 32, 16, 8, 4, 1];
+        const pixelSize = pixelSizeLevels[attempt] || 1;
+        const originalData = currentQuiz.originalImageData;
+        if (!originalData) return;
+
+        const originalWidth = originalData.width;
+        const originalHeight = originalData.height;
 
         for (let y = 0; y < originalHeight; y += pixelSize) {
             for (let x = 0; x < originalWidth; x += pixelSize) {
-                let r = 0, g = 0, b = 0, a = 0;
-                let count = 0;
-
-                for (let dy = 0; dy < pixelSize && y + dy < originalHeight; dy++) {
-                    for (let dx = 0; dx < pixelSize && x + dx < originalWidth; dx++) {
-                        const i = ((y + dy) * originalWidth + (x + dx)) * 4;
-                        r += originalData[i];
-                        g += originalData[i + 1];
-                        b += originalData[i + 2];
-                        a += originalData[i + 3];
-                        count++;
-                    }
-                }
-
-                if (count > 0) {
-                    r = Math.floor(r / count);
-                    g = Math.floor(g / count);
-                    b = Math.floor(b / count);
-                    a = Math.floor(a / count);
-                }
-
-                ctx.fillStyle = `rgba(${r},${g},${b},${a / 255})`;
-                
-                const rectX = mosaicOffsetX + (x / originalWidth) * mosaicDrawWidth;
-                const rectY = mosaicOffsetY + (y / originalHeight) * mosaicDrawHeight;
-                const rectWidth = (pixelSize / originalWidth) * mosaicDrawWidth;
-                const rectHeight = (pixelSize / originalHeight) * mosaicDrawHeight;
-
-                ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
+                const i = (y * originalWidth + x) * 4;
+                ctx.fillStyle = `rgba(${originalData.data[i]}, ${originalData.data[i+1]}, ${originalData.data[i+2]}, ${originalData.data[i+3] / 255})`;
+                ctx.fillRect((x / originalWidth) * canvasWidth, (y / originalHeight) * canvasHeight, (pixelSize / originalWidth) * canvasWidth, (pixelSize / originalHeight) * canvasHeight);
             }
         }
     }
 
+    function normalizeText(text = '') {
+        return text.replace(/[\uFF61-\uFF9F]/g, s => String.fromCharCode(s.charCodeAt(0) + 0x20))
+                   .replace(/[\u3041-\u3096]/g, s => String.fromCharCode(s.charCodeAt(0) + 0x60))
+                   .replace(/\s+/g, '')
+                   .toLowerCase();
+    }
 
-    // 解答チェック
+    async function updateMinigameStats(type, isCorrect, hintsUsed) {
+        const { minigameStats } = await a.storage.local.get({minigameStats: {}});
+        if (!minigameStats[type]) {
+            minigameStats[type] = { wins: 0, losses: 0, totalHints: 0 };
+        }
+        if (isCorrect) {
+            minigameStats[type].wins++;
+            minigameStats[type].totalHints += hintsUsed;
+        } else {
+            minigameStats[type].losses++;
+        }
+        await a.storage.local.set({ minigameStats: minigameStats });
+    }
+
     function checkAnswer() {
-        if (!quizAnswerInput || !quizResultArea || !currentQuiz.card) return;
+        if (!elements.quizAnswerInput || !elements.quizResultArea || !currentQuiz.card) return;
 
-        const userAnswer = quizAnswerInput.value.trim().toLowerCase();
-        const correctAnswer = currentQuiz.card.name.toLowerCase();
+        const userAnswer = normalizeText(elements.quizAnswerInput.value);
+        const correctAnswer = normalizeText(currentQuiz.card.name);
 
-        const toFullWidthKatakana = (str) => {
-            return str.replace(/[\uFF61-\uFF9F]/g, (s) => {
-                return String.fromCharCode(s.charCodeAt(0) + 0x20);
-            });
-        };
-        const toFullWidthKatakanaFromHiragana = (str) => {
-            return str.replace(/[\u3041-\u3096]/g, (s) => {
-                return String.fromCharCode(s.charCodeAt(0) + 0x60);
-            });
-        };
-
-        const normalizedUserAnswer = toFullWidthKatakana(toFullWidthKatakanaFromHiragana(userAnswer)).replace(/\s+/g, '');
-        const normalizedCorrectAnswer = toFullWidthKatakana(toFullWidthKatakanaFromHiragana(correctAnswer)).replace(/\s+/g, '');
-
-        if (normalizedUserAnswer === normalizedCorrectAnswer) {
-            quizResultArea.textContent = '正解！';
-            quizResultArea.classList.add('correct');
-            quizResultArea.classList.remove('incorrect');
+        if (userAnswer === correctAnswer) {
+            elements.quizResultArea.textContent = '正解！';
+            elements.quizResultArea.className = 'quiz-result-area correct';
             endQuiz(true);
         } else {
-            quizResultArea.textContent = '不正解...';
-            quizResultArea.classList.add('incorrect');
-            quizResultArea.classList.remove('correct');
+            elements.quizResultArea.textContent = '不正解...';
+            elements.quizResultArea.className = 'quiz-result-area incorrect';
             currentQuiz.attemptCount++;
-
+            
             if (currentQuiz.type === 'cardName') {
                 displayCardNameQuizHint();
             } else {
                 if (currentQuiz.attemptCount < 5) {
                     drawQuizImage();
-                    if (quizNextButton) quizNextButton.style.display = 'inline-block';
-                    if (quizNextButton) quizNextButton.textContent = '次のヒント';
+                    if (elements.quizNextButton) {
+                        elements.quizNextButton.style.display = 'inline-block';
+                        elements.quizNextButton.textContent = '次のヒント';
+                    }
                 } else {
                     endQuiz(false);
                 }
@@ -474,110 +297,57 @@ window.initMinigamesSection = async function() { // async を追加
         }
     }
 
-    // クイズ終了
     function endQuiz(isCorrect) {
-        if (!quizAnswerInput || !quizSubmitButton || !quizNextButton || !quizAnswerDisplay || !currentQuiz.quizCtx || !currentQuiz.quizCanvas || !quizResetButton) return;
+        if (!elements.quizAnswerInput || !elements.quizSubmitButton || !elements.quizNextButton || !elements.quizAnswerDisplay) return;
 
-        quizAnswerInput.disabled = true;
-        quizSubmitButton.style.display = 'none';
-        quizNextButton.style.display = 'none';
+        updateMinigameStats(currentQuiz.type, isCorrect, currentQuiz.hintIndex);
 
-        quizAnswerDisplay.innerHTML = `正解は「<strong>${currentQuiz.card.name}</strong>」でした！`;
+        elements.quizAnswerInput.disabled = true;
+        elements.quizSubmitButton.style.display = 'none';
+        elements.quizNextButton.style.display = 'none';
+        elements.quizAnswerDisplay.innerHTML = `正解は「<strong>${currentQuiz.card.name}</strong>」でした！`;
 
-        const ctx = currentQuiz.quizCtx;
-        let finalImage = currentQuiz.fullCardImage;
-
-        if (currentQuiz.type === 'enlarge' || currentQuiz.type === 'silhouette' || currentQuiz.type === 'mosaic') {
-            finalImage = currentQuiz.fullCardImage;
+        if (currentQuiz.type !== 'cardName' && currentQuiz.fullCardImage) {
+            const ctx = currentQuiz.quizCtx;
+            const canvas = currentQuiz.quizCanvas;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(currentQuiz.fullCardImage, 0, 0, canvas.width, canvas.height);
         }
-
-        if (finalImage) {
-            ctx.clearRect(0, 0, currentQuiz.quizCanvas.width, currentQuiz.quizCanvas.height);
-
-            const imgAspectRatio = finalImage.naturalWidth / finalImage.naturalHeight;
-            const canvasAspectRatio = currentQuiz.quizCanvas.width / currentQuiz.quizCanvas.height;
-
-            let drawWidth, drawHeight, offsetX, offsetY;
-
-            if (imgAspectRatio > canvasAspectRatio) {
-                drawWidth = currentQuiz.quizCanvas.width;
-                drawHeight = currentQuiz.quizCanvas.width / imgAspectRatio;
-                offsetX = 0;
-                offsetY = (currentQuiz.quizCanvas.height - drawHeight) / 2;
-            } else {
-                drawHeight = currentQuiz.quizCanvas.height;
-                drawWidth = canvasAspectRatio === 0 ? finalImage.naturalWidth : currentQuiz.quizCanvas.height * imgAspectRatio;
-                offsetX = (currentQuiz.quizCanvas.width - drawWidth) / 2;
-                offsetY = 0;
-            }
-            ctx.drawImage(finalImage, offsetX, offsetY, drawWidth, drawHeight);
-        } else {
-             console.error("最終表示用の画像がロードされていないか、無効です。");
-             ctx.fillStyle = 'red';
-             ctx.font = '20px Arial';
-             ctx.textAlign = 'center';
-             ctx.fillText('画像エラー', quizCanvas.width / 2, quizCanvas.height / 2);
-             ctx.fillText('(_transparent.pngが見つからないか無効です)', quizCanvas.width / 2, quizCanvas.height / 2 + 30);
-        }
-
-        quizResetButton.style.display = 'inline-block';
+        
+        if (elements.quizResetButton) elements.quizResetButton.textContent = '次の問題へ';
     }
-
-    // イベントリスナーを再アタッチ
-    if (quizCardNameButton) {
-        quizCardNameButton.removeEventListener('click', handleQuizCardNameClick);
-        quizCardNameButton.addEventListener('click', handleQuizCardNameClick);
-    }
-    if (quizIllustrationEnlargeButton) {
-        quizIllustrationEnlargeButton.removeEventListener('click', handleQuizIllustrationEnlargeClick);
-        quizIllustrationEnlargeButton.addEventListener('click', handleQuizIllustrationEnlargeClick);
-    }
-    if (quizIllustrationSilhouetteButton) {
-        quizIllustrationSilhouetteButton.removeEventListener('click', handleQuizIllustrationSilhouetteClick);
-        quizIllustrationSilhouetteButton.addEventListener('click', handleQuizIllustrationSilhouetteClick);
-    }
-    if (quizIllustrationMosaicButton) {
-        quizIllustrationMosaicButton.removeEventListener('click', handleQuizIllustrationMosaicClick);
-        quizIllustrationMosaicButton.addEventListener('click', handleQuizIllustrationMosaicClick);
-    }
-
-    if (quizSubmitButton) {
-        quizSubmitButton.removeEventListener('click', checkAnswer);
-        quizSubmitButton.addEventListener('click', checkAnswer);
-        if (quizAnswerInput) {
-            quizAnswerInput.removeEventListener('keypress', handleQuizAnswerInputKeypress);
-            quizAnswerInput.addEventListener('keypress', handleQuizAnswerInputKeypress);
-        }
-    }
-    if (quizNextButton) {
-        quizNextButton.removeEventListener('click', handleQuizNextClick);
-        quizNextButton.addEventListener('click', handleQuizNextClick);
-    }
-    if (quizResetButton) {
-        quizResetButton.removeEventListener('click', resetQuiz);
-        quizResetButton.addEventListener('click', resetQuiz);
-    }
-
-    // イベントハンドラ関数
-    function handleQuizCardNameClick() { startQuiz('cardName'); }
-    function handleQuizIllustrationEnlargeClick() { startQuiz('enlarge'); }
-    function handleQuizIllustrationSilhouetteClick() { startQuiz('silhouette'); }
-    function handleQuizIllustrationMosaicClick() { startQuiz('mosaic'); }
-    function handleQuizAnswerInputKeypress(e) { if (e.key === 'Enter') checkAnswer(); }
-    function handleQuizNextClick() {
+    
+    const handleQuizNextClick = () => {
         if (currentQuiz.type === 'cardName') {
             displayCardNameQuizHint();
         } else {
             drawQuizImage();
-            if (quizNextButton) quizNextButton.style.display = 'none';
+            if (elements.quizNextButton) elements.quizNextButton.style.display = 'none';
         }
-        if (quizResultArea) {
-            quizResultArea.textContent = '';
-            quizResultArea.className = 'quiz-result-area';
+        if (elements.quizResultArea) {
+            elements.quizResultArea.textContent = '';
+            elements.quizResultArea.className = 'quiz-result-area';
         }
+    };
+    const handleResetClick = () => {
+        if (currentQuiz.type) {
+            startQuiz(currentQuiz.type);
+        } else {
+            resetQuiz();
+        }
+    };
+
+    function setupEventListeners() {
+        elements.quizCardNameButton?.addEventListener('click', () => startQuiz('cardName'));
+        elements.quizIllustrationEnlargeButton?.addEventListener('click', () => startQuiz('enlarge'));
+        elements.quizIllustrationSilhouetteButton?.addEventListener('click', () => startQuiz('silhouette'));
+        elements.quizIllustrationMosaicButton?.addEventListener('click', () => startQuiz('mosaic'));
+        elements.quizSubmitButton?.addEventListener('click', checkAnswer);
+        elements.quizAnswerInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter') checkAnswer(); });
+        elements.quizNextButton?.addEventListener('click', handleQuizNextClick);
+        elements.quizResetButton?.addEventListener('click', handleResetClick);
     }
 
-
-    resetQuiz(); // 初期状態ではクイズUIを非表示に
-}; // End of initMinigamesSection
-void 0; // Explicitly return undefined for Firefox compatibility
+    setupEventListeners();
+    resetQuiz();
+}

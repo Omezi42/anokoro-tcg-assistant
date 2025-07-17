@@ -10,7 +10,8 @@
     "activeTab"
   ],
   "host_permissions": [
-    "https://unityroom.com/games/anokorotcg*"
+    "https://unityroom.com/games/anokorotcg*",
+    "https://omezi42.github.io/*"
   ],
   "background": {
     "scripts": ["js/background.js"]
@@ -43,15 +44,13 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "json/cards.json",
-        "images/cards/*.png",
-        "css/style.css",
-        "html/index.html",
-        "html/sections/*.html",
-        "js/main.js",
-        "js/sections/*.js",
+        "json/*.json",
         "images/*.png",
-        "images/irust_桜小鳥.png"
+        "css/*.css",
+        "html/*.html",
+        "html/sections/*.html",
+        "js/*.js",
+        "js/sections/*.js"
       ],
       "matches": ["https://unityroom.com/games/anokorotcg*"]
     }

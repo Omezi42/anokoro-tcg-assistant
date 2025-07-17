@@ -9,12 +9,16 @@
 
     console.log("main.js: Script loaded and initializing.");
 
-    // FirefoxとChromeのAPI名前空間の互換性を確保
-    const a = self.browser || self.chrome;
+    const a = (typeof browser !== "undefined") ? browser : chrome;
+    if (typeof a === "undefined" || typeof a.runtime === "undefined") {
+        console.error("TCG Assistant: Could not find browser/chrome runtime API. Extension features will not work.");
+        return;
+    }
 
     // --- グローバルスコープのセットアップ ---
     window.tcgAssistant = {
         allCards: [],
+        trivia: [],
         isSidebarOpen: false,
         uiInjected: false,
         currentRate: 1500,
@@ -28,17 +32,12 @@
         activeSection: 'home'
     };
 
-    /**
-     * 必要なリソース（CSS、フォント）をページに注入します。
-     */
     const injectResources = () => {
-        // Font Awesome
         const fontAwesomeLink = document.createElement('link');
         fontAwesomeLink.rel = 'stylesheet';
         fontAwesomeLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css';
         document.head.appendChild(fontAwesomeLink);
 
-        // Google Fonts
         const googleFontsLink = document.createElement('link');
         googleFontsLink.rel = 'stylesheet';
         googleFontsLink.href = 'https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap';
@@ -46,13 +45,6 @@
         console.log("main.js: Resources injected.");
     };
 
-    /**
-     * カスタムダイアログを表示します。
-     * @param {string} title - ダイアログのタイトル
-     * @param {string} message - 表示するメッセージ
-     * @param {boolean} isConfirm - 確認ダイアログ（OK/キャンセル）かどうか
-     * @returns {Promise<boolean>} OKでtrue、キャンセルでfalseを解決するPromise
-     */
     window.showCustomDialog = (title, message, isConfirm = false) => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('tcg-custom-dialog-overlay');
@@ -66,7 +58,7 @@
 
             dialogTitle.textContent = title;
             dialogMessage.innerHTML = message;
-            buttonsWrapper.innerHTML = ''; // ボタンをクリア
+            buttonsWrapper.innerHTML = '';
 
             const okButton = document.createElement('button');
             okButton.textContent = 'OK';
@@ -89,12 +81,6 @@
         });
     };
 
-    /**
-     * カード詳細モーダルを表示します。
-     * @param {object} card - 表示するカードオブジェクト
-     * @param {number} currentIndex - 現在のカードのインデックス
-     * @param {Array} searchResults - 検索結果の全カード配列
-     */
     window.showCardDetailModal = (card, currentIndex, searchResults) => {
         if (!card) return;
         
@@ -164,10 +150,6 @@
         setTimeout(() => overlay.classList.add('show'), 10);
     };
 
-    /**
-     * 指定されたセクションを表示します。
-     * @param {string} sectionId - 表示するセクションのID
-     */
     window.showSection = async (sectionId) => {
         if (!sectionId) return;
         console.log(`Showing section: ${sectionId}`);
@@ -205,7 +187,6 @@
         
         targetSection.classList.add('active');
 
-        // 対応するJSモジュールを動的にインポートして初期化
         try {
             const modulePath = a.runtime.getURL(`js/sections/${sectionId}.js`);
             const sectionModule = await import(modulePath);
@@ -217,11 +198,6 @@
         }
     };
 
-    /**
-     * サイドバーの表示/非表示を切り替えます。
-     * @param {string | null} sectionId - 表示するセクションID。nullの場合はトグル。
-     * @param {boolean} forceOpen - 強制的に開くか
-     */
     window.toggleSidebar = (sectionId = null, forceOpen = false) => {
         const contentArea = document.getElementById('tcg-content-area');
         const birdToggle = document.getElementById('tcg-menu-toggle-bird');
@@ -240,9 +216,6 @@
         }
     };
 
-    /**
-     * 拡張機能のUIをページに挿入します。
-     */
     const injectUI = async () => {
         if (window.tcgAssistant.uiInjected) return;
 
@@ -259,7 +232,10 @@
                 </div>
                 <div id="tcg-sections-wrapper"></div>
             </div>
-            <div id="tcg-menu-toggle-bird" style="background-image: url('${birdImageUrl}')" title="アシスタントメニュー"></div>
+            <div id="tcg-bird-container">
+                <div id="tcg-menu-toggle-bird" style="background-image: url('${birdImageUrl}')" title="アシスタントメニュー"></div>
+                <div id="tcg-bird-speech-bubble" class="hidden"></div>
+            </div>
             <div id="tcg-custom-dialog-overlay">
                 <div class="tcg-modal-content">
                     <h3 id="tcg-dialog-title"></h3>
@@ -276,16 +252,70 @@
         await initializeFeatures();
     };
 
-    /**
-     * UI要素にイベントリスナーを設定します。
-     */
     const attachEventListeners = () => {
-        document.getElementById('tcg-menu-toggle-bird').addEventListener('click', () => window.toggleSidebar());
+        const birdContainer = document.getElementById('tcg-bird-container');
+        const birdToggle = document.getElementById('tcg-menu-toggle-bird');
+        let isDragging = false;
+        let wasDragged = false;
+        let offsetX, offsetY;
+
+        birdToggle.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            wasDragged = false;
+            birdToggle.classList.add('is-dragging');
+            const rect = birdContainer.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                wasDragged = true;
+                let newX = e.clientX - offsetX;
+                let newY = e.clientY - offsetY;
+                
+                const parentRect = document.body.getBoundingClientRect();
+                newX = Math.max(0, Math.min(newX, parentRect.width - birdContainer.offsetWidth));
+                newY = Math.max(0, Math.min(newY, parentRect.height - birdContainer.offsetHeight));
+
+                birdContainer.style.left = `${newX}px`;
+                birdContainer.style.top = `${newY}px`;
+                birdContainer.style.right = 'auto';
+                birdContainer.style.bottom = 'auto';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                birdToggle.classList.remove('is-dragging');
+                a.storage.local.set({
+                    birdPosition: {
+                        top: birdContainer.style.top,
+                        left: birdContainer.style.left
+                    }
+                });
+            }
+        });
+
+        birdToggle.addEventListener('click', (e) => {
+            if (wasDragged) {
+                e.stopPropagation();
+                wasDragged = false;
+                return;
+            }
+            window.toggleSidebar();
+        });
+
+        birdToggle.addEventListener('dblclick', () => {
+            showRandomChatter();
+        });
+
         document.querySelectorAll('.tcg-menu-icon').forEach(icon => {
             icon.addEventListener('click', (e) => {
                 const sectionId = e.currentTarget.dataset.section;
                 const contentArea = document.getElementById('tcg-content-area');
-                // サイドバーが既に開いていて同じアイコンをクリックした場合は閉じる
                 if (contentArea.classList.contains('active') && window.tcgAssistant.activeSection === sectionId) {
                     window.toggleSidebar();
                 } else {
@@ -294,34 +324,121 @@
             });
         });
     };
+    
+    const showChatter = (html, answerCardName = null) => {
+        const bubble = document.getElementById('tcg-bird-speech-bubble');
+        if (!bubble) return;
 
-    /**
-     * 拡張機能のコア機能を初期化します。
-     */
-    const initializeFeatures = async () => {
-        try {
-            const response = await fetch(a.runtime.getURL('json/cards.json'));
-            window.tcgAssistant.allCards = await response.json();
-            console.log(`main.js: ${window.tcgAssistant.allCards.length} cards loaded.`);
-            document.dispatchEvent(new CustomEvent('cardsLoaded'));
-        } catch (error) {
-            console.error("main.js: Failed to load card data:", error);
-            window.showCustomDialog('エラー', `カードデータの読み込みに失敗しました: ${error.message}`);
+        // 吹き出しの位置をコンテナに合わせて調整
+        const container = document.getElementById('tcg-bird-container');
+        const containerRect = container.getBoundingClientRect();
+        const screenCenter = window.innerWidth / 2;
+        
+        bubble.classList.remove('align-left', 'align-right');
+        if (containerRect.left + (containerRect.width / 2) < screenCenter) {
+            bubble.classList.add('align-left');
+        } else {
+            bubble.classList.add('align-right');
         }
 
-        const result = await a.storage.local.get(['isSidebarOpen', 'activeSection']);
+        bubble.innerHTML = html;
+        bubble.classList.remove('hidden');
+
+        const hideBubble = () => {
+            bubble.classList.add('hidden');
+            bubble.onclick = null;
+        };
+
+        if (answerCardName) {
+            // 1回目のクリックで答えを表示
+            bubble.onclick = () => {
+                bubble.innerHTML = `正解は「<strong>${answerCardName}</strong>」でした！<small>（クリックで閉じる）</small>`;
+                // 2回目のクリックで閉じる
+                bubble.onclick = hideBubble;
+                setTimeout(hideBubble, 5000);
+            };
+        } else {
+            // 豆知識は1回のクリックで閉じる
+            bubble.onclick = hideBubble;
+            setTimeout(hideBubble, 7000);
+        }
+    };
+
+    const showLoreQuiz = () => {
+        if (!window.tcgAssistant.allCards || window.tcgAssistant.allCards.length === 0) {
+            console.log("Card data not ready for quiz.");
+            return;
+        }
+        const cardsWithLore = window.tcgAssistant.allCards.filter(c => 
+            c.info.some(i => i.startsWith("このカードの世界観は、「") && i.length > 20)
+        );
+        if (cardsWithLore.length === 0) return;
+
+        const card = cardsWithLore[Math.floor(Math.random() * cardsWithLore.length)];
+        const lore = card.info.find(i => i.startsWith("このカードの世界観は、「")).replace("このカードの世界観は、「", "").replace("」です。", "");
+        
+        const quizHtml = `「${lore}」<br>このカードはな～んだ？<small>（クリックで答えを見る）</small>`;
+        showChatter(quizHtml, card.name);
+    };
+
+    const showRandomChatter = () => {
+        const { trivia, allCards } = window.tcgAssistant;
+        if (allCards.length === 0 && trivia.length === 0) {
+            console.log("No data for chatter.");
+            return;
+        }
+
+        if (Math.random() < 0.5 && trivia.length > 0) {
+            const randomTrivia = trivia[Math.floor(Math.random() * trivia.length)];
+            showChatter(randomTrivia);
+        } else if (allCards.length > 0) {
+            showLoreQuiz();
+        }
+    };
+
+    const initializeFeatures = async () => {
+        try {
+            const cardResponse = await fetch(a.runtime.getURL('json/cards.json'));
+            window.tcgAssistant.allCards = await cardResponse.json();
+            console.log(`main.js: ${window.tcgAssistant.allCards.length} cards loaded.`);
+            
+            const triviaResponse = await fetch(a.runtime.getURL('json/trivia.json'));
+            window.tcgAssistant.trivia = await triviaResponse.json();
+            console.log(`main.js: ${window.tcgAssistant.trivia.length} trivia loaded.`);
+
+            document.dispatchEvent(new CustomEvent('cardsLoaded'));
+        } catch (error) {
+            console.error("main.js: Failed to load data:", error);
+            window.showCustomDialog('エラー', `カードまたは豆知識データの読み込みに失敗しました: ${error.message}`);
+        }
+
+        const result = await a.storage.local.get(['isSidebarOpen', 'activeSection', 'birdPosition']);
         window.tcgAssistant.activeSection = result.activeSection || 'home';
+
+        const birdContainer = document.getElementById('tcg-bird-container');
+        if (result.birdPosition && result.birdPosition.top && result.birdPosition.left) {
+            birdContainer.style.top = result.birdPosition.top;
+            birdContainer.style.left = result.birdPosition.left;
+            birdContainer.style.right = 'auto';
+            birdContainer.style.bottom = 'auto';
+        } else {
+            birdContainer.style.right = '20px';
+            birdContainer.style.bottom = '20px';
+            birdContainer.style.top = 'auto';
+            birdContainer.style.left = 'auto';
+        }
+
         if (result.isSidebarOpen) {
             window.toggleSidebar(null, true);
         } else {
-            // アイコンのアクティブ状態だけ設定
             document.querySelectorAll('.tcg-menu-icon').forEach(icon => {
                 icon.classList.toggle('active', icon.dataset.section === window.tcgAssistant.activeSection);
             });
         }
+        
+        setInterval(showRandomChatter, 90000);
     };
 
-    // --- メッセージリスナー ---
     a.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (request.action === "showSection") {
             window.toggleSidebar(request.section, request.forceOpenSidebar);
@@ -331,7 +448,6 @@
         return true; 
     });
 
-    // --- 実行開始 ---
     injectResources();
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', injectUI);

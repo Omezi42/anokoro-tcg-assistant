@@ -1,79 +1,81 @@
 // js/background.js (Manifest V3)
 
-// FirefoxとChromeのAPI名前空間の互換性を確保
-const a = self.browser || self.chrome;
+const a = (typeof browser !== "undefined") ? browser : chrome;
 
-// インストール時の処理
-a.runtime.onInstalled.addListener((details) => {
-    console.log("あの頃の自作TCGアシスタントがインストールされました。");
-    if (details.reason === a.runtime.OnInstalledReason.INSTALL) {
-        // a.runtime.openOptionsPage(); // 初回インストール時に設定ページを開く場合
-    }
-});
+if (typeof a === "undefined" || typeof a.runtime === "undefined") {
+    console.error("TCG Assistant Background: Could not find browser/chrome runtime API.");
+} else {
+    a.runtime.onInstalled.addListener((details) => {
+        console.log("あの頃の自作TCGアシスタントがインストールされました。");
+    });
 
-// メッセージリスナー
-a.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    const tabId = sender.tab?.id;
-    if (!tabId) {
-        console.error("メッセージの送信元タブが見つかりません。", request);
-        return;
-    }
+    a.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        const tabId = sender.tab?.id;
+        let isAsync = false;
 
-    // 非同期応答のためにtrueを返す
-    let isAsync = false;
+        switch (request.action) {
+            case "showSection":
+                if (tabId) a.tabs.sendMessage(tabId, { action: "showSection", section: request.section, forceOpenSidebar: request.forceOpenSidebar || false });
+                break;
 
-    switch (request.action) {
-        case "showSection":
-            a.tabs.sendMessage(tabId, {
-                action: "showSection",
-                section: request.section,
-                forceOpenSidebar: request.forceOpenSidebar || false
-            });
-            break;
+            case "toggleSidebar":
+                if (tabId) a.tabs.sendMessage(tabId, { action: "toggleSidebar" });
+                break;
 
-        case "toggleSidebar":
-             a.tabs.sendMessage(tabId, { action: "toggleSidebar" });
-             break;
+            case "createNotification":
+                a.notifications.create({
+                    type: 'basic',
+                    iconUrl: a.runtime.getURL('images/icon128.png'),
+                    title: request.title || '通知',
+                    message: request.message || ''
+                });
+                break;
+            
+            // FIX: Add a new case to handle fetching images as data URLs
+            case 'fetchImageAsDataURL':
+                fetch(request.url)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Network response was not ok: ${response.statusText}`);
+                        }
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            sendResponse({ success: true, dataUrl: reader.result });
+                        };
+                        reader.onerror = () => {
+                            sendResponse({ success: false, error: 'Failed to read blob as data URL.' });
+                        };
+                        reader.readAsDataURL(blob);
+                    })
+                    .catch(error => {
+                        console.error('Fetch image error in background:', error);
+                        sendResponse({ success: false, error: error.message });
+                    });
+                isAsync = true; // Mark as asynchronous
+                break;
 
-        case "createNotification":
+            default:
+                break;
+        }
+
+        return isAsync;
+    });
+
+    a.commands.onCommand.addListener((command, tab) => {
+        if (tab.url && tab.url.startsWith('https://unityroom.com/games/anokorotcg')) {
+            if (command === "toggle-sidebar") {
+                a.tabs.sendMessage(tab.id, { action: "toggleSidebar" });
+            }
+        } else {
             a.notifications.create({
                 type: 'basic',
                 iconUrl: a.runtime.getURL('images/icon128.png'),
-                title: request.title || '通知',
-                message: request.message || ''
+                title: '操作不可',
+                message: 'このコマンドは「あの頃の自作TCG」のゲームページでのみ有効です。'
             });
-            break;
-
-        case "injectSectionScript":
-            // Manifest V3では、content scriptから直接動的にスクリプトを読み込むため、
-            // このメッセージは不要になりました。main.jsが直接import()を使います。
-            // 互換性のために残していますが、将来的には削除を検討します。
-            console.log("injectSectionScriptはV3では非推奨です。");
-            sendResponse({ success: true, message: "V3では何もしません。" });
-            break;
-
-        // その他のバックグラウンドタスク...
-        default:
-            console.warn(`不明なアクションを受信しました: ${request.action}`);
-            break;
-    }
-
-    return isAsync; // 非同期応答がある場合はtrueを返す
-});
-
-// コマンドリスナー
-a.commands.onCommand.addListener((command, tab) => {
-    if (tab.url && tab.url.startsWith('https://unityroom.com/games/anokorotcg')) {
-        if (command === "toggle-sidebar") {
-            a.tabs.sendMessage(tab.id, { action: "toggleSidebar" });
         }
-    } else {
-        // ゲームページでない場合は通知
-        a.notifications.create({
-            type: 'basic',
-            iconUrl: a.runtime.getURL('images/icon128.png'),
-            title: '操作不可',
-            message: 'このコマンドは「あの頃の自作TCG」のゲームページでのみ有効です。'
-        });
-    }
-});
+    });
+}

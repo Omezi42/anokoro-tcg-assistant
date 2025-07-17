@@ -1,7 +1,12 @@
 // js/options.js
 
 document.addEventListener('DOMContentLoaded', () => {
-    const a = self.browser || self.chrome;
+    const a = (typeof browser !== "undefined") ? browser : chrome;
+    if (typeof a === "undefined" || typeof a.runtime === "undefined") {
+        console.error("TCG Assistant Options: Could not find browser/chrome runtime API.");
+        return;
+    }
+
     const notificationToggle = document.getElementById('notification-toggle');
     const saveButton = document.getElementById('save-button');
     const saveStatus = document.getElementById('save-status');

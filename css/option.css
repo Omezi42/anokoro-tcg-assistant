@@ -6,6 +6,7 @@
     --color-background: #fdfaf4;
     --color-primary: #3a8c6a;
     --color-secondary: #f3ae4b;
+    --color-accent: #e87a5a;
     --color-text-main: #3a3a3a;
     --color-text-light: #6c6c6c;
     --color-border: #dcd6c9;
@@ -162,13 +163,17 @@ input:checked + .slider:before {
 }
 
 #save-button {
-    background-color: var(--color-accent);
+    background-color: var(--color-primary);
     color: var(--color-white);
     padding: 12px 30px;
     font-size: 1.1em;
+    border: none;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background-color 0.2s;
 }
 #save-button:hover {
-    background-color: #d16a4c;
+    background-color: #317a5e;
 }
 
 #save-status {

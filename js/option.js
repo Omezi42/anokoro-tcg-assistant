@@ -1,34 +1,29 @@
 // js/options.js
 
-// Firefox互換性のためのbrowserオブジェクトのフォールバック
-if (typeof browser === 'undefined') {
-    var browser = chrome;
-}
-
 document.addEventListener('DOMContentLoaded', () => {
+    const a = self.browser || self.chrome;
     const notificationToggle = document.getElementById('notification-toggle');
     const saveButton = document.getElementById('save-button');
     const saveStatus = document.getElementById('save-status');
 
     // 設定を読み込んでUIに反映
-    function restoreOptions() {
-        browser.storage.sync.get({
+    const restoreOptions = () => {
+        a.storage.sync.get({
             notifications: true // デフォルト値
         }, (items) => {
             if (notificationToggle) {
                 notificationToggle.checked = items.notifications;
             }
         });
-    }
+    };
 
     // 設定を保存
-    function saveOptions() {
+    const saveOptions = () => {
         const notifications = notificationToggle ? notificationToggle.checked : true;
         
-        browser.storage.sync.set({
+        a.storage.sync.set({
             notifications: notifications
         }, () => {
-            // 保存完了メッセージを表示
             if (saveStatus) {
                 saveStatus.textContent = '設定を保存しました！';
                 setTimeout(() => {
@@ -36,9 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 1500);
             }
         });
-    }
+    };
 
-    // イベントリスナーを設定
     restoreOptions();
     if (saveButton) {
         saveButton.addEventListener('click', saveOptions);

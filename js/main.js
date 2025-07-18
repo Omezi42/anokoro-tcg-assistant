@@ -216,8 +216,9 @@
 
     // テーマを適用する関数
     const applyTheme = (themeName) => {
-        document.body.classList.remove('theme-default', 'theme-dark'); // 既存のテーマクラスを削除
-        document.body.classList.add(`theme-${themeName}`); // 新しいテーマクラスを追加
+        // bodyにテーマクラスを適用
+        document.body.classList.remove('theme-default', 'theme-dark');
+        document.body.classList.add(`theme-${themeName}`);
         console.log(`Applied theme: ${themeName}`);
     };
 
@@ -254,6 +255,7 @@
 
         // 保存されたテーマを適用
         a.storage.sync.get('selectedTheme', (items) => {
+            console.log("Applying initial theme from storage:", items.selectedTheme);
             applyTheme(items.selectedTheme || 'default');
         });
     };
@@ -378,6 +380,7 @@
         } else if (request.action === "toggleSidebar") {
             window.toggleSidebar();
         } else if (request.action === "setTheme") { // テーマ設定メッセージを処理
+            console.log("Received theme message from background:", request.theme);
             applyTheme(request.theme);
         }
         return true; 

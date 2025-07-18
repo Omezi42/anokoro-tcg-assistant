@@ -46,11 +46,8 @@ body.theme-dark {
 
 
 /* --- 全体スタイル --- */
-body {
+html { /* bodyではなくhtmlにフォントファミリーを適用 */
     font-family: var(--font-family-main);
-    /* テーマによって背景色とテキスト色が切り替わる */
-    background-color: var(--color-background);
-    color: var(--color-text-main);
 }
 
 /* --- 桜小鳥ボタンコンテナ --- */
@@ -105,13 +102,13 @@ body {
     right: 0;
     width: 250px;
     padding: 15px;
-    background-color: var(--color-white);
-    border: 2px solid var(--color-primary);
+    background-color: var(--color-white); /* テーマによって切り替わる */
+    border: 2px solid var(--color-primary); /* テーマによって切り替わる */
     border-radius: 15px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     font-size: 0.9em;
     line-height: 1.5;
-    color: var(--color-text-main);
+    color: var(--color-text-main); /* テーマによって切り替わる */
     opacity: 1;
     transform: translateY(0) scale(1);
     transition: opacity 0.3s ease, transform 0.3s ease;
@@ -131,12 +128,12 @@ body {
     right: 30px;
     border-width: 12px 12px 0 0;
     border-style: solid;
-    border-color: var(--color-primary) transparent transparent transparent;
+    border-color: var(--color-primary) transparent transparent transparent; /* テーマによって切り替わる */
 }
 #tcg-bird-speech-bubble small {
     display: block;
     text-align: right;
-    color: var(--color-text-light);
+    color: var(--color-text-light); /* テーマによって切り替わる */
     font-size: 0.8em;
     margin-top: 8px;
 }
@@ -229,8 +226,11 @@ body.theme-dark .tcg-menu-icon:hover {
     display: block;
 }
 
-/* --- UIコンポーネントの共通スタイル --- */
-.section-title {
+/* --- UIコンポーネントの共通スタイル (スコープを限定) --- */
+/* これらのスタイルは、#tcg-content-area, .tcg-modal-content, #tcg-bird-speech-bubble の子孫にのみ適用されます */
+#tcg-content-area .section-title,
+.tcg-modal-content .section-title,
+#tcg-bird-speech-bubble .section-title {
     font-size: 2em;
     color: var(--color-primary); /* テーマによって切り替わる */
     border-bottom: 2px dashed var(--color-border); /* テーマによって切り替わる */
@@ -239,7 +239,9 @@ body.theme-dark .tcg-menu-icon:hover {
     font-weight: 700;
 }
 
-h3 {
+#tcg-content-area h3,
+.tcg-modal-content h3,
+#tcg-bird-speech-bubble h3 {
     font-size: 1.4em;
     color: var(--color-primary); /* テーマによって切り替わる */
     margin-top: 25px;
@@ -248,7 +250,9 @@ h3 {
     border-left: 4px solid var(--color-secondary); /* テーマによって切り替わる */
 }
 
-h4 {
+#tcg-content-area h4,
+.tcg-modal-content h4,
+#tcg-bird-speech-bubble h4 {
     font-size: 1.2em;
     color: var(--color-text-main); /* テーマによって切り替わる */
     margin-top: 20px;
@@ -256,18 +260,24 @@ h4 {
     font-weight: 500;
 }
 
-p {
+#tcg-content-area p,
+.tcg-modal-content p,
+#tcg-bird-speech-bubble p {
     color: var(--color-text-light); /* テーマによって切り替わる */
     margin-bottom: 15px;
     line-height: 1.7;
 }
 
-ul, ol {
+#tcg-content-area ul, #tcg-content-area ol,
+.tcg-modal-content ul, .tcg-modal-content ol,
+#tcg-bird-speech-bubble ul, #tcg-bird-speech-bubble ol {
     list-style: none;
     padding: 0;
 }
 
-li {
+#tcg-content-area li,
+.tcg-modal-content li,
+#tcg-bird-speech-bubble li {
     background-color: var(--color-white); /* テーマによって切り替わる */
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 8px;
@@ -277,7 +287,9 @@ li {
 }
 
 /* ボタン */
-button, .button-style {
+#tcg-content-area button, #tcg-content-area .button-style,
+.tcg-modal-content button, .tcg-modal-content .button-style,
+#tcg-bird-speech-bubble button, #tcg-bird-speech-bubble .button-style {
     font-family: var(--font-family-main);
     border: none;
     border-radius: 8px;
@@ -292,11 +304,15 @@ button, .button-style {
     justify-content: center;
     gap: 8px;
 }
-button:hover, .button-style:hover {
+#tcg-content-area button:hover, #tcg-content-area .button-style:hover,
+.tcg-modal-content button:hover, .tcg-modal-content .button-style:hover,
+#tcg-bird-speech-bubble button:hover, #tcg-bird-speech-bubble .button-style:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
-button:disabled {
+#tcg-content-area button:disabled,
+.tcg-modal-content button:disabled,
+#tcg-bird-speech-bubble button:disabled {
     background-color: #ccc !important;
     color: #888 !important;
     cursor: not-allowed;
@@ -305,10 +321,18 @@ button:disabled {
 }
 
 /* フォーム要素 */
-input[type="text"],
-input[type="password"],
-textarea,
-select {
+#tcg-content-area input[type="text"],
+#tcg-content-area input[type="password"],
+#tcg-content-area textarea,
+#tcg-content-area select,
+.tcg-modal-content input[type="text"],
+.tcg-modal-content input[type="password"],
+.tcg-modal-content textarea,
+.tcg-modal-content select,
+#tcg-bird-speech-bubble input[type="text"],
+#tcg-bird-speech-bubble input[type="password"],
+#tcg-bird-speech-bubble textarea,
+#tcg-bird-speech-bubble select {
     width: 100%;
     padding: 12px;
     margin-bottom: 15px;
@@ -320,28 +344,48 @@ select {
     color: var(--color-text-main); /* テーマによって切り替わる */
     font-family: var(--font-family-main);
 }
-input[type="text"]:focus,
-input[type="password"]:focus,
-textarea:focus,
-select:focus {
+#tcg-content-area input[type="text"]:focus,
+#tcg-content-area input[type="password"]:focus,
+#tcg-content-area textarea:focus,
+#tcg-content-area select:focus,
+.tcg-modal-content input[type="text"]:focus,
+.tcg-modal-content input[type="password"]:focus,
+.tcg-modal-content textarea:focus,
+.tcg-modal-content select:focus,
+#tcg-bird-speech-bubble input[type="text"]:focus,
+#tcg-bird-speech-bubble input[type="password"]:focus,
+#tcg-bird-speech-bubble textarea:focus,
+#tcg-bird-speech-bubble select:focus {
     outline: none;
     border-color: var(--color-secondary); /* テーマによって切り替わる */
     box-shadow: 0 0 0 3px rgba(243, 174, 75, 0.3); /* テーマによって切り替わる */
 }
-body.theme-dark input[type="text"]:focus,
-body.theme-dark input[type="password"]:focus,
-body.theme-dark textarea:focus,
-body.theme-dark select:focus {
+body.theme-dark #tcg-content-area input[type="text"]:focus,
+body.theme-dark #tcg-content-area input[type="password"]:focus,
+body.theme-dark #tcg-content-area textarea:focus,
+body.theme-dark #tcg-content-area select:focus,
+body.theme-dark .tcg-modal-content input[type="text"]:focus,
+body.theme-dark .tcg-modal-content input[type="password"]:focus,
+body.theme-dark .tcg-modal-content textarea:focus,
+body.theme-dark .tcg-modal-content select:focus,
+body.theme-dark #tcg-bird-speech-bubble input[type="text"]:focus,
+body.theme-dark #tcg-bird-speech-bubble input[type="password"]:focus,
+body.theme-dark #tcg-bird-speech-bubble textarea:focus,
+body.theme-dark #tcg-bird-speech-bubble select:focus {
     box-shadow: 0 0 0 3px rgba(120, 192, 154, 0.3); /* ダークテーマのフォーカスシャドウ */
 }
 
 
-textarea {
+#tcg-content-area textarea,
+.tcg-modal-content textarea,
+#tcg-bird-speech-bubble textarea {
     min-height: 100px;
     resize: vertical;
 }
 
-label {
+#tcg-content-area label,
+.tcg-modal-content label,
+#tcg-bird-speech-bubble label {
     display: block;
     margin-bottom: 5px;
     font-weight: 500;
@@ -534,45 +578,45 @@ body.theme-dark .dialog-buttons button:hover { background-color: #609c7a; } /* �
 /* --- 各セクションの個別スタイル --- */
 
 /* ホーム */
-.feature-section {
+#tcg-content-area .feature-section {
     margin-bottom: 20px;
     padding: 15px;
     background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border-radius: 12px;
 }
-.home-action-button {
+#tcg-content-area .home-action-button {
     background-color: var(--color-primary); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
     margin-top: 10px;
 }
-.home-action-button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
-body.theme-dark .home-action-button:hover { background-color: #609c7a; } /* ダークテーマのホバー色 */
+#tcg-content-area .home-action-button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area .home-action-button:hover { background-color: #609c7a; }
 
-#home-logout-button { background-color: var(--color-accent); /* テーマによって切り替わる */ }
-#home-logout-button:hover { background-color: #d16a4c; } /* デフォルトのホバー色 */
-body.theme-dark #home-logout-button:hover { background-color: #d8993c; } /* ダークテーマのホバー色 */
+#tcg-content-area #home-logout-button { background-color: var(--color-accent); /* テーマによって切り替わる */ }
+#tcg-content-area #home-logout-button:hover { background-color: #d16a4c; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area #home-logout-button:hover { background-color: #d8993c; }
 
 
 /* レート戦 */
-.rate-match-info {
+#tcg-content-area .rate-match-info {
     display: grid;
     grid-template-columns: 1fr;
     gap: 15px;
     margin-bottom: 20px;
 }
 
-.info-box {
+#tcg-content-area .info-box {
     background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 12px;
     padding: 15px;
 }
-#username-container {
+#tcg-content-area #username-container {
     display: flex;
     align-items: center;
     gap: 10px;
 }
-#edit-username-button {
+#tcg-content-area #edit-username-button {
     background: none;
     border: none;
     color: var(--color-text-light); /* テーマによって切り替わる */
@@ -580,50 +624,50 @@ body.theme-dark #home-logout-button:hover { background-color: #d8993c; } /* ダ�
     font-size: 1em;
     padding: 5px;
 }
-#edit-username-button:hover { color: var(--color-primary); } /* テーマによって切り替わる */
+#tcg-content-area #edit-username-button:hover { color: var(--color-primary); } /* テーマによって切り替わる */
 
 /* ユーザー名変更フォームのスタイル調整 */
-#edit-username-form {
+#tcg-content-area #edit-username-form {
     display: flex;
     gap: 10px;
     align-items: center;
     margin-top: 10px;
 }
-#edit-username-form input {
+#tcg-content-area #edit-username-form input {
     flex-grow: 1;
     margin-bottom: 0; /* 下マージンをリセット */
 }
-#edit-username-form button {
+#tcg-content-area #edit-username-form button {
     padding: 8px 15px; /* パディングを調整 */
     font-size: 0.9em; /* フォントサイズを調整 */
     flex-shrink: 0; /* ボタンが縮まないように */
 }
-#save-username-button { background-color: var(--color-success); color: var(--color-white); }
-#cancel-edit-username-button { background-color: var(--color-text-light); color: var(--color-white); }
-#save-username-button:hover { background-color: #218838; }
-body.theme-dark #save-username-button:hover { background-color: #388E3C; }
-#cancel-edit-username-button:hover { background-color: #5a6268; }
-body.theme-dark #cancel-edit-username-button:hover { background-color: #757575; }
+#tcg-content-area #save-username-button { background-color: var(--color-success); color: var(--color-white); }
+#tcg-content-area #cancel-edit-username-button { background-color: var(--color-text-light); color: var(--color-white); }
+#tcg-content-area #save-username-button:hover { background-color: #218838; }
+body.theme-dark #tcg-content-area #save-username-button:hover { background-color: #388E3C; }
+#tcg-content-area #cancel-edit-username-button:hover { background-color: #5a6268; }
+body.theme-dark #tcg-content-area #cancel-edit-username-button:hover { background-color: #757575; }
 
 
-#matching-button {
+#tcg-content-area #matching-button {
     width: 100%;
     padding: 15px;
     font-size: 1.2em;
     background-color: var(--color-accent); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
 }
-#matching-button:hover { background-color: #d16a4c; } /* デフォルトのホバー色 */
-body.theme-dark #matching-button:hover { background-color: #d8993c; } /* ダークテーマのホバー色 */
+#tcg-content-area #matching-button:hover { background-color: #d16a4c; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area #matching-button:hover { background-color: #d8993c; }
 
 
-#matching-status {
+#tcg-content-area #matching-status {
     text-align: center;
     padding: 20px;
     font-size: 1.1em;
 }
 
-.spinner {
+#tcg-content-area .spinner {
     border: 4px solid rgba(0, 0, 0, 0.1);
     border-left-color: var(--color-primary); /* テーマによって切り替わる */
     border-radius: 50%;
@@ -634,48 +678,48 @@ body.theme-dark #matching-button:hover { background-color: #d8993c; } /* ダー�
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.rate-match-actions {
+#tcg-content-area .rate-match-actions {
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
     gap: 10px;
     margin-top: 20px;
 }
-.rate-match-actions button {
+#tcg-content-area .rate-match-actions button {
     flex: 1;
     min-width: 120px;
 }
-.rate-match-actions .win { background-color: var(--color-success); color: var(--color-white); }
-.rate-match-actions .win:hover { background-color: #218838; }
-body.theme-dark .rate-match-actions .win:hover { background-color: #388E3C; }
+#tcg-content-area .rate-match-actions .win { background-color: var(--color-success); color: var(--color-white); }
+#tcg-content-area .rate-match-actions .win:hover { background-color: #218838; }
+body.theme-dark #tcg-content-area .rate-match-actions .win:hover { background-color: #388E3C; }
 
-.rate-match-actions .lose { background-color: var(--color-danger); color: var(--color-white); }
-.rate-match-actions .lose:hover { background-color: #c82333; }
-body.theme-dark .rate-match-actions .lose:hover { background-color: #D32F2F; }
+#tcg-content-area .rate-match-actions .lose { background-color: var(--color-danger); color: var(--color-white); }
+#tcg-content-area .rate-match-actions .lose:hover { background-color: #c82333; }
+body.theme-dark #tcg-content-area .rate-match-actions .lose:hover { background-color: #D32F2F; }
 
-.rate-match-actions #cancel-button { background-color: var(--color-text-light); color: var(--color-white); }
-.rate-match-actions #cancel-button:hover { background-color: #5a6268; }
-body.theme-dark .rate-match-actions #cancel-button:hover { background-color: #757575; }
+#tcg-content-area .rate-match-actions #cancel-button { background-color: var(--color-text-light); color: var(--color-white); }
+#tcg-content-area .rate-match-actions #cancel-button:hover { background-color: #5a6268; }
+body.theme-dark #tcg-content-area .rate-match-actions #cancel-button:hover { background-color: #757575; }
 
 
-#cancel-matching-button-in-status {
+#tcg-content-area #cancel-matching-button-in-status {
     background-color: var(--color-text-light); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
     margin-top: 15px;
     padding: 8px 15px; /* パディングを調整 */
     font-size: 0.9em; /* フォントサイズを調整 */
 }
-#cancel-matching-button-in-status:hover { background-color: #5a6268; }
-body.theme-dark #cancel-matching-button-in-status:hover { background-color: #757575; }
+#tcg-content-area #cancel-matching-button-in-status:hover { background-color: #5a6268; }
+body.theme-dark #tcg-content-area #cancel-matching-button-in-status:hover { background-color: #757575; }
 
 
-.chat-fixed-phrases {
+#tcg-content-area .chat-fixed-phrases {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
     margin: 10px 0;
 }
-.chat-fixed-phrases button {
+#tcg-content-area .chat-fixed-phrases button {
     background-color: #e9e4d9; /* デフォルトの固定色 */
     color: var(--color-text-light); /* テーマによって切り替わる */
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
@@ -683,16 +727,16 @@ body.theme-dark #cancel-matching-button-in-status:hover { background-color: #757
     font-size: 0.9em;
     font-weight: 500;
 }
-.chat-fixed-phrases button:hover { background-color: #dcd6c9; } /* デフォルトのホバー色 */
-body.theme-dark .chat-fixed-phrases button {
+#tcg-content-area .chat-fixed-phrases button:hover { background-color: #dcd6c9; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area .chat-fixed-phrases button {
     background-color: #444; /* ダークテーマの固定色 */
     color: var(--color-text-light);
     border-color: var(--color-border);
 }
-body.theme-dark .chat-fixed-phrases button:hover { background-color: #555; }
+body.theme-dark #tcg-content-area .chat-fixed-phrases button:hover { background-color: #555; }
 
 
-#chat-messages {
+#tcg-content-area #chat-messages {
     height: 200px;
     overflow-y: auto;
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
@@ -703,7 +747,7 @@ body.theme-dark .chat-fixed-phrases button:hover { background-color: #555; }
 }
 
 /* メモ */
-#screenshot-area {
+#tcg-content-area #screenshot-area {
     border: 2px dashed var(--color-border); /* テーマによって切り替わる */
     padding: 20px;
     text-align: center;
@@ -716,35 +760,35 @@ body.theme-dark .chat-fixed-phrases button:hover { background-color: #555; }
     border-radius: 10px;
     color: var(--color-text-light); /* テーマによって切り替わる */
 }
-#screenshot-area img {
+#tcg-content-area #screenshot-area img {
     max-width: 100%;
     height: auto;
     border-radius: 8px;
 }
 
-#save-memo-button {
+#tcg-content-area #save-memo-button {
     background-color: var(--color-primary); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
     width: 100%;
     padding: 12px;
 }
-#save-memo-button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
-body.theme-dark #save-memo-button:hover { background-color: #609c7a; } /* ダークテーマのホバー色 */
+#tcg-content-area #save-memo-button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area #save-memo-button:hover { background-color: #609c7a; }
 
 
-.saved-memo-item {
+#tcg-content-area .saved-memo-item {
     position: relative;
     padding-right: 70px; /* ボタン用のスペース */
     word-wrap: break-word;
 }
-.saved-memo-item strong {
+#tcg-content-area .saved-memo-item strong {
     color: var(--color-primary); /* テーマによって切り替わる */
     display: block;
     margin-bottom: 5px;
     font-size: 0.9em;
 }
 
-.delete-memo-button, .edit-memo-button {
+#tcg-content-area .delete-memo-button, #tcg-content-area .edit-memo-button {
     position: absolute;
     top: 10px;
     background: none;
@@ -754,33 +798,33 @@ body.theme-dark #save-memo-button:hover { background-color: #609c7a; } /* ダー
     transition: color 0.2s ease;
     padding: 5px;
 }
-.delete-memo-button { color: var(--color-accent); right: 10px; } /* テーマによって切り替わる */
-.delete-memo-button:hover { color: #d16a4c; } /* デフォルトのホバー色 */
-body.theme-dark .delete-memo-button:hover { color: #d8993c; } /* ダークテーマのホバー色 */
+#tcg-content-area .delete-memo-button { color: var(--color-accent); right: 10px; } /* テーマによって切り替わる */
+#tcg-content-area .delete-memo-button:hover { color: #d16a4c; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area .delete-memo-button:hover { color: #d8993c; }
 
-.edit-memo-button { color: var(--color-secondary); right: 40px; } /* テーマによって切り替わる */
-.edit-memo-button:hover { color: #d8993c; } /* デフォルトのホバー色 */
-body.theme-dark .edit-memo-button:hover { color: #f7d794; } /* ダークテーマのホバー色 */
+#tcg-content-area .edit-memo-button { color: var(--color-secondary); right: 40px; } /* テーマによって切り替わる */
+#tcg-content-area .edit-memo-button:hover { color: #d8993c; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area .edit-memo-button:hover { color: #f7d794; }
 
 
-.memo-filter-area {
+#tcg-content-area .memo-filter-area {
     display: flex;
     gap: 10px;
     margin-bottom: 15px;
 }
-.memo-filter-area input {
+#tcg-content-area .memo-filter-area input {
     flex-grow: 1;
 }
-.memo-filter-area button {
+#tcg-content-area .memo-filter-area button {
     background-color: var(--color-primary); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
 }
-.memo-filter-area button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
-body.theme-dark .memo-filter-area button:hover { background-color: #609c7a; } /* ダークテーマのホバー色 */
+#tcg-content-area .memo-filter-area button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area .memo-filter-area button:hover { background-color: #609c7a; }
 
 
 /* 検索 */
-.search-filters {
+#tcg-content-area .search-filters {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 15px;
@@ -789,39 +833,39 @@ body.theme-dark .memo-filter-area button:hover { background-color: #609c7a; } /*
     background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border-radius: 12px;
 }
-.filter-group-full-width {
+#tcg-content-area .filter-group-full-width {
     grid-column: 1 / -1;
 }
-#fuzzy-threshold-slider {
+#tcg-content-area #fuzzy-threshold-slider {
     width: 100%;
     margin-top: 5px;
 }
 
-#perform-search-button {
+#tcg-content-area #perform-search-button {
     background-color: var(--color-primary); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
     width: 100%;
     padding: 12px;
     margin-top: 15px;
 }
-#perform-search-button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
-body.theme-dark #perform-search-button:hover { background-color: #609c7a; } /* ダークテーマのホバー色 */
+#tcg-content-area #perform-search-button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area #perform-search-button:hover { background-color: #609c7a; }
 
 
-#search-results {
+#tcg-content-area #search-results {
     background-color: var(--color-light-gray); /* テーマによって切り替わる */
     padding: 20px;
     min-height: 100px;
     margin-top: 20px;
     border-radius: 12px;
 }
-#search-results ul { padding-left: 20px; }
-#search-results li { background: none; border: none; box-shadow: none; padding: 10px 0; border-bottom: 1px solid var(--color-border); } /* テーマによって切り替わる */
-#search-results li:last-child { border-bottom: none; }
-.card-name-link { color: var(--color-primary); text-decoration: none; font-weight: 700; cursor: pointer; } /* テーマによって切り替わる */
-.card-name-link:hover { text-decoration: underline; }
+#tcg-content-area #search-results ul { padding-left: 20px; }
+#tcg-content-area #search-results li { background: none; border: none; box-shadow: none; padding: 10px 0; border-bottom: 1px solid var(--color-border); } /* テーマによって切り替わる */
+#tcg-content-area #search-results li:last-child { border-bottom: none; }
+#tcg-content-area .card-name-link { color: var(--color-primary); text-decoration: none; font-weight: 700; cursor: pointer; } /* テーマによって切り替わる */
+#tcg-content-area .card-name-link:hover { text-decoration: underline; }
 
-.autocomplete-suggestions {
+#tcg-content-area .autocomplete-suggestions {
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
     max-height: 150px;
     overflow-y: auto;
@@ -833,44 +877,44 @@ body.theme-dark #perform-search-button:hover { background-color: #609c7a; } /* �
     border-radius: 8px;
     box-sizing: border-box;
 }
-.autocomplete-suggestions div { padding: 8px 12px; cursor: pointer; }
-.autocomplete-suggestions div:hover { background-color: var(--color-light-gray); } /* テーマによって切り替わる */
-body.theme-dark .autocomplete-suggestions div:hover { background-color: #444; }
+#tcg-content-area .autocomplete-suggestions div { padding: 8px 12px; cursor: pointer; }
+#tcg-content-area .autocomplete-suggestions div:hover { background-color: var(--color-light-gray); } /* テーマによって切り替わる */
+body.theme-dark #tcg-content-area .autocomplete-suggestions div:hover { background-color: #444; }
 
 
 /* ミニゲーム */
-.minigame-list {
+#tcg-content-area .minigame-list {
     display: grid;
     grid-template-columns: 1fr;
     gap: 10px;
 }
-.minigame-list button {
+#tcg-content-area .minigame-list button {
     background-color: var(--color-white); /* テーマによって切り替わる */
     color: var(--color-text-main); /* テーマによって切り替わる */
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
     font-weight: 500;
     padding: 15px;
 }
-.minigame-list button:hover {
+#tcg-content-area .minigame-list button:hover {
     background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border-color: var(--color-secondary); /* テーマによって切り替わる */
     color: var(--color-primary); /* テーマによって切り替わる */
 }
-body.theme-dark .minigame-list button:hover {
+body.theme-dark #tcg-content-area .minigame-list button:hover {
     background-color: #444;
     border-color: var(--color-secondary);
     color: var(--color-primary);
 }
 
 
-.quiz-container {
+#tcg-content-area .quiz-container {
     background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border-radius: 12px;
     padding: 20px;
     margin-top: 20px;
     text-align: center;
 }
-.quiz-hint-area {
+#tcg-content-area .quiz-hint-area {
     background-color: var(--color-white); /* テーマによって切り替わる */
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 8px;
@@ -878,7 +922,7 @@ body.theme-dark .minigame-list button:hover {
     margin-bottom: 20px;
     min-height: 80px;
 }
-.quiz-image-area {
+#tcg-content-area .quiz-image-area {
     margin: 15px auto;
     background-color: #dcd6c9; /* 固定色 */
     border-radius: 8px;
@@ -888,22 +932,22 @@ body.theme-dark .minigame-list button:hover {
     justify-content: center;
     align-items: center;
 }
-body.theme-dark .quiz-image-area {
+body.theme-dark #tcg-content-area .quiz-image-area {
     background-color: #444; /* ダークテーマの固定色 */
 }
 
-.quiz-image-area canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
-.quiz-result-area.correct { color: var(--color-success); font-weight: 700; }
-.quiz-result-area.incorrect { color: var(--color-danger); font-weight: 700; }
-.quiz-input-area button { background-color: var(--color-primary); color: var(--color-white); } /* テーマによって切り替わる */
-body.theme-dark .quiz-input-area button:hover { background-color: #609c7a; }
+#tcg-content-area .quiz-image-area canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
+#tcg-content-area .quiz-result-area.correct { color: var(--color-success); font-weight: 700; }
+#tcg-content-area .quiz-result-area.incorrect { color: var(--color-danger); font-weight: 700; }
+#tcg-content-area .quiz-input-area button { background-color: var(--color-primary); color: var(--color-white); } /* テーマによって切り替わる */
+body.theme-dark #tcg-content-area .quiz-input-area button:hover { background-color: #609c7a; }
 
-.quiz-controls button { background-color: var(--color-text-light); color: var(--color-white); } /* テーマによって切り替わる */
-body.theme-dark .quiz-controls button:hover { background-color: #757575; }
+#tcg-content-area .quiz-controls button { background-color: var(--color-text-light); color: var(--color-white); } /* テーマによって切り替わる */
+body.theme-dark #tcg-content-area .quiz-controls button:hover { background-color: #757575; }
 
 
 /* 戦いの記録 */
-.battle-record-tabs {
+#tcg-content-area .battle-record-tabs {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 5px;
@@ -911,7 +955,7 @@ body.theme-dark .quiz-controls button:hover { background-color: #757575; }
     border-bottom: 2px solid var(--color-border); /* テーマによって切り替わる */
     padding-bottom: 5px;
 }
-.battle-record-tab-button {
+#tcg-content-area .battle-record-tab-button {
     background-color: transparent;
     color: var(--color-text-light); /* テーマによって切り替わる */
     border: none;
@@ -924,111 +968,119 @@ body.theme-dark .quiz-controls button:hover { background-color: #757575; }
     font-size: 0.9em;
     white-space: nowrap;
 }
-.battle-record-tab-button.active {
+#tcg-content-area .battle-record-tab-button.active {
     color: var(--color-primary); /* テーマによって切り替わる */
     border-bottom-color: var(--color-primary); /* テーマによって切り替わる */
 }
-.battle-record-tab-button:hover {
+#tcg-content-area .battle-record-tab-button:hover {
     background-color: #e9e4d9; /* デフォルトのホバー色 */
 }
-body.theme-dark .battle-record-tab-button:hover {
+body.theme-dark #tcg-content-area .battle-record-tab-button:hover {
     background-color: #444; /* ダークテーマのホバー色 */
 }
 
 
-.battle-record-tab-content { display: none; }
-.battle-record-tab-content.active { display: block; }
+#tcg-content-area .battle-record-tab-content { display: none; }
+#tcg-content-area .battle-record-tab-content.active { display: block; }
 
-.battle-record-form, .deck-management-section, #battle-stats, .replay-section, .spectate-section {
+#tcg-content-area .battle-record-form, #tcg-content-area .deck-management-section, #tcg-content-area #battle-stats, #tcg-content-area .replay-section, #tcg-content-area .spectate-section {
     background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 12px;
     padding: 20px;
     margin-top: 10px;
 }
-#register-deck-button, #save-battle-record-button {
+#tcg-content-area #register-deck-button, #tcg-content-area #save-battle-record-button {
     background-color: var(--color-primary); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
     width: 100%;
 }
-#register-deck-button:hover, #save-battle-record-button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
-body.theme-dark #register-deck-button:hover, body.theme-dark #save-battle-record-button:hover { background-color: #609c7a; }
+#tcg-content-area #register-deck-button:hover, #tcg-content-area #save-battle-record-button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area #register-deck-button:hover, body.theme-dark #tcg-content-area #save-battle-record-button:hover { background-color: #609c7a; }
 
 
-#registered-decks-list li, #battle-records-list li {
+#tcg-content-area #registered-decks-list li, #tcg-content-area #battle-records-list li {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
-#registered-decks-list li {
+#tcg-content-area #registered-decks-list li {
     background-color: var(--color-white); /* テーマによって切り替わる */
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
 }
-body.theme-dark #registered-decks-list li {
+body.theme-dark #tcg-content-area #registered-decks-list li {
     background-color: #444;
     border-color: #555;
 }
 
 
-.delete-button, .delete-deck-button, .delete-record-button {
+#tcg-content-area .delete-button, #tcg-content-area .delete-deck-button, #tcg-content-area .delete-record-button {
     background-color: var(--color-accent); /* テーマによって切り替わる */
     color: white;
     padding: 5px 10px;
     font-size: 0.9em;
 }
-.delete-button:hover, .delete-deck-button:hover, .delete-record-button:hover { 
+#tcg-content-area .delete-button:hover, #tcg-content-area .delete-deck-button:hover, #tcg-content-area .delete-record-button:hover { 
     background-color: #d16a4c;
     color: white;
 }
-body.theme-dark .delete-button:hover, body.theme-dark .delete-deck-button:hover, body.theme-dark .delete-record-button:hover {
+body.theme-dark #tcg-content-area .delete-button:hover, body.theme-dark #tcg-content-area .delete-deck-button:hover, body.theme-dark #tcg-content-area .delete-record-button:hover {
     background-color: #d8993c;
 }
 
 
 /* --- リプレイ機能のスタイル --- */
-#replay-controls {
+#tcg-content-area .replay-section {
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 10px;
+}
+
+#tcg-content-area #replay-controls {
     margin-bottom: 20px;
     padding-bottom: 20px;
     border-bottom: 1px dashed var(--color-border); /* テーマによって切り替わる */
 }
 
-#replay-controls .button-style {
+#tcg-content-area #replay-controls .button-style {
     margin-right: 10px;
 }
 
-#start-replay-record-button {
+#tcg-content-area #start-replay-record-button {
     background-color: var(--color-danger); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
 }
-#start-replay-record-button:hover {
+#tcg-content-area #start-replay-record-button:hover {
     background-color: #c82333;
 }
-body.theme-dark #start-replay-record-button:hover {
+body.theme-dark #tcg-content-area #start-replay-record-button:hover {
     background-color: #D32F2F;
 }
 
-#stop-replay-record-button {
+#tcg-content-area #stop-replay-record-button {
     background-color: var(--color-text-light); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
 }
-#stop-replay-record-button:hover {
+#tcg-content-area #stop-replay-record-button:hover {
     background-color: #5a6268;
 }
-body.theme-dark #stop-replay-record-button:hover {
+body.theme-dark #tcg-content-area #stop-replay-record-button:hover {
     background-color: #757575;
 }
 
 
-#record-status {
+#tcg-content-area #record-status {
     margin-top: 15px;
     font-weight: 500;
     transition: color 0.3s ease;
 }
-#record-status.record-status-idle { color: var(--color-text-light); } /* テーマによって切り替わる */
-#record-status.record-status-recording { color: var(--color-danger); } /* テーマによって切り替わる */
-#record-status.record-status-processing { color: var(--color-info); } /* テーマによって切り替わる */
+#tcg-content-area #record-status.record-status-idle { color: var(--color-text-light); } /* テーマによって切り替わる */
+#tcg-content-area #record-status.record-status-recording { color: var(--color-danger); } /* テーマによって切り替わる */
+#tcg-content-area #record-status.record-status-processing { color: var(--color-info); } /* テーマによって切り替わる */
 
-#replay-player-wrapper {
+#tcg-content-area #replay-player-wrapper {
     margin-top: 20px;
     padding: 15px;
     background-color: var(--color-white); /* テーマによって切り替わる */
@@ -1036,7 +1088,7 @@ body.theme-dark #stop-replay-record-button:hover {
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
 }
 
-#replay-video {
+#tcg-content-area #replay-video {
     width: 100%;
     max-height: 300px;
     border-radius: 8px;
@@ -1044,19 +1096,19 @@ body.theme-dark #stop-replay-record-button:hover {
     margin-bottom: 10px;
 }
 
-#close-replay-player-button {
+#tcg-content-area #close-replay-player-button {
     width: 100%;
     background-color: var(--color-text-light); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
 }
-body.theme-dark #close-replay-player-button:hover { background-color: #757575; }
+body.theme-dark #tcg-content-area #close-replay-player-button:hover { background-color: #757575; }
 
 
-#replay-list-wrapper {
+#tcg-content-area #replay-list-wrapper {
     margin-top: 20px;
 }
 
-#replays-list li {
+#tcg-content-area #replays-list li {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1064,94 +1116,94 @@ body.theme-dark #close-replay-player-button:hover { background-color: #757575; }
     background-color: var(--color-white); /* テーマによって切り替わる */
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
 }
-body.theme-dark #replays-list li {
+body.theme-dark #tcg-content-area #replays-list li {
     background-color: #444;
     border-color: #555;
 }
 
 
-.replay-item-info {
+#tcg-content-area .replay-item-info {
     flex-grow: 1;
 }
 
-.replay-item-actions {
+#tcg-content-area .replay-item-actions {
     display: flex;
     gap: 10px;
     margin-top: 5px;
 }
 
-.replay-item-actions button {
+#tcg-content-area .replay-item-actions button {
     padding: 5px 10px;
     font-size: 0.9em;
 }
 
-.play-replay-button {
+#tcg-content-area .play-replay-button {
     background-color: var(--color-success); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
 }
-.play-replay-button:hover {
+#tcg-content-area .play-replay-button:hover {
     background-color: #218838;
 }
-body.theme-dark .play-replay-button:hover {
+body.theme-dark #tcg-content-area .play-replay-button:hover {
     background-color: #388E3C;
 }
 
-.rename-replay-button {
+#tcg-content-area .rename-replay-button {
     background-color: var(--color-secondary); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
 }
-.rename-replay-button:hover {
+#tcg-content-area .rename-replay-button:hover {
     background-color: #d8993c;
 }
-body.theme-dark .rename-replay-button:hover {
+body.theme-dark #tcg-content-area .rename-replay-button:hover {
     background-color: #f7d794;
 }
 
-.delete-replay-button {
+#tcg-content-area .delete-replay-button {
     background-color: var(--color-danger); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
 }
-.delete-replay-button:hover {
+#tcg-content-area .delete-replay-button:hover {
     background-color: #c82333;
 }
-body.theme-dark .delete-replay-button:hover {
+body.theme-dark #tcg-content-area .delete-replay-button:hover {
     background-color: #D32F2F;
 }
 
 
 /* --- 観戦機能のスタイル --- */
-.spectate-box {
+#tcg-content-area .spectate-box {
     margin-bottom: 25px;
     padding-bottom: 25px;
     border-bottom: 1px dashed var(--color-border); /* テーマによって切り替わる */
 }
-.spectate-box:last-child {
+#tcg-content-area .spectate-box:last-child {
     border-bottom: none;
     margin-bottom: 0;
     padding-bottom: 0;
 }
-#broadcast-room-id {
+#tcg-content-area #broadcast-room-id {
     background-color: var(--color-white); /* テーマによって切り替わる */
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
     font-weight: bold;
     text-align: center;
     cursor: text;
 }
-#spectate-form {
+#tcg-content-area #spectate-form {
     display: flex;
     gap: 10px;
 }
-#spectate-form input {
+#tcg-content-area #spectate-form input {
     flex-grow: 1;
     margin: 0;
 }
-#spectate-video {
+#tcg-content-area #spectate-video {
     width: 100%;
     background-color: #000;
     border-radius: 8px;
     margin-bottom: 10px;
 }
-.spectate-notice {
+#tcg-content-area .spectate-notice {
     margin-top: 20px;
     padding: 10px;
     background-color: #fffbe6; /* 固定色 */
@@ -1159,50 +1211,50 @@ body.theme-dark .delete-replay-button:hover {
     border-radius: 8px;
     font-size: 0.9em;
 }
-.spectate-notice p {
+#tcg-content-area .spectate-notice p {
     color: #856404; /* 固定色 */
     margin: 0;
 }
 
 /* 認証フォーム */
-#auth-section {
+#tcg-content-area #auth-section {
     background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 12px;
     padding: 20px;
     margin-top: 20px;
 }
-.auth-form {
+#tcg-content-area .auth-form {
     background-color: var(--color-white); /* テーマによって切り替わる */
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 10px;
     padding: 15px;
     margin-bottom: 15px;
 }
-.auth-form h4 { color: var(--color-primary); margin-top: 0; } /* テーマによって切り替わる */
-.auth-form button { background-color: var(--color-primary); color: var(--color-white); width: 100%; } /* テーマによって切り替わる */
-.auth-form button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
-body.theme-dark .auth-form button:hover { background-color: #609c7a; }
+#tcg-content-area .auth-form h4 { color: var(--color-primary); margin-top: 0; } /* テーマによって切り替わる */
+#tcg-content-area .auth-form button { background-color: var(--color-primary); color: var(--color-white); width: 100%; } /* テーマによって切り替わる */
+#tcg-content-area .auth-form button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area .auth-form button:hover { background-color: #609c7a; }
 
 
-#logout-button {
+#tcg-content-area #logout-button {
     width: 100%;
     background-color: var(--color-danger); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
     margin-top: 15px;
 }
-#logout-button:hover { background-color: #c82333; } /* デフォルトのホバー色 */
-body.theme-dark #logout-button:hover { background-color: #D32F2F; }
+#tcg-content-area #logout-button:hover { background-color: #c82333; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area #logout-button:hover { background-color: #D32F2F; }
 
 
 /* ランキング */
-#ranking-section {
+#tcg-content-area #ranking-section {
     background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border-radius: 12px;
     padding: 20px;
     margin-top: 20px;
 }
-#ranking-list li {
+#tcg-content-area #ranking-list li {
     display: flex;
     align-items: center;
     padding: 12px 10px;
@@ -1210,51 +1262,51 @@ body.theme-dark #logout-button:hover { background-color: #D32F2F; }
     background: none;
     box-shadow: none;
 }
-#ranking-list li:hover { background-color: #e9e4d9; } /* デフォルトのホバー色 */
-body.theme-dark #ranking-list li:hover { background-color: #444; }
+#tcg-content-area #ranking-list li:hover { background-color: #e9e4d9; } /* デフォルトのホバー色 */
+body.theme-dark #tcg-content-area #ranking-list li:hover { background-color: #444; }
 
-#ranking-list li.current-user {
+#tcg-content-area #ranking-list li.current-user {
     background-color: #e9f7ef; /* 固定色 */
     border-left: 4px solid var(--color-success); /* テーマによって切り替わる */
     font-weight: 700;
 }
-body.theme-dark #ranking-list li.current-user {
+body.theme-dark #tcg-content-area #ranking-list li.current-user {
     background-color: #3a4a3a; /* ダークテーマの強調色 */
 }
 
-#ranking-list .rank {
+#tcg-content-area #ranking-list .rank {
     font-weight: bold;
     color: var(--color-text-light); /* テーマによって切り替わる */
     min-width: 30px;
     text-align: right;
     margin-right: 15px;
 }
-#ranking-list .username {
+#tcg-content-area #ranking-list .username {
     flex-grow: 1;
 }
-#ranking-list .rate {
+#tcg-content-area #ranking-list .rate {
     font-weight: bold;
     color: var(--color-primary); /* テーマによって切り替わる */
 }
-#refresh-ranking-button {
+#tcg-content-area #refresh-ranking-button {
     background: none;
     border: none;
     color: var(--color-text-light); /* テーマによって切り替わる */
     font-size: 1.2em;
     cursor: pointer;
 }
-#refresh-ranking-button:hover { color: var(--color-primary); } /* テーマによって切り替わる */
+#tcg-content-area #refresh-ranking-button:hover { color: var(--color-primary); } /* テーマによって切り替わる */
 
 
 /* --- 観戦機能リストの追加スタイル --- */
-.broadcast-list-header {
+#tcg-content-area .broadcast-list-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 15px;
 }
 
-.broadcast-list-header h5 {
+#tcg-content-area .broadcast-list-header h5 {
     margin: 0;
     font-size: 1.1em;
     color: var(--color-primary); /* テーマによって切り替わる */
@@ -1263,7 +1315,7 @@ body.theme-dark #ranking-list li.current-user {
     gap: 8px;
 }
 
-#refresh-broadcast-list-button {
+#tcg-content-area #refresh-broadcast-list-button {
     padding: 8px;
     font-size: 1em;
     background-color: var(--color-white); /* テーマによって切り替わる */
@@ -1271,20 +1323,20 @@ body.theme-dark #ranking-list li.current-user {
     border: 1px solid var(--color-border); /* テーマによって切り替わる */
 }
 
-#refresh-broadcast-list-button:hover {
+#tcg-content-area #refresh-broadcast-list-button:hover {
     background-color: var(--color-light-gray); /* テーマによって切り替わる */
 }
-body.theme-dark #refresh-broadcast-list-button:hover { background-color: #444; }
+body.theme-dark #tcg-content-area #refresh-broadcast-list-button:hover { background-color: #444; }
 
 
-#broadcast-list {
+#tcg-content-area #broadcast-list {
     max-height: 300px;
     overflow-y: auto;
     border-top: 1px solid var(--color-border); /* テーマによって切り替わる */
     padding-top: 10px;
 }
 
-.broadcast-list-item {
+#tcg-content-area .broadcast-list-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1292,37 +1344,37 @@ body.theme-dark #refresh-broadcast-list-button:hover { background-color: #444; }
     transition: background-color 0.2s ease;
 }
 
-.broadcast-list-item:hover {
+#tcg-content-area .broadcast-list-item:hover {
     background-color: #e9e4d9; /* デフォルトのホバー色 */
 }
-body.theme-dark .broadcast-list-item:hover { background-color: #444; }
+body.theme-dark #tcg-content-area .broadcast-list-item:hover { background-color: #444; }
 
 
-.broadcast-item-info {
+#tcg-content-area .broadcast-item-info {
     display: flex;
     align-items: center;
     gap: 10px;
     font-size: 1.1em;
 }
 
-.broadcast-item-info .fa-user-circle {
+#tcg-content-area .broadcast-item-info .fa-user-circle {
     color: var(--color-primary); /* テーマによって切り替わる */
     font-size: 1.2em;
 }
 
-.start-spectate-button-in-list {
+#tcg-content-area .start-spectate-button-in-list {
     background-color: var(--color-success); /* テーマによって切り替わる */
     color: var(--color-white); /* テーマによって切り替わる */
     font-size: 0.9em;
     padding: 8px 12px;
 }
-.start-spectate-button-in-list:hover {
+#tcg-content-area .start-spectate-button-in-list:hover {
     background-color: #218838;
 }
-body.theme-dark .start-spectate-button-in-list:hover { background-color: #388E3C; }
+body.theme-dark #tcg-content-area .start-spectate-button-in-list:hover { background-color: #388E3C; }
 
 
-#broadcast-room-id-display {
+#tcg-content-area #broadcast-room-id-display {
     background-color: var(--color-white); /* テーマによって切り替わる */
     padding: 2px 8px;
     border-radius: 4px;
@@ -1336,8 +1388,8 @@ body.theme-dark .start-spectate-button-in-list:hover { background-color: #388E3C
         --sidebar-width: 95vw;
         --bird-toggle-size: 65px;
     }
-    .section-title { font-size: 1.8em; }
-    h3 { font-size: 1.2em; }
-    #tcg-sections-wrapper { padding: 15px; }
-    .battle-record-tab-button { font-size: 0.8em; padding: 10px 5px; }
+    #tcg-content-area .section-title { font-size: 1.8em; }
+    #tcg-content-area h3 { font-size: 1.2em; }
+    #tcg-content-area #tcg-sections-wrapper { padding: 15px; }
+    #tcg-content-area .battle-record-tab-button { font-size: 0.8em; padding: 10px 5px; }
 }

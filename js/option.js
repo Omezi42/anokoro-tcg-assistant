@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
             queueNotifications: false, // 新しいオプションのデフォルト値はオフ
             selectedTheme: 'default' // テーマのデフォルト値
         }, (items) => {
+            console.log("Options restored:", items); // 読み込み時のログ
             if (notificationToggle) {
                 notificationToggle.checked = items.notifications;
             }
@@ -43,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
             queueNotifications: queueNotifications,
             selectedTheme: selectedTheme // テーマ設定を保存
         }, () => {
+            console.log("Options saved:", { notifications, queueNotifications, selectedTheme }); // 保存時のログ
             if (saveStatus) {
                 saveStatus.textContent = '設定を保存しました！';
                 setTimeout(() => {

@@ -216,7 +216,7 @@
 
     const injectUI = async () => {
         if (window.tcgAssistant.uiInjected) return;
-        const birdImageUrl = a.runtime.getURL('images/irust_桜小鳥.png');
+        const birdImageUrl = a.runtime.getURL('images/illust_桜小鳥.png');
         const uiHtml = `
             <div id="tcg-content-area">
                 <div id="tcg-sidebar-header">

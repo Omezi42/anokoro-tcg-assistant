@@ -44,13 +44,35 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     // デスクトップ通知のリクエスト処理
-    if (request.action === "matchFoundNotification") {
-        browserAPI.notifications.create('matchFound', {
-            type: 'basic',
-            iconUrl: browserAPI.runtime.getURL('images/icon128.png'),
-            title: '対戦相手が見つかりました！',
-            message: '『あの頃の自作TCG』で対戦相手が見つかりました！ゲーム画面に戻りましょう。',
-            priority: 2
+    if (request.action === "matchFoundNotification" || request.action === "queueCountNotification") {
+        browserAPI.storage.sync.get({ notifications: true, queueNotifications: false }, (items) => {
+            if (request.action === "matchFoundNotification" && items.notifications) {
+                browserAPI.notifications.create('matchFound', {
+                    type: 'basic',
+                    iconUrl: browserAPI.runtime.getURL('images/icon128.png'),
+                    title: '対戦相手が見つかりました！',
+                    message: '『あの頃の自作TCG』で対戦相手が見つかりました！ゲーム画面に戻りましょう。',
+                    priority: 2
+                });
+            } else if (request.action === "queueCountNotification" && items.queueNotifications) {
+                browserAPI.notifications.create('queueUpdate', {
+                    type: 'basic',
+                    iconUrl: browserAPI.runtime.getURL('images/icon128.png'),
+                    title: 'マッチキュー情報',
+                    message: `現在のマッチキュー人数: ${request.count}人`,
+                    priority: 1
+                });
+            }
+        });
+    }
+
+    // テーマ適用リクエストの処理 (options.jsからmain.jsへ転送)
+    if (request.action === "applyTheme") {
+        browserAPI.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const gameTab = tabs.find(tab => tab.url && tab.url.startsWith('https://unityroom.com/games/anokorotcg'));
+            if (gameTab && gameTab.id) {
+                browserAPI.tabs.sendMessage(gameTab.id, { action: "setTheme", theme: request.theme });
+            }
         });
     }
 });
@@ -69,6 +91,10 @@ browserAPI.commands.onCommand.addListener(async (command, tab) => {
             await browserAPI.scripting.executeScript({
                 target: { tabId: tab.id },
                 func: () => {
+                    // alert() の代わりにカスタムダイアログを推奨しますが、
+                    // background scriptから直接コンテンツスクリプトの関数を呼び出すのは複雑なため、
+                    // ここではブラウザのalertを使用します。
+                    // 理想的には、main.jsのshowCustomDialogを呼び出すべきです。
                     alert('このショートカットは「あの頃の自作TCG」のゲームページでのみ利用できます。');
                 }
             });

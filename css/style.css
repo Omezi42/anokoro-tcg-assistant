@@ -8,7 +8,7 @@
 */
 
 :root {
-    /* カラーパレット */
+    /* デフォルトテーマのカラーパレット */
     --font-family-main: 'M PLUS Rounded 1c', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
     --color-background: #fdfaf4; /* 少し黄みがかったノートのような紙の色 */
     --color-primary: #3a8c6a;    /* ゲームのUIで使われている落ち着いた緑 */
@@ -28,9 +28,29 @@
     --bird-toggle-size: 80px; /* 桜小鳥アイコンのサイズ */
 }
 
+/* ダークテーマのカラーパレット */
+body.theme-dark {
+    --color-background: #2c2c2c; /* ダークな背景色 */
+    --color-primary: #78c09a;    /* 明るめの緑 */
+    --color-secondary: #f7d794;  /* 明るめの黄色 */
+    --color-accent: #f09a80;     /* 明るめのオレンジ */
+    --color-text-main: #e0e0e0;   /* 明るいテキストカラー */
+    --color-text-light: #b0b0b0;  /* 明るいサブテキストカラー */
+    --color-border: #555555;      /* 暗めの罫線 */
+    --color-white: #3a3a3a;      /* 暗めの白（要素の背景など） */
+    --color-light-gray: #3a3a3a; /* 暗めのグレー */
+    --color-success: #4CAF50;    /* 成功時の色 */
+    --color-danger: #FF5252;     /* 危険時の色 */
+    --color-info: #2196F3;       /* 情報時の色 */
+}
+
+
 /* --- 全体スタイル --- */
 body {
     font-family: var(--font-family-main);
+    /* テーマによって背景色とテキスト色が切り替わる */
+    background-color: var(--color-background);
+    color: var(--color-text-main);
 }
 
 /* --- 桜小鳥ボタンコンテナ --- */
@@ -128,8 +148,8 @@ body {
     right: calc(-1 * var(--sidebar-width));
     width: var(--sidebar-width);
     height: 100%;
-    background-color: var(--color-background);
-    color: var(--color-text-main);
+    background-color: var(--color-background); /* テーマによって切り替わる */
+    color: var(--color-text-main); /* テーマによって切り替わる */
     z-index: 9990;
     box-sizing: border-box;
     font-family: var(--font-family-main);
@@ -137,7 +157,7 @@ body {
     display: flex;
     flex-direction: column;
     transition: right 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
-    border-left: 2px solid var(--color-border);
+    border-left: 2px solid var(--color-border); /* テーマによって切り替わる */
     box-shadow: -5px 0 20px rgba(0,0,0,0.1);
 }
 
@@ -151,15 +171,15 @@ body {
     justify-content: space-around;
     align-items: center;
     padding: 10px;
-    background-color: var(--color-light-gray);
-    border-bottom: 2px solid var(--color-border);
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
+    border-bottom: 2px solid var(--color-border); /* テーマによって切り替わる */
     flex-shrink: 0;
 }
 
 .tcg-menu-icon {
     background: none;
     border: none;
-    color: var(--color-text-light);
+    color: var(--color-text-light); /* テーマによって切り替わる */
     font-size: 24px;
     padding: 10px;
     cursor: pointer;
@@ -175,13 +195,16 @@ body {
 }
 
 .tcg-menu-icon:hover {
-    background-color: #e9e4d9;
-    color: var(--color-primary);
+    background-color: #e9e4d9; /* デフォルトのホバー色 */
+    color: var(--color-primary); /* テーマによって切り替わる */
+}
+body.theme-dark .tcg-menu-icon:hover {
+    background-color: #444; /* ダークテーマのホバー色 */
 }
 
 .tcg-menu-icon.active {
-    background-color: var(--color-primary);
-    color: var(--color-white);
+    background-color: var(--color-primary); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
 }
 
 /* --- セクションコンテンツ --- */
@@ -209,8 +232,8 @@ body {
 /* --- UIコンポーネントの共通スタイル --- */
 .section-title {
     font-size: 2em;
-    color: var(--color-primary);
-    border-bottom: 2px dashed var(--color-border);
+    color: var(--color-primary); /* テーマによって切り替わる */
+    border-bottom: 2px dashed var(--color-border); /* テーマによって切り替わる */
     padding-bottom: 10px;
     margin-bottom: 20px;
     font-weight: 700;
@@ -218,23 +241,23 @@ body {
 
 h3 {
     font-size: 1.4em;
-    color: var(--color-primary);
+    color: var(--color-primary); /* テーマによって切り替わる */
     margin-top: 25px;
     margin-bottom: 15px;
     padding-left: 10px;
-    border-left: 4px solid var(--color-secondary);
+    border-left: 4px solid var(--color-secondary); /* テーマによって切り替わる */
 }
 
 h4 {
     font-size: 1.2em;
-    color: var(--color-text-main);
+    color: var(--color-text-main); /* テーマによって切り替わる */
     margin-top: 20px;
     margin-bottom: 10px;
     font-weight: 500;
 }
 
 p {
-    color: var(--color-text-light);
+    color: var(--color-text-light); /* テーマによって切り替わる */
     margin-bottom: 15px;
     line-height: 1.7;
 }
@@ -245,8 +268,8 @@ ul, ol {
 }
 
 li {
-    background-color: var(--color-white);
-    border: 1px solid var(--color-border);
+    background-color: var(--color-white); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 8px;
     padding: 15px;
     margin-bottom: 10px;
@@ -289,12 +312,12 @@ select {
     width: 100%;
     padding: 12px;
     margin-bottom: 15px;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 8px;
     font-size: 1em;
     box-sizing: border-box;
-    background-color: var(--color-white);
-    color: var(--color-text-main);
+    background-color: var(--color-white); /* テーマによって切り替わる */
+    color: var(--color-text-main); /* テーマによって切り替わる */
     font-family: var(--font-family-main);
 }
 input[type="text"]:focus,
@@ -302,9 +325,16 @@ input[type="password"]:focus,
 textarea:focus,
 select:focus {
     outline: none;
-    border-color: var(--color-secondary);
-    box-shadow: 0 0 0 3px rgba(243, 174, 75, 0.3);
+    border-color: var(--color-secondary); /* テーマによって切り替わる */
+    box-shadow: 0 0 0 3px rgba(243, 174, 75, 0.3); /* テーマによって切り替わる */
 }
+body.theme-dark input[type="text"]:focus,
+body.theme-dark input[type="password"]:focus,
+body.theme-dark textarea:focus,
+body.theme-dark select:focus {
+    box-shadow: 0 0 0 3px rgba(120, 192, 154, 0.3); /* ダークテーマのフォーカスシャドウ */
+}
+
 
 textarea {
     min-height: 100px;
@@ -315,7 +345,7 @@ label {
     display: block;
     margin-bottom: 5px;
     font-weight: 500;
-    color: var(--color-text-main);
+    color: var(--color-text-main); /* テーマによって切り替わる */
 }
 
 /* --- モーダルダイアログ --- */
@@ -341,10 +371,10 @@ label {
 }
 
 .tcg-modal-content {
-    background-color: var(--color-background);
+    background-color: var(--color-background); /* テーマによって切り替わる */
     padding: 30px;
     border-radius: 15px;
-    border: 2px solid var(--color-border);
+    border: 2px solid var(--color-border); /* テーマによって切り替わる */
     box-shadow: 0 5px 20px rgba(0,0,0,0.2);
     text-align: center;
     max-width: 400px;
@@ -359,7 +389,7 @@ label {
 }
 
 .tcg-modal-content h3 {
-    color: var(--color-primary);
+    color: var(--color-primary); /* テーマによって切り替わる */
     margin-top: 0;
     margin-bottom: 20px;
 }
@@ -367,7 +397,7 @@ label {
 .tcg-modal-content p {
     font-size: 1em;
     margin-bottom: 25px;
-    color: var(--color-text-main);
+    color: var(--color-text-main); /* テーマによって切り替わる */
 }
 
 .dialog-buttons {
@@ -376,12 +406,14 @@ label {
     gap: 10px;
 }
 .dialog-buttons button {
-    background-color: var(--color-primary);
-    color: var(--color-white);
+    background-color: var(--color-primary); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
 }
-.dialog-buttons button:hover { background-color: #317a5e; }
+.dialog-buttons button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark .dialog-buttons button:hover { background-color: #609c7a; } /* ダークテーマのホバー色 */
+
 .dialog-buttons button:last-child {
-    background-color: var(--color-text-light);
+    background-color: var(--color-text-light); /* テーマによって切り替わる */
 }
 .dialog-buttons button:last-child:hover {
     background-color: #5a6268;
@@ -391,10 +423,10 @@ label {
 .tcg-card-detail-modal-content {
     display: flex;
     gap: 20px;
-    background-color: var(--color-background);
+    background-color: var(--color-background); /* テーマによって切り替わる */
     padding: 20px;
     border-radius: 20px;
-    border: 3px solid var(--color-primary);
+    border: 3px solid var(--color-primary); /* テーマによって切り替わる */
     box-shadow: 0 5px 20px rgba(0,0,0,0.2);
     max-width: 600px;
     width: 90%;
@@ -412,8 +444,8 @@ label {
     width: 100%;
     height: auto;
     border-radius: 10px;
-    border: 2px solid var(--color-border);
-    background-color: var(--color-white);
+    border: 2px solid var(--color-border); /* テーマによって切り替わる */
+    background-color: var(--color-white); /* テーマによって切り替わる */
 }
 .card-info-pane {
     flex: 1;
@@ -425,13 +457,13 @@ label {
     display: flex;
     align-items: center;
     gap: 10px;
-    border-bottom: 2px solid var(--color-border);
+    border-bottom: 2px solid var(--color-border); /* テーマによって切り替わる */
     padding-bottom: 10px;
     margin-bottom: 10px;
 }
 .card-info-cost {
-    background-color: var(--color-secondary);
-    color: var(--color-white);
+    background-color: var(--color-secondary); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
     width: 30px;
     height: 30px;
     border-radius: 50%;
@@ -445,7 +477,7 @@ label {
 .card-info-header h2 {
     margin: 0;
     font-size: 1.5em;
-    color: var(--color-text-main);
+    color: var(--color-text-main); /* テーマによって切り替わる */
     font-weight: 700;
 }
 .card-info-body {
@@ -454,7 +486,7 @@ label {
     padding-right: 10px;
 }
 .card-info-effect {
-    background-color: var(--color-white);
+    background-color: var(--color-white); /* テーマによって切り替わる */
     padding: 15px;
     border-radius: 8px;
     min-height: 100px;
@@ -467,18 +499,18 @@ label {
     justify-content: space-between;
     align-items: center;
     padding-top: 15px;
-    border-top: 2px solid var(--color-border);
+    border-top: 2px solid var(--color-border); /* テーマによって切り替わる */
     margin-top: auto;
 }
 #lore-button, .nav-buttons button {
-    border: 2px solid var(--color-primary);
-    background-color: var(--color-white);
-    color: var(--color-primary);
+    border: 2px solid var(--color-primary); /* テーマによって切り替わる */
+    background-color: var(--color-white); /* テーマによって切り替わる */
+    color: var(--color-primary); /* テーマによって切り替わる */
     font-weight: 700;
 }
 #lore-button:hover, .nav-buttons button:hover {
-    background-color: var(--color-primary);
-    color: var(--color-white);
+    background-color: var(--color-primary); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
 }
 #tcg-card-detail-close-button {
     position: absolute;
@@ -487,7 +519,7 @@ label {
     background: none;
     border: none;
     font-size: 2em;
-    color: var(--color-text-light);
+    color: var(--color-text-light); /* テーマによって切り替わる */
     cursor: pointer;
     padding: 0;
     width: 30px;
@@ -495,7 +527,7 @@ label {
     line-height: 30px;
 }
 #tcg-card-detail-close-button:hover {
-    color: var(--color-text-main);
+    color: var(--color-text-main); /* テーマによって切り替わる */
 }
 
 
@@ -505,17 +537,21 @@ label {
 .feature-section {
     margin-bottom: 20px;
     padding: 15px;
-    background-color: var(--color-light-gray);
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border-radius: 12px;
 }
 .home-action-button {
-    background-color: var(--color-primary);
-    color: var(--color-white);
+    background-color: var(--color-primary); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
     margin-top: 10px;
 }
-.home-action-button:hover { background-color: #317a5e; }
-#home-logout-button { background-color: var(--color-accent); }
-#home-logout-button:hover { background-color: #d16a4c; }
+.home-action-button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark .home-action-button:hover { background-color: #609c7a; } /* ダークテーマのホバー色 */
+
+#home-logout-button { background-color: var(--color-accent); /* テーマによって切り替わる */ }
+#home-logout-button:hover { background-color: #d16a4c; } /* デフォルトのホバー色 */
+body.theme-dark #home-logout-button:hover { background-color: #d8993c; } /* ダークテーマのホバー色 */
+
 
 /* レート戦 */
 .rate-match-info {
@@ -526,8 +562,8 @@ label {
 }
 
 .info-box {
-    background-color: var(--color-light-gray);
-    border: 1px solid var(--color-border);
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 12px;
     padding: 15px;
 }
@@ -539,12 +575,12 @@ label {
 #edit-username-button {
     background: none;
     border: none;
-    color: var(--color-text-light);
+    color: var(--color-text-light); /* テーマによって切り替わる */
     cursor: pointer;
     font-size: 1em;
     padding: 5px;
 }
-#edit-username-button:hover { color: var(--color-primary); }
+#edit-username-button:hover { color: var(--color-primary); } /* テーマによって切り替わる */
 
 /* ユーザー名変更フォームのスタイル調整 */
 #edit-username-form {
@@ -564,15 +600,22 @@ label {
 }
 #save-username-button { background-color: var(--color-success); color: var(--color-white); }
 #cancel-edit-username-button { background-color: var(--color-text-light); color: var(--color-white); }
+#save-username-button:hover { background-color: #218838; }
+body.theme-dark #save-username-button:hover { background-color: #388E3C; }
+#cancel-edit-username-button:hover { background-color: #5a6268; }
+body.theme-dark #cancel-edit-username-button:hover { background-color: #757575; }
+
 
 #matching-button {
     width: 100%;
     padding: 15px;
     font-size: 1.2em;
-    background-color: var(--color-accent);
-    color: var(--color-white);
+    background-color: var(--color-accent); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
 }
-#matching-button:hover { background-color: #d16a4c; }
+#matching-button:hover { background-color: #d16a4c; } /* デフォルトのホバー色 */
+body.theme-dark #matching-button:hover { background-color: #d8993c; } /* ダークテーマのホバー色 */
+
 
 #matching-status {
     text-align: center;
@@ -582,7 +625,7 @@ label {
 
 .spinner {
     border: 4px solid rgba(0, 0, 0, 0.1);
-    border-left-color: var(--color-primary);
+    border-left-color: var(--color-primary); /* テーマによって切り替わる */
     border-radius: 50%;
     width: 30px;
     height: 30px;
@@ -604,20 +647,26 @@ label {
 }
 .rate-match-actions .win { background-color: var(--color-success); color: var(--color-white); }
 .rate-match-actions .win:hover { background-color: #218838; }
+body.theme-dark .rate-match-actions .win:hover { background-color: #388E3C; }
+
 .rate-match-actions .lose { background-color: var(--color-danger); color: var(--color-white); }
 .rate-match-actions .lose:hover { background-color: #c82333; }
+body.theme-dark .rate-match-actions .lose:hover { background-color: #D32F2F; }
+
 .rate-match-actions #cancel-button { background-color: var(--color-text-light); color: var(--color-white); }
 .rate-match-actions #cancel-button:hover { background-color: #5a6268; }
+body.theme-dark .rate-match-actions #cancel-button:hover { background-color: #757575; }
 
 
 #cancel-matching-button-in-status {
-    background-color: var(--color-text-light);
-    color: var(--color-white);
+    background-color: var(--color-text-light); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
     margin-top: 15px;
     padding: 8px 15px; /* パディングを調整 */
     font-size: 0.9em; /* フォントサイズを調整 */
 }
 #cancel-matching-button-in-status:hover { background-color: #5a6268; }
+body.theme-dark #cancel-matching-button-in-status:hover { background-color: #757575; }
 
 
 .chat-fixed-phrases {
@@ -627,28 +676,35 @@ label {
     margin: 10px 0;
 }
 .chat-fixed-phrases button {
-    background-color: #e9e4d9;
-    color: var(--color-text-light);
-    border: 1px solid var(--color-border);
+    background-color: #e9e4d9; /* デフォルトの固定色 */
+    color: var(--color-text-light); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     padding: 5px 10px;
     font-size: 0.9em;
     font-weight: 500;
 }
-.chat-fixed-phrases button:hover { background-color: #dcd6c9; }
+.chat-fixed-phrases button:hover { background-color: #dcd6c9; } /* デフォルトのホバー色 */
+body.theme-dark .chat-fixed-phrases button {
+    background-color: #444; /* ダークテーマの固定色 */
+    color: var(--color-text-light);
+    border-color: var(--color-border);
+}
+body.theme-dark .chat-fixed-phrases button:hover { background-color: #555; }
+
 
 #chat-messages {
     height: 200px;
     overflow-y: auto;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     padding: 10px;
     margin-bottom: 10px;
-    background-color: var(--color-white);
+    background-color: var(--color-white); /* テーマによって切り替わる */
     border-radius: 8px;
 }
 
 /* メモ */
 #screenshot-area {
-    border: 2px dashed var(--color-border);
+    border: 2px dashed var(--color-border); /* テーマによって切り替わる */
     padding: 20px;
     text-align: center;
     margin-bottom: 15px;
@@ -656,9 +712,9 @@ label {
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: var(--color-white);
+    background-color: var(--color-white); /* テーマによって切り替わる */
     border-radius: 10px;
-    color: var(--color-text-light);
+    color: var(--color-text-light); /* テーマによって切り替わる */
 }
 #screenshot-area img {
     max-width: 100%;
@@ -667,12 +723,14 @@ label {
 }
 
 #save-memo-button {
-    background-color: var(--color-primary);
-    color: var(--color-white);
+    background-color: var(--color-primary); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
     width: 100%;
     padding: 12px;
 }
-#save-memo-button:hover { background-color: #317a5e; }
+#save-memo-button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark #save-memo-button:hover { background-color: #609c7a; } /* ダークテーマのホバー色 */
+
 
 .saved-memo-item {
     position: relative;
@@ -680,7 +738,7 @@ label {
     word-wrap: break-word;
 }
 .saved-memo-item strong {
-    color: var(--color-primary);
+    color: var(--color-primary); /* テーマによって切り替わる */
     display: block;
     margin-bottom: 5px;
     font-size: 0.9em;
@@ -696,10 +754,14 @@ label {
     transition: color 0.2s ease;
     padding: 5px;
 }
-.delete-memo-button { right: 10px; color: var(--color-accent); }
-.delete-memo-button:hover { color: #d16a4c; }
-.edit-memo-button { right: 40px; color: var(--color-secondary); }
-.edit-memo-button:hover { color: #d8993c; }
+.delete-memo-button { color: var(--color-accent); right: 10px; } /* テーマによって切り替わる */
+.delete-memo-button:hover { color: #d16a4c; } /* デフォルトのホバー色 */
+body.theme-dark .delete-memo-button:hover { color: #d8993c; } /* ダークテーマのホバー色 */
+
+.edit-memo-button { color: var(--color-secondary); right: 40px; } /* テーマによって切り替わる */
+.edit-memo-button:hover { color: #d8993c; } /* デフォルトのホバー色 */
+body.theme-dark .edit-memo-button:hover { color: #f7d794; } /* ダークテーマのホバー色 */
+
 
 .memo-filter-area {
     display: flex;
@@ -710,9 +772,12 @@ label {
     flex-grow: 1;
 }
 .memo-filter-area button {
-    background-color: var(--color-primary);
-    color: var(--color-white);
+    background-color: var(--color-primary); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
 }
+.memo-filter-area button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark .memo-filter-area button:hover { background-color: #609c7a; } /* ダークテーマのホバー色 */
+
 
 /* 検索 */
 .search-filters {
@@ -721,7 +786,7 @@ label {
     gap: 15px;
     margin-bottom: 20px;
     padding: 15px;
-    background-color: var(--color-light-gray);
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border-radius: 12px;
 }
 .filter-group-full-width {
@@ -733,32 +798,34 @@ label {
 }
 
 #perform-search-button {
-    background-color: var(--color-primary);
-    color: var(--color-white);
+    background-color: var(--color-primary); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
     width: 100%;
     padding: 12px;
     margin-top: 15px;
 }
-#perform-search-button:hover { background-color: #317a5e; }
+#perform-search-button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark #perform-search-button:hover { background-color: #609c7a; } /* ダークテーマのホバー色 */
+
 
 #search-results {
-    background-color: var(--color-light-gray);
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
     padding: 20px;
     min-height: 100px;
     margin-top: 20px;
     border-radius: 12px;
 }
 #search-results ul { padding-left: 20px; }
-#search-results li { background: none; border: none; box-shadow: none; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+#search-results li { background: none; border: none; box-shadow: none; padding: 10px 0; border-bottom: 1px solid var(--color-border); } /* テーマによって切り替わる */
 #search-results li:last-child { border-bottom: none; }
-.card-name-link { color: var(--color-primary); text-decoration: none; font-weight: 700; cursor: pointer; }
+.card-name-link { color: var(--color-primary); text-decoration: none; font-weight: 700; cursor: pointer; } /* テーマによって切り替わる */
 .card-name-link:hover { text-decoration: underline; }
 
 .autocomplete-suggestions {
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     max-height: 150px;
     overflow-y: auto;
-    background-color: var(--color-white);
+    background-color: var(--color-white); /* テーマによって切り替わる */
     position: absolute;
     width: 100%;
     z-index: 100;
@@ -767,7 +834,9 @@ label {
     box-sizing: border-box;
 }
 .autocomplete-suggestions div { padding: 8px 12px; cursor: pointer; }
-.autocomplete-suggestions div:hover { background-color: var(--color-light-gray); }
+.autocomplete-suggestions div:hover { background-color: var(--color-light-gray); } /* テーマによって切り替わる */
+body.theme-dark .autocomplete-suggestions div:hover { background-color: #444; }
+
 
 /* ミニゲーム */
 .minigame-list {
@@ -776,28 +845,34 @@ label {
     gap: 10px;
 }
 .minigame-list button {
-    background-color: var(--color-white);
-    color: var(--color-text-main);
-    border: 1px solid var(--color-border);
+    background-color: var(--color-white); /* テーマによって切り替わる */
+    color: var(--color-text-main); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     font-weight: 500;
     padding: 15px;
 }
 .minigame-list button:hover {
-    background-color: var(--color-light-gray);
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
+    border-color: var(--color-secondary); /* テーマによって切り替わる */
+    color: var(--color-primary); /* テーマによって切り替わる */
+}
+body.theme-dark .minigame-list button:hover {
+    background-color: #444;
     border-color: var(--color-secondary);
     color: var(--color-primary);
 }
 
+
 .quiz-container {
-    background-color: var(--color-light-gray);
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border-radius: 12px;
     padding: 20px;
     margin-top: 20px;
     text-align: center;
 }
 .quiz-hint-area {
-    background-color: var(--color-white);
-    border: 1px solid var(--color-border);
+    background-color: var(--color-white); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 8px;
     padding: 15px;
     margin-bottom: 20px;
@@ -805,7 +880,7 @@ label {
 }
 .quiz-image-area {
     margin: 15px auto;
-    background-color: #dcd6c9;
+    background-color: #dcd6c9; /* 固定色 */
     border-radius: 8px;
     overflow: hidden;
     height: 250px;
@@ -813,11 +888,19 @@ label {
     justify-content: center;
     align-items: center;
 }
+body.theme-dark .quiz-image-area {
+    background-color: #444; /* ダークテーマの固定色 */
+}
+
 .quiz-image-area canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
 .quiz-result-area.correct { color: var(--color-success); font-weight: 700; }
 .quiz-result-area.incorrect { color: var(--color-danger); font-weight: 700; }
-.quiz-input-area button { background-color: var(--color-primary); color: var(--color-white); }
-.quiz-controls button { background-color: var(--color-text-light); color: var(--color-white); }
+.quiz-input-area button { background-color: var(--color-primary); color: var(--color-white); } /* テーマによって切り替わる */
+body.theme-dark .quiz-input-area button:hover { background-color: #609c7a; }
+
+.quiz-controls button { background-color: var(--color-text-light); color: var(--color-white); } /* テーマによって切り替わる */
+body.theme-dark .quiz-controls button:hover { background-color: #757575; }
+
 
 /* 戦いの記録 */
 .battle-record-tabs {
@@ -825,12 +908,12 @@ label {
     grid-template-columns: repeat(3, 1fr);
     gap: 5px;
     margin-bottom: 20px;
-    border-bottom: 2px solid var(--color-border);
+    border-bottom: 2px solid var(--color-border); /* テーマによって切り替わる */
     padding-bottom: 5px;
 }
 .battle-record-tab-button {
     background-color: transparent;
-    color: var(--color-text-light);
+    color: var(--color-text-light); /* テーマによって切り替わる */
     border: none;
     border-bottom: 3px solid transparent;
     padding: 12px 5px;
@@ -842,33 +925,53 @@ label {
     white-space: nowrap;
 }
 .battle-record-tab-button.active {
-    color: var(--color-primary);
-    border-bottom-color: var(--color-primary);
+    color: var(--color-primary); /* テーマによって切り替わる */
+    border-bottom-color: var(--color-primary); /* テーマによって切り替わる */
 }
+.battle-record-tab-button:hover {
+    background-color: #e9e4d9; /* デフォルトのホバー色 */
+}
+body.theme-dark .battle-record-tab-button:hover {
+    background-color: #444; /* ダークテーマのホバー色 */
+}
+
+
 .battle-record-tab-content { display: none; }
 .battle-record-tab-content.active { display: block; }
 
 .battle-record-form, .deck-management-section, #battle-stats, .replay-section, .spectate-section {
-    background-color: var(--color-light-gray);
-    border: 1px solid var(--color-border);
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 12px;
     padding: 20px;
     margin-top: 10px;
 }
 #register-deck-button, #save-battle-record-button {
-    background-color: var(--color-primary);
-    color: var(--color-white);
+    background-color: var(--color-primary); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
     width: 100%;
 }
-#register-deck-button:hover, #save-battle-record-button:hover { background-color: #317a5e; }
+#register-deck-button:hover, #save-battle-record-button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark #register-deck-button:hover, body.theme-dark #save-battle-record-button:hover { background-color: #609c7a; }
+
 
 #registered-decks-list li, #battle-records-list li {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
+#registered-decks-list li {
+    background-color: var(--color-white); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
+}
+body.theme-dark #registered-decks-list li {
+    background-color: #444;
+    border-color: #555;
+}
+
+
 .delete-button, .delete-deck-button, .delete-record-button {
-    background-color: var(--color-accent);
+    background-color: var(--color-accent); /* テーマによって切り替わる */
     color: white;
     padding: 5px 10px;
     font-size: 0.9em;
@@ -877,13 +980,16 @@ label {
     background-color: #d16a4c;
     color: white;
 }
+body.theme-dark .delete-button:hover, body.theme-dark .delete-deck-button:hover, body.theme-dark .delete-record-button:hover {
+    background-color: #d8993c;
+}
 
 
 /* --- リプレイ機能のスタイル --- */
 #replay-controls {
     margin-bottom: 20px;
     padding-bottom: 20px;
-    border-bottom: 1px dashed var(--color-border);
+    border-bottom: 1px dashed var(--color-border); /* テーマによって切り替わる */
 }
 
 #replay-controls .button-style {
@@ -891,36 +997,43 @@ label {
 }
 
 #start-replay-record-button {
-    background-color: var(--color-danger);
-    color: var(--color-white);
+    background-color: var(--color-danger); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
 }
 #start-replay-record-button:hover {
     background-color: #c82333;
 }
+body.theme-dark #start-replay-record-button:hover {
+    background-color: #D32F2F;
+}
 
 #stop-replay-record-button {
-    background-color: var(--color-text-light);
-    color: var(--color-white);
+    background-color: var(--color-text-light); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
 }
 #stop-replay-record-button:hover {
     background-color: #5a6268;
 }
+body.theme-dark #stop-replay-record-button:hover {
+    background-color: #757575;
+}
+
 
 #record-status {
     margin-top: 15px;
     font-weight: 500;
     transition: color 0.3s ease;
 }
-#record-status.record-status-idle { color: var(--color-text-light); }
-#record-status.record-status-recording { color: var(--color-danger); }
-#record-status.record-status-processing { color: var(--color-info); }
+#record-status.record-status-idle { color: var(--color-text-light); } /* テーマによって切り替わる */
+#record-status.record-status-recording { color: var(--color-danger); } /* テーマによって切り替わる */
+#record-status.record-status-processing { color: var(--color-info); } /* テーマによって切り替わる */
 
 #replay-player-wrapper {
     margin-top: 20px;
     padding: 15px;
-    background-color: var(--color-white);
+    background-color: var(--color-white); /* テーマによって切り替わる */
     border-radius: 8px;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
 }
 
 #replay-video {
@@ -933,9 +1046,11 @@ label {
 
 #close-replay-player-button {
     width: 100%;
-    background-color: var(--color-text-light);
-    color: var(--color-white);
+    background-color: var(--color-text-light); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
 }
+body.theme-dark #close-replay-player-button:hover { background-color: #757575; }
+
 
 #replay-list-wrapper {
     margin-top: 20px;
@@ -946,7 +1061,14 @@ label {
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
+    background-color: var(--color-white); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
 }
+body.theme-dark #replays-list li {
+    background-color: #444;
+    border-color: #555;
+}
+
 
 .replay-item-info {
     flex-grow: 1;
@@ -964,25 +1086,44 @@ label {
 }
 
 .play-replay-button {
-    background-color: var(--color-success);
-    color: var(--color-white);
+    background-color: var(--color-success); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
 }
 .play-replay-button:hover {
     background-color: #218838;
 }
+body.theme-dark .play-replay-button:hover {
+    background-color: #388E3C;
+}
+
+.rename-replay-button {
+    background-color: var(--color-secondary); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
+}
+.rename-replay-button:hover {
+    background-color: #d8993c;
+}
+body.theme-dark .rename-replay-button:hover {
+    background-color: #f7d794;
+}
+
 .delete-replay-button {
-    background-color: var(--color-danger);
-    color: var(--color-white);
+    background-color: var(--color-danger); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
 }
 .delete-replay-button:hover {
     background-color: #c82333;
 }
+body.theme-dark .delete-replay-button:hover {
+    background-color: #D32F2F;
+}
+
 
 /* --- 観戦機能のスタイル --- */
 .spectate-box {
     margin-bottom: 25px;
     padding-bottom: 25px;
-    border-bottom: 1px dashed var(--color-border);
+    border-bottom: 1px dashed var(--color-border); /* テーマによって切り替わる */
 }
 .spectate-box:last-child {
     border-bottom: none;
@@ -990,8 +1131,8 @@ label {
     padding-bottom: 0;
 }
 #broadcast-room-id {
-    background-color: var(--color-white);
-    border: 1px solid var(--color-border);
+    background-color: var(--color-white); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     font-weight: bold;
     text-align: center;
     cursor: text;
@@ -1013,46 +1154,50 @@ label {
 .spectate-notice {
     margin-top: 20px;
     padding: 10px;
-    background-color: #fffbe6;
-    border: 1px solid #ffe58f;
+    background-color: #fffbe6; /* 固定色 */
+    border: 1px solid #ffe58f; /* 固定色 */
     border-radius: 8px;
     font-size: 0.9em;
 }
 .spectate-notice p {
-    color: #856404;
+    color: #856404; /* 固定色 */
     margin: 0;
 }
 
 /* 認証フォーム */
 #auth-section {
-    background-color: var(--color-light-gray);
-    border: 1px solid var(--color-border);
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 12px;
     padding: 20px;
     margin-top: 20px;
 }
 .auth-form {
-    background-color: var(--color-white);
-    border: 1px solid var(--color-border);
+    background-color: var(--color-white); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     border-radius: 10px;
     padding: 15px;
     margin-bottom: 15px;
 }
-.auth-form h4 { color: var(--color-primary); margin-top: 0; }
-.auth-form button { width: 100%; background-color: var(--color-primary); color: var(--color-white); }
-.auth-form button:hover { background-color: #317a5e; }
+.auth-form h4 { color: var(--color-primary); margin-top: 0; } /* テーマによって切り替わる */
+.auth-form button { background-color: var(--color-primary); color: var(--color-white); width: 100%; } /* テーマによって切り替わる */
+.auth-form button:hover { background-color: #317a5e; } /* デフォルトのホバー色 */
+body.theme-dark .auth-form button:hover { background-color: #609c7a; }
+
 
 #logout-button {
     width: 100%;
-    background-color: var(--color-danger);
-    color: var(--color-white);
+    background-color: var(--color-danger); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
     margin-top: 15px;
 }
-#logout-button:hover { background-color: #c82333; }
+#logout-button:hover { background-color: #c82333; } /* デフォルトのホバー色 */
+body.theme-dark #logout-button:hover { background-color: #D32F2F; }
+
 
 /* ランキング */
 #ranking-section {
-    background-color: var(--color-light-gray);
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border-radius: 12px;
     padding: 20px;
     margin-top: 20px;
@@ -1061,19 +1206,25 @@ label {
     display: flex;
     align-items: center;
     padding: 12px 10px;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border); /* テーマによって切り替わる */
     background: none;
     box-shadow: none;
 }
-#ranking-list li:hover { background-color: #e9e4d9; }
+#ranking-list li:hover { background-color: #e9e4d9; } /* デフォルトのホバー色 */
+body.theme-dark #ranking-list li:hover { background-color: #444; }
+
 #ranking-list li.current-user {
-    background-color: #e9f7ef;
-    border-left: 4px solid var(--color-success);
+    background-color: #e9f7ef; /* 固定色 */
+    border-left: 4px solid var(--color-success); /* テーマによって切り替わる */
     font-weight: 700;
 }
+body.theme-dark #ranking-list li.current-user {
+    background-color: #3a4a3a; /* ダークテーマの強調色 */
+}
+
 #ranking-list .rank {
     font-weight: bold;
-    color: var(--color-text-light);
+    color: var(--color-text-light); /* テーマによって切り替わる */
     min-width: 30px;
     text-align: right;
     margin-right: 15px;
@@ -1083,182 +1234,18 @@ label {
 }
 #ranking-list .rate {
     font-weight: bold;
-    color: var(--color-primary);
+    color: var(--color-primary); /* テーマによって切り替わる */
 }
 #refresh-ranking-button {
     background: none;
     border: none;
-    color: var(--color-text-light);
+    color: var(--color-text-light); /* テーマによって切り替わる */
     font-size: 1.2em;
     cursor: pointer;
 }
-#refresh-ranking-button:hover { color: var(--color-primary); }
+#refresh-ranking-button:hover { color: var(--color-primary); } /* テーマによって切り替わる */
 
 
-/* --- リプレイ機能のスタイル --- */
-.replay-section {
-    background-color: var(--color-light-gray);
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    padding: 20px;
-    margin-top: 10px;
-}
-
-#replay-controls {
-    margin-bottom: 20px;
-    padding-bottom: 20px;
-    border-bottom: 1px dashed var(--color-border);
-}
-
-#replay-controls .button-style {
-    margin-right: 10px;
-}
-
-#start-replay-record-button {
-    background-color: var(--color-danger);
-    color: var(--color-white);
-}
-#start-replay-record-button:hover {
-    background-color: #c82333;
-}
-
-#stop-replay-record-button {
-    background-color: var(--color-text-light);
-    color: var(--color-white);
-}
-#stop-replay-record-button:hover {
-    background-color: #5a6268;
-}
-
-#record-status {
-    margin-top: 15px;
-    font-weight: 500;
-    transition: color 0.3s ease;
-}
-#record-status.record-status-idle { color: var(--color-text-light); }
-#record-status.record-status-recording { color: var(--color-danger); }
-#record-status.record-status-processing { color: var(--color-info); }
-
-#replay-player-wrapper {
-    margin-top: 20px;
-    padding: 15px;
-    background-color: var(--color-white);
-    border-radius: 8px;
-    border: 1px solid var(--color-border);
-}
-
-#replay-video {
-    width: 100%;
-    max-height: 300px;
-    border-radius: 8px;
-    background-color: #000;
-    margin-bottom: 10px;
-}
-
-#close-replay-player-button {
-    width: 100%;
-    background-color: var(--color-text-light);
-    color: var(--color-white);
-}
-
-#replay-list-wrapper {
-    margin-top: 20px;
-}
-
-#replays-list li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.replay-item-info {
-    flex-grow: 1;
-}
-
-.replay-item-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 5px;
-}
-
-.replay-item-actions button {
-    padding: 5px 10px;
-    font-size: 0.9em;
-}
-
-.play-replay-button {
-    background-color: var(--color-success);
-    color: var(--color-white);
-}
-.play-replay-button:hover {
-    background-color: #218838;
-}
-.delete-replay-button {
-    background-color: var(--color-danger);
-    color: var(--color-white);
-}
-.delete-replay-button:hover {
-    background-color: #c82333;
-}
-
-/* --- 観戦機能のスタイル --- */
-.spectate-box {
-    margin-bottom: 25px;
-    padding-bottom: 25px;
-    border-bottom: 1px dashed var(--color-border);
-}
-.spectate-box:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-    padding-bottom: 0;
-}
-#broadcast-room-id {
-    background-color: var(--color-white);
-    border: 1px solid var(--color-border);
-    font-weight: bold;
-    text-align: center;
-    cursor: text;
-}
-#spectate-form {
-    display: flex;
-    gap: 10px;
-}
-#spectate-form input {
-    flex-grow: 1;
-    margin: 0;
-}
-#spectate-video {
-    width: 100%;
-    background-color: #000;
-    border-radius: 8px;
-    margin-bottom: 10px;
-}
-.spectate-notice {
-    margin-top: 20px;
-    padding: 10px;
-    background-color: #fffbe6;
-    border: 1px solid #ffe58f;
-    border-radius: 8px;
-    font-size: 0.9em;
-}
-.spectate-notice p {
-    color: #856404;
-    margin: 0;
-}
-
-
-/* レスポンシブ対応 */
-@media (max-width: 480px) {
-    :root {
-        --sidebar-width: 95vw;
-        --bird-toggle-size: 65px;
-    }
-    .section-title { font-size: 1.8em; }
-    h3 { font-size: 1.2em; }
-    #tcg-sections-wrapper { padding: 15px; }
-    .battle-record-tab-button { font-size: 0.8em; padding: 10px 5px; }
-}
 /* --- 観戦機能リストの追加スタイル --- */
 .broadcast-list-header {
     display: flex;
@@ -1270,7 +1257,7 @@ label {
 .broadcast-list-header h5 {
     margin: 0;
     font-size: 1.1em;
-    color: var(--color-primary);
+    color: var(--color-primary); /* テーマによって切り替わる */
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1279,19 +1266,21 @@ label {
 #refresh-broadcast-list-button {
     padding: 8px;
     font-size: 1em;
-    background-color: var(--color-white);
-    color: var(--color-primary);
-    border: 1px solid var(--color-border);
+    background-color: var(--color-white); /* テーマによって切り替わる */
+    color: var(--color-primary); /* テーマによって切り替わる */
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
 }
 
 #refresh-broadcast-list-button:hover {
-    background-color: var(--color-light-gray);
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
 }
+body.theme-dark #refresh-broadcast-list-button:hover { background-color: #444; }
+
 
 #broadcast-list {
     max-height: 300px;
     overflow-y: auto;
-    border-top: 1px solid var(--color-border);
+    border-top: 1px solid var(--color-border); /* テーマによって切り替わる */
     padding-top: 10px;
 }
 
@@ -1304,8 +1293,10 @@ label {
 }
 
 .broadcast-list-item:hover {
-    background-color: #e9e4d9;
+    background-color: #e9e4d9; /* デフォルトのホバー色 */
 }
+body.theme-dark .broadcast-list-item:hover { background-color: #444; }
+
 
 .broadcast-item-info {
     display: flex;
@@ -1315,24 +1306,38 @@ label {
 }
 
 .broadcast-item-info .fa-user-circle {
-    color: var(--color-primary);
+    color: var(--color-primary); /* テーマによって切り替わる */
     font-size: 1.2em;
 }
 
 .start-spectate-button-in-list {
-    background-color: var(--color-success);
-    color: var(--color-white);
+    background-color: var(--color-success); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
     font-size: 0.9em;
     padding: 8px 12px;
 }
 .start-spectate-button-in-list:hover {
     background-color: #218838;
 }
+body.theme-dark .start-spectate-button-in-list:hover { background-color: #388E3C; }
+
 
 #broadcast-room-id-display {
-    background-color: var(--color-white);
+    background-color: var(--color-white); /* テーマによって切り替わる */
     padding: 2px 8px;
     border-radius: 4px;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
     font-family: monospace;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 480px) {
+    :root {
+        --sidebar-width: 95vw;
+        --bird-toggle-size: 65px;
+    }
+    .section-title { font-size: 1.8em; }
+    h3 { font-size: 1.2em; }
+    #tcg-sections-wrapper { padding: 15px; }
+    .battle-record-tab-button { font-size: 0.8em; padding: 10px 5px; }
 }

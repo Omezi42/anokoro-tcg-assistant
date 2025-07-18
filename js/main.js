@@ -214,6 +214,13 @@
         }
     };
 
+    // テーマを適用する関数
+    const applyTheme = (themeName) => {
+        document.body.classList.remove('theme-default', 'theme-dark'); // 既存のテーマクラスを削除
+        document.body.classList.add(`theme-${themeName}`); // 新しいテーマクラスを追加
+        console.log(`Applied theme: ${themeName}`);
+    };
+
     const injectUI = async () => {
         if (window.tcgAssistant.uiInjected) return;
         const birdImageUrl = a.runtime.getURL('images/illust_桜小鳥.png');
@@ -244,6 +251,11 @@
         window.tcgAssistant.uiInjected = true;
         attachEventListeners();
         await initializeFeatures();
+
+        // 保存されたテーマを適用
+        a.storage.sync.get('selectedTheme', (items) => {
+            applyTheme(items.selectedTheme || 'default');
+        });
     };
 
     const attachEventListeners = () => {
@@ -359,11 +371,14 @@
         setInterval(showRandomChatter, 90000);
     };
 
+    // background.jsからのメッセージリスナー
     a.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (request.action === "showSection") {
             window.toggleSidebar(request.section, request.forceOpenSidebar);
         } else if (request.action === "toggleSidebar") {
             window.toggleSidebar();
+        } else if (request.action === "setTheme") { // テーマ設定メッセージを処理
+            applyTheme(request.theme);
         }
         return true; 
     });

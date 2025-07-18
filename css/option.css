@@ -2,6 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap');
 
 :root {
+    /* デフォルトテーマのカラーパレット */
     --font-family-main: 'M PLUS Rounded 1c', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
     --color-background: #fdfaf4;
     --color-primary: #3a8c6a;
@@ -14,10 +15,24 @@
     --color-light-gray: #f4f0e8;
 }
 
+/* ダークテーマのカラーパレット */
+body.theme-dark {
+    --color-background: #2c2c2c;
+    --color-primary: #78c09a;
+    --color-secondary: #f7d794;
+    --color-accent: #f09a80;
+    --color-text-main: #e0e0e0;
+    --color-text-light: #b0b0b0;
+    --color-border: #555555;
+    --color-white: #3a3a3a;
+    --color-light-gray: #3a3a3a;
+}
+
+
 body {
     font-family: var(--font-family-main);
-    background-color: var(--color-background);
-    color: var(--color-text-main);
+    background-color: var(--color-background); /* テーマによって切り替わる */
+    color: var(--color-text-main); /* テーマによって切り替わる */
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -28,14 +43,14 @@ body {
 }
 
 .options-container {
-    background-color: var(--color-white);
+    background-color: var(--color-white); /* テーマによって切り替わる */
     padding: 40px;
     border-radius: 20px;
     box-shadow: 0 5px 25px rgba(0,0,0,0.1);
     width: 100%;
     max-width: 600px;
     text-align: center;
-    border: 2px solid var(--color-border);
+    border: 2px solid var(--color-border); /* テーマによって切り替わる */
 }
 
 .options-header {
@@ -44,18 +59,18 @@ body {
 
 .options-header .icon {
     font-size: 3em;
-    color: var(--color-primary);
+    color: var(--color-primary); /* テーマによって切り替わる */
     margin-bottom: 10px;
 }
 
 .options-header h1 {
-    color: var(--color-primary);
+    color: var(--color-primary); /* テーマによって切り替わる */
     font-size: 2em;
     margin: 0 0 10px 0;
 }
 
 .options-header p {
-    color: var(--color-text-light);
+    color: var(--color-text-light); /* テーマによって切り替わる */
     font-size: 1em;
 }
 
@@ -68,15 +83,15 @@ body {
 
 .setting-item {
     padding: 20px;
-    background-color: var(--color-light-gray);
+    background-color: var(--color-light-gray); /* テーマによって切り替わる */
     border-radius: 12px;
 }
 
 .setting-item h2 {
     margin-top: 0;
-    color: var(--color-text-main);
+    color: var(--color-text-main); /* テーマによって切り替わる */
     font-size: 1.2em;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border); /* テーマによって切り替わる */
     padding-bottom: 10px;
     margin-bottom: 15px;
     display: flex;
@@ -93,11 +108,20 @@ body {
 
 .setting-row label {
     font-weight: 700;
+    color: var(--color-text-main); /* テーマによって切り替わる */
+}
+
+.setting-row select {
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid var(--color-border); /* テーマによって切り替わる */
+    background-color: var(--color-white); /* テーマによって切り替わる */
+    color: var(--color-text-main); /* テーマによって切り替わる */
 }
 
 .setting-description {
     font-size: 0.9em;
-    color: var(--color-text-light);
+    color: var(--color-text-light); /* テーマによって切り替わる */
     margin: 0;
 }
 
@@ -138,11 +162,11 @@ body {
 }
 
 input:checked + .slider {
-    background-color: var(--color-primary);
+    background-color: var(--color-primary); /* テーマによって切り替わる */
 }
 
 input:focus + .slider {
-    box-shadow: 0 0 1px var(--color-primary);
+    box-shadow: 0 0 1px var(--color-primary); /* テーマによって切り替わる */
 }
 
 input:checked + .slider:before {
@@ -163,8 +187,8 @@ input:checked + .slider:before {
 }
 
 #save-button {
-    background-color: var(--color-primary);
-    color: var(--color-white);
+    background-color: var(--color-primary); /* テーマによって切り替わる */
+    color: var(--color-white); /* テーマによって切り替わる */
     padding: 12px 30px;
     font-size: 1.1em;
     border: none;
@@ -175,10 +199,14 @@ input:checked + .slider:before {
 #save-button:hover {
     background-color: #317a5e;
 }
+body.theme-dark #save-button:hover {
+    background-color: #609c7a;
+}
+
 
 #save-status {
     margin-top: 15px;
-    color: var(--color-primary);
+    color: var(--color-primary); /* テーマによって切り替わる */
     font-weight: bold;
     height: 1em;
 }

@@ -51,6 +51,7 @@ export function initialize() {
 
     let currentMatch = { id: null, opponentUserId: null, opponentUsername: null, isInitiator: false, peerConnection: null, dataChannel: null };
     const RENDER_WS_URL = 'wss://anokoro-tcg-api.onrender.com';
+    let lastKnownQueueCount = -1; // 最後に通知したキュー人数を保持
 
     const connectWebSocket = () => {
         const { ws } = window.tcgAssistant;
@@ -77,6 +78,7 @@ export function initialize() {
             updateUI();
             // 切断時にキュー人数をリセット
             a.storage.local.set({ matchingCount: '--' });
+            lastKnownQueueCount = -1; // リセット
             setTimeout(connectWebSocket, 5000);
         };
         newWs.onerror = (error) => console.error("WebSocket error:", error);
@@ -288,6 +290,12 @@ export function initialize() {
             case 'match_found':
                 clearMatchState();
                 Object.assign(currentMatch, message);
+                // 対戦相手決定時の通知
+                a.storage.sync.get('notifications', (items) => {
+                    if (items.notifications) {
+                        a.runtime.sendMessage({ action: "matchFoundNotification" });
+                    }
+                });
                 await window.showCustomDialog('対戦相手発見！', `${message.opponentUsername}さんとの対戦が始まります。`);
                 if (elements.chatMessagesDiv) elements.chatMessagesDiv.innerHTML = `<p><strong>[システム]:</strong> ${message.opponentUsername}さんと接続中...</p>`;
                 elements.matchingStatusDiv.dataset.active = 'false';
@@ -325,11 +333,24 @@ export function initialize() {
                 break;
             
             case 'queue_count_update': // キュー人数更新メッセージのハンドリングを追加
-                window.tcgAssistant.matchingCount = message.count;
-                a.storage.local.set({ matchingCount: message.count }); // ローカルストレージに保存
+                const newQueueCount = message.count;
+                window.tcgAssistant.matchingCount = newQueueCount;
+                a.storage.local.set({ matchingCount: newQueueCount }); // ローカルストレージに保存
+                
                 if (elements.queueCountDisplay) {
-                    elements.queueCountDisplay.textContent = message.count;
+                    elements.queueCountDisplay.textContent = newQueueCount;
                 }
+
+                // マッチキュー人数変動時の通知ロジック
+                a.storage.sync.get('queueNotifications', (items) => {
+                    if (items.queueNotifications) {
+                        // 以前の人数と異なる場合のみ通知
+                        if (lastKnownQueueCount !== newQueueCount) {
+                            a.runtime.sendMessage({ action: "queueCountNotification", count: newQueueCount });
+                        }
+                    }
+                    lastKnownQueueCount = newQueueCount; // 最後の人数を更新
+                });
                 break;
                 
             case 'error':

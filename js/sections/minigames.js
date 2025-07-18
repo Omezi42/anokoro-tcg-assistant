@@ -105,7 +105,7 @@ export function initialize() {
         currentQuiz.hintIndex++;
         if (currentQuiz.hintIndex >= currentQuiz.card.info.length) {
             quizHintArea.innerHTML += '<br><br>これ以上ヒントはありません。';
-            endQuiz(false);
+            endQuiz(false); // ヒントが尽きたら不正解として終了
         }
     }
 
@@ -393,6 +393,31 @@ export function initialize() {
         ctx.drawImage(tempMosaicCanvas, 0, 0, canvasWidth, canvasHeight);
     }
 
+    // ミニゲームの統計情報を更新する関数
+    async function updateMinigameStats(quizType, isCorrect, hintsUsed = 0) {
+        const a = (typeof browser !== "undefined") ? browser : chrome;
+        try {
+            const result = await a.storage.local.get({ minigameStats: {} });
+            const stats = result.minigameStats;
+
+            if (!stats[quizType]) {
+                stats[quizType] = { wins: 0, losses: 0, totalHints: 0 };
+            }
+
+            if (isCorrect) {
+                stats[quizType].wins++;
+                stats[quizType].totalHints += hintsUsed;
+            } else {
+                stats[quizType].losses++;
+            }
+
+            await a.storage.local.set({ minigameStats: stats });
+            console.log(`Minigame stats updated for ${quizType}:`, stats[quizType]);
+        } catch (error) {
+            console.error("Failed to update minigame stats:", error);
+        }
+    }
+
     function checkAnswer() {
         if (!quizAnswerInput || !quizResultArea || !currentQuiz.card) return;
         const userAnswer = quizAnswerInput.value.trim();
@@ -420,6 +445,10 @@ export function initialize() {
         quizSubmitButton.style.display = 'none';
         quizNextButton.style.display = 'none';
         quizAnswerDisplay.innerHTML = `正解は「<strong>${currentQuiz.card.name}</strong>」でした！`;
+        
+        // クイズ結果を統計に保存
+        updateMinigameStats(currentQuiz.type, isCorrect, currentQuiz.hintIndex);
+
         if (currentQuiz.fullCardImage && currentQuiz.quizCtx) {
             const ctx = currentQuiz.quizCtx;
             
@@ -463,3 +492,4 @@ export function initialize() {
 
     resetQuiz();
 }
+

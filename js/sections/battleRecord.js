@@ -1,8 +1,28 @@
 // js/sections/battleRecord.js
 export function initialize() {
+    // showBattleRecordTab 関数を、initializeスコープの先頭で関数宣言として定義
+    // これにより、initialize関数内のどこからでもアクセス可能になる（巻き上げ）
+    function showBattleRecordTab(tabId) {
+        elements.sectionContainer?.querySelectorAll('.battle-record-tab-content').forEach(c => c.classList.remove('active'));
+        elements.sectionContainer?.querySelectorAll('.battle-record-tab-button').forEach(b => b.classList.remove('active'));
+        const targetContent = getElement(`battle-record-tab-${tabId}`);
+        const targetButton = elements.sectionContainer?.querySelector(`.battle-record-tab-button[data-tab="${tabId}"]`);
+        if (targetContent) targetContent.classList.add('active');
+        if (targetButton) targetButton.classList.add('active');
+
+        // タブが切り替わった際に、各タブのデータをロード
+        switch(tabId) {
+            case 'replay': updateReplayList(); break;
+            case 'deck-management': case 'new-record': loadRegisteredDecks(); break;
+            case 'past-records': case 'stats-summary': loadBattleRecords(); break;
+            case 'minigame-record': displayMinigameStats(); break;
+        }
+    }
+
+
     if (document.body.dataset.battleRecordInitialized === 'true') {
-        const activeTab = document.querySelector('.battle-record-tab-button.active')?.dataset.tab || 'replay';
-        showBattleRecordTab(activeTab); // showBattleRecordTab がここで呼び出される可能性があるため、先に定義する
+        const activeTab = document.querySelector('.battle-record-tab-button.active')?.dataset.tab || 'new-record'; // 初期表示を「新規記録」タブに変更
+        showBattleRecordTab(activeTab); 
         return;
     }
     document.body.dataset.battleRecordInitialized = 'true';
@@ -292,26 +312,33 @@ export function initialize() {
     const renameReplay = async (replayId) => {
         try {
             const db = await openDB();
-            const tx = db.transaction(META_STORE_NAME, 'readwrite');
-            const store = tx.objectStore(META_STORE_NAME);
-            const request = store.get(replayId);
+            // まずはリプレイデータを取得するためのトランザクション
+            const getTx = db.transaction(META_STORE_NAME, 'readonly');
+            const getStore = getTx.objectStore(META_STORE_NAME);
+            const getRequest = getStore.get(replayId);
 
-            request.onsuccess = async (event) => {
+            getRequest.onsuccess = async (event) => {
                 const replay = event.target.result;
                 if (replay) {
                     const newTitle = await showLocalCustomInputDialog('リプレイ名の変更', '新しいリプレイ名を入力してください:', replay.title || '');
                     if (newTitle !== null && newTitle.trim() !== '') {
-                        replay.title = newTitle.trim();
-                        const updateRequest = store.put(replay);
-                        updateRequest.onsuccess = async () => {
+                        // 新しい名前で更新するための別のトランザクション
+                        try {
+                            const updateTx = db.transaction(META_STORE_NAME, 'readwrite');
+                            const updateStore = updateTx.objectStore(META_STORE_NAME);
+                            replay.title = newTitle.trim();
+                            const updateRequest = updateStore.put(replay);
+                            await new Promise((res, rej) => {
+                                updateRequest.onsuccess = res;
+                                updateRequest.onerror = rej;
+                            });
                             console.log(`Replay ID ${replayId} renamed to: ${newTitle}`);
                             await updateReplayList();
                             window.showCustomDialog('成功', 'リプレイ名を変更しました。');
-                        };
-                        updateRequest.onerror = (e) => {
-                            console.error("Error updating replay title in DB:", e.target.error);
-                            window.showCustomDialog('エラー', `リプレイ名の変更に失敗しました: ${e.target.error.message}`);
-                        };
+                        } catch (updateError) {
+                            console.error("Error updating replay title in DB:", updateError);
+                            window.showCustomDialog('エラー', `リプレイ名の変更に失敗しました: ${updateError.message}`);
+                        }
                     } else if (newTitle !== null) { // OKが押されたが空の場合
                         window.showCustomDialog('エラー', 'リプレイ名は空にできません。');
                     }
@@ -319,7 +346,7 @@ export function initialize() {
                     window.showCustomDialog('エラー', '指定されたリプレイが見つかりません。');
                 }
             };
-            request.onerror = (e) => {
+            getRequest.onerror = (e) => {
                 console.error("Error fetching replay for rename:", e.target.error);
                 window.showCustomDialog('エラー', `リプレイの取得に失敗しました: ${e.target.error.message}`);
             };
@@ -613,26 +640,7 @@ export function initialize() {
         });
     };
 
-    // タブを切り替える関数
-    const showBattleRecordTab = (tabId) => {
-        elements.sectionContainer?.querySelectorAll('.battle-record-tab-content').forEach(c => c.classList.remove('active'));
-        elements.sectionContainer?.querySelectorAll('.battle-record-tab-button').forEach(b => b.classList.remove('active'));
-        const targetContent = getElement(`battle-record-tab-${tabId}`);
-        const targetButton = elements.sectionContainer?.querySelector(`.battle-record-tab-button[data-tab="${tabId}"]`);
-        if (targetContent) targetContent.classList.add('active');
-        if (targetButton) targetButton.classList.add('active');
-
-        // タブが切り替わった際に、各タブのデータをロード
-        switch(tabId) {
-            case 'replay': updateReplayList(); break;
-            case 'deck-management': case 'new-record': loadRegisteredDecks(); break;
-            case 'past-records': case 'stats-summary': loadBattleRecords(); break;
-            case 'minigame-record': displayMinigameStats(); break;
-        }
-    };
-
     // 初期化処理
     setupEventListeners();
-    showBattleRecordTab('replay'); // 初期表示はリプレイタブ
+    showBattleRecordTab('new-record'); // 初期表示を「新規記録」タブに変更
 }
-

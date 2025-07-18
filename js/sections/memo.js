@@ -5,7 +5,6 @@ export function initialize() {
 
     console.log("Memo section initialized.");
 
-    const a = (typeof browser !== "undefined") ? browser : chrome;
     const saveMemoButton = document.getElementById('save-memo-button');
     const memoTextArea = document.getElementById('memo-text-area');
     const savedMemosList = document.getElementById('saved-memos-list');
@@ -14,43 +13,55 @@ export function initialize() {
     const memoSearchButton = document.getElementById('memo-search-button');
     let editingMemoIndex = -1;
 
-    // ログイン状態に応じてメモの取得元を切り替える
+    const sendMemosToServer = (memos) => {
+        const { ws } = window.tcgAssistant;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'update_user_data', memos: memos }));
+            console.log("Memos sent to server for saving.");
+        } else {
+            console.error("WebSocket is not connected. Memos could not be saved to server.");
+            // Optionally, provide feedback to the user
+            window.showCustomDialog('保存エラー', 'サーバーに接続されていないため、メモを保存できませんでした。');
+        }
+    };
+
     const getMemos = () => {
         return window.tcgAssistant.currentUserId 
             ? (window.tcgAssistant.userMemos || []) 
             : JSON.parse(localStorage.getItem('savedMemosLocal') || '[]');
     };
 
-    // メモを保存する
     const saveMemos = (memos) => {
         if (window.tcgAssistant.currentUserId) {
             window.tcgAssistant.userMemos = memos;
-            // TODO: WebSocket経由でサーバーに保存する処理を実装
-            console.log("Memos saved to memory, server-side save needed.");
+            sendMemosToServer(memos);
         } else {
             localStorage.setItem('savedMemosLocal', JSON.stringify(memos));
         }
+        loadMemos();
     };
 
-    // メモリストをUIに表示する
     const displayMemos = (memos, filterQuery = '') => {
         if (!savedMemosList) return;
         savedMemosList.innerHTML = '';
+        const lowerCaseQuery = filterQuery.toLowerCase();
         const filteredMemos = memos.filter(memo =>
-            (memo.content && memo.content.toLowerCase().includes(filterQuery.toLowerCase())) ||
+            (memo.content && memo.content.toLowerCase().includes(lowerCaseQuery)) ||
             (memo.timestamp && memo.timestamp.includes(filterQuery))
         );
 
         if (filteredMemos.length === 0) {
-            savedMemosList.innerHTML = `<li>まだメモがありません。</li>`;
+            savedMemosList.innerHTML = `<li>${filterQuery ? '一致するメモがありません。' : 'まだメモがありません。'}</li>`;
         } else {
             [...filteredMemos].reverse().forEach((memo) => {
                 const originalIndex = memos.findIndex(m => m.timestamp === memo.timestamp && m.content === memo.content);
                 const li = document.createElement('li');
                 li.className = 'saved-memo-item';
+                // Sanitize content before displaying
+                const sanitizedContent = memo.content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                 li.innerHTML = `
                     <strong>${memo.timestamp}</strong>
-                    <p>${memo.content || ''}</p>
+                    <p>${sanitizedContent || ''}</p>
                     ${memo.screenshotUrl ? `<img src="${memo.screenshotUrl}" alt="スクリーンショット" style="max-width: 100%; border-radius: 8px; margin-top: 10px;">` : ''}
                     <div class="memo-actions">
                         <button class="edit-memo-button" data-index="${originalIndex}" title="編集"><i class="fas fa-edit"></i></button>
@@ -62,10 +73,12 @@ export function initialize() {
         }
     };
 
-    const loadMemos = () => displayMemos(getMemos(), memoSearchInput.value.trim());
+    const loadMemos = () => {
+        const query = memoSearchInput ? memoSearchInput.value.trim() : '';
+        displayMemos(getMemos(), query);
+    };
 
-    // イベントリスナー
-    saveMemoButton.addEventListener('click', async () => {
+    saveMemoButton?.addEventListener('click', async () => {
         const memoContent = memoTextArea.value.trim();
         const screenshotImg = screenshotArea.querySelector('img');
         const screenshotUrl = screenshotImg ? screenshotImg.src : null;
@@ -79,13 +92,14 @@ export function initialize() {
         } else {
             memos.push({ timestamp, content: memoContent, screenshotUrl });
         }
-        saveMemos(memos);
+        
+        saveMemos(memos); // This will save and then reload the memos
+        
         memoTextArea.value = '';
         screenshotArea.innerHTML = '<p>画像をここに貼り付け (Ctrl+V)</p>';
-        loadMemos();
     });
     
-    savedMemosList.addEventListener('click', (e) => {
+    savedMemosList?.addEventListener('click', (e) => {
         const target = e.target.closest('button');
         if (!target) return;
         const index = parseInt(target.dataset.index, 10);
@@ -93,7 +107,6 @@ export function initialize() {
         if (target.classList.contains('delete-memo-button')) {
             memos.splice(index, 1);
             saveMemos(memos);
-            loadMemos();
         } else if (target.classList.contains('edit-memo-button')) {
             const memoToEdit = memos[index];
             memoTextArea.value = memoToEdit.content;
@@ -103,9 +116,10 @@ export function initialize() {
         }
     });
 
-    screenshotArea.addEventListener('paste', (event) => {
+    screenshotArea?.addEventListener('paste', (event) => {
         const item = Array.from(event.clipboardData.items).find(i => i.type.startsWith('image/'));
         if (item) {
+            event.preventDefault();
             const blob = item.getAsFile();
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -115,8 +129,8 @@ export function initialize() {
         }
     });
     
-    memoSearchButton.addEventListener('click', loadMemos);
-    memoSearchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') loadMemos(); });
+    memoSearchButton?.addEventListener('click', loadMemos);
+    memoSearchInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter') loadMemos(); });
     
     document.addEventListener('loginStateChanged', loadMemos);
     loadMemos();

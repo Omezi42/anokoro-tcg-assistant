@@ -1,81 +1,80 @@
-// js/background.js (Manifest V3)
+// background.js
 
-const a = (typeof browser !== "undefined") ? browser : chrome;
+// FirefoxとChromeのAPI名前空間の互換性を確保
+// 'browser'変数を宣言する前にグローバルな'browser'オブジェクトを参照するように修正
+const browserAPI = (typeof window.browser !== "undefined") ? window.browser : window.chrome;
 
-if (typeof a === "undefined" || typeof a.runtime === "undefined") {
-    console.error("TCG Assistant Background: Could not find browser/chrome runtime API.");
-} else {
-    a.runtime.onInstalled.addListener((details) => {
-        console.log("あの頃の自作TCGアシスタントがインストールされました。");
-    });
+// 拡張機能がインストールされたときのリスナー
+browserAPI.runtime.onInstalled.addListener(() => {
+  console.log("TCG Assistant: Background Script Installed/Updated.");
+});
 
-    a.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        const tabId = sender.tab?.id;
-        let isAsync = false;
+// --- Message Listener ---
+// コンテンツスクリプトからのメッセージを処理します。
+browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    
+    // 画像取得リクエストの処理 (CORSエラー回避のため)
+    if (request.action === "fetchImageAsDataURL") {
+        fetch(request.url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Network response was not ok for ${request.url}`);
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    // 読み込みが成功したら、Data URLをコンテンツスクリプトに返す
+                    sendResponse({ success: true, dataUrl: reader.result });
+                };
+                reader.onerror = () => {
+                    console.error("Background script: Failed to read blob.");
+                    sendResponse({ success: false, error: 'Failed to read blob as data URL.' });
+                };
+                reader.readAsDataURL(blob);
+            })
+            .catch(error => {
+                console.error('Background fetch error:', error);
+                sendResponse({ success: false, error: error.message });
+            });
+        
+        // 非同期で応答を返すため、trueを返す
+        return true;
+    }
 
-        switch (request.action) {
-            case "showSection":
-                if (tabId) a.tabs.sendMessage(tabId, { action: "showSection", section: request.section, forceOpenSidebar: request.forceOpenSidebar || false });
-                break;
+    // デスクトップ通知のリクエスト処理
+    if (request.action === "matchFoundNotification") {
+        browserAPI.notifications.create('matchFound', {
+            type: 'basic',
+            iconUrl: browserAPI.runtime.getURL('images/icon128.png'),
+            title: '対戦相手が見つかりました！',
+            message: '『あの頃の自作TCG』で対戦相手が見つかりました！ゲーム画面に戻りましょう。',
+            priority: 2
+        });
+    }
+});
 
-            case "toggleSidebar":
-                if (tabId) a.tabs.sendMessage(tabId, { action: "toggleSidebar" });
-                break;
+// --- Command Listener ---
+// manifest.jsonで定義されたキーボードショートカットを処理します。
+browserAPI.commands.onCommand.addListener(async (command, tab) => {
+    if (command !== "toggle-sidebar") return;
 
-            case "createNotification":
-                a.notifications.create({
-                    type: 'basic',
-                    iconUrl: a.runtime.getURL('images/icon128.png'),
-                    title: request.title || '通知',
-                    message: request.message || ''
-                });
-                break;
-            
-            // FIX: Add a new case to handle fetching images as data URLs
-            case 'fetchImageAsDataURL':
-                fetch(request.url)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`Network response was not ok: ${response.statusText}`);
-                        }
-                        return response.blob();
-                    })
-                    .then(blob => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            sendResponse({ success: true, dataUrl: reader.result });
-                        };
-                        reader.onerror = () => {
-                            sendResponse({ success: false, error: 'Failed to read blob as data URL.' });
-                        };
-                        reader.readAsDataURL(blob);
-                    })
-                    .catch(error => {
-                        console.error('Fetch image error in background:', error);
-                        sendResponse({ success: false, error: error.message });
-                    });
-                isAsync = true; // Mark as asynchronous
-                break;
-
-            default:
-                break;
-        }
-
-        return isAsync;
-    });
-
-    a.commands.onCommand.addListener((command, tab) => {
+    try {
         if (tab.url && tab.url.startsWith('https://unityroom.com/games/anokorotcg')) {
-            if (command === "toggle-sidebar") {
-                a.tabs.sendMessage(tab.id, { action: "toggleSidebar" });
-            }
+            // アクティブなタブのコンテンツスクリプトにメッセージを送信
+            await browserAPI.tabs.sendMessage(tab.id, { action: "toggleSidebar" });
         } else {
-            a.notifications.create({
-                type: 'basic',
-                iconUrl: a.runtime.getURL('images/icon128.png'),
-                title: '操作不可',
-                message: 'このコマンドは「あの頃の自作TCG」のゲームページでのみ有効です。'
+            // ゲームページでない場合はアラートを表示
+            await browserAPI.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: () => {
+                    alert('このショートカットは「あの頃の自作TCG」のゲームページでのみ利用できます。');
+                }
             });
         }
-    });
-}
+    } catch (e) {
+        // スクリプトを注入できないページ（例: about:addons）でのエラーを捕捉
+        console.error(`Could not execute command "${command}" on tab ${tab.id}:`, e);
+    }
+});

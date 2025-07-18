@@ -1,9 +1,13 @@
 // js/sections/battleRecord.js
 export function initialize() {
-    if (document.body.dataset.battleRecordInitialized === 'true') return;
+    if (document.body.dataset.battleRecordInitialized === 'true') {
+        const activeTab = document.querySelector('.battle-record-tab-button.active')?.dataset.tab || 'replay';
+        showBattleRecordTab(activeTab);
+        return;
+    }
     document.body.dataset.battleRecordInitialized = 'true';
     
-    console.log("BattleRecord section initialized.");
+    console.log("BattleRecord section initialized with all features.");
 
     const a = (typeof browser !== "undefined") ? browser : chrome;
 
@@ -12,21 +16,16 @@ export function initialize() {
         recordedChunks: [],
         replayStream: null,
         db: null,
-        broadcastStream: null,
-        spectatorConnections: new Map(), // spectatorId -> RTCPeerConnection
-        spectateConnection: null,
-        currentRoomId: null,
     };
 
     const DB_NAME = 'TcgReplayDB';
     const DB_VERSION = 1;
     const META_STORE_NAME = 'replaysMeta';
     const CHUNKS_STORE_NAME = 'replayChunks';
-    const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
     const getElement = (id) => document.getElementById(id);
     const elements = {
-        sectionContainer: getElement('tcg-battlerecord-section'),
+        sectionContainer: document.querySelector('#tcg-battleRecord-section') || document.body,
         startRecordBtn: getElement('start-replay-record-button'),
         stopRecordBtn: getElement('stop-replay-record-button'),
         recordStatus: getElement('record-status'),
@@ -34,16 +33,23 @@ export function initialize() {
         replayPlayerWrapper: getElement('replay-player-wrapper'),
         replayVideo: getElement('replay-video'),
         closeReplayPlayerBtn: getElement('close-replay-player-button'),
-        startBroadcastBtn: getElement('start-broadcast-button'),
-        stopBroadcastBtn: getElement('stop-broadcast-button'),
-        broadcastStatus: getElement('broadcast-status'),
-        broadcastRoomIdDisplay: getElement('broadcast-room-id-display'),
-        broadcastListWrapper: getElement('broadcast-list-wrapper'),
-        spectateView: getElement('spectate-view'),
-        spectateVideo: getElement('spectate-video'),
-        stopSpectateBtn: getElement('stop-spectate-button'),
-        broadcastList: getElement('broadcast-list'),
-        refreshBroadcastBtn: getElement('refresh-broadcast-list-button'),
+        newDeckNameInput: getElement('new-deck-name'),
+        newDeckTypeSelect: getElement('new-deck-type'),
+        registerDeckBtn: getElement('register-deck-button'),
+        registeredDecksList: getElement('registered-decks-list'),
+        myDeckSelect: getElement('my-deck-select'),
+        opponentDeckSelect: getElement('opponent-deck-select'),
+        winLossSelect: getElement('win-loss-select'),
+        firstSecondSelect: getElement('first-second-select'),
+        notesTextarea: getElement('notes-textarea'),
+        saveRecordBtn: getElement('save-battle-record-button'),
+        battleRecordsList: getElement('battle-records-list'),
+        statsContainer: getElement('battle-stats'),
+        totalGames: getElement('total-games'),
+        totalWins: getElement('total-wins'),
+        totalLosses: getElement('total-losses'),
+        winRate: getElement('win-rate'),
+        minigameStatsContainer: getElement('minigame-stats-container'),
     };
 
     const openDB = () => new Promise((resolve, reject) => {
@@ -65,6 +71,34 @@ export function initialize() {
         }
     });
 
+    const sendDataToServer = (data) => {
+        const { ws } = window.tcgAssistant;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'update_user_data', ...data }));
+        } else {
+            console.error("WebSocket is not connected. Data could not be saved to server.");
+        }
+    };
+
+    const getDecks = () => window.tcgAssistant.currentUserId ? (window.tcgAssistant.userRegisteredDecks || []) : JSON.parse(localStorage.getItem('registeredDecksLocal') || '[]');
+    const saveDecks = (decks) => {
+        if (window.tcgAssistant.currentUserId) {
+            window.tcgAssistant.userRegisteredDecks = decks;
+            sendDataToServer({ registeredDecks: decks });
+        } else {
+            localStorage.setItem('registeredDecksLocal', JSON.stringify(decks));
+        }
+    };
+    const getRecords = () => window.tcgAssistant.currentUserId ? (window.tcgAssistant.userBattleRecords || []) : JSON.parse(localStorage.getItem('battleRecordsLocal') || '[]');
+    const saveRecords = (records) => {
+        if (window.tcgAssistant.currentUserId) {
+            window.tcgAssistant.userBattleRecords = records;
+            sendDataToServer({ battleRecords: records });
+        } else {
+            localStorage.setItem('battleRecordsLocal', JSON.stringify(records));
+        }
+    };
+
     const updateUIRecording = (isRecording) => {
         if (elements.startRecordBtn) elements.startRecordBtn.style.display = isRecording ? 'none' : 'inline-flex';
         if (elements.stopRecordBtn) elements.stopRecordBtn.style.display = isRecording ? 'inline-flex' : 'none';
@@ -74,51 +108,19 @@ export function initialize() {
         }
     };
 
-    const updateUIBroadcast = (isBroadcasting) => {
-        if(elements.startBroadcastBtn) elements.startBroadcastBtn.style.display = isBroadcasting ? 'none' : 'block';
-        if(elements.stopBroadcastBtn) elements.stopBroadcastBtn.style.display = isBroadcasting ? 'block' : 'none';
-        if(elements.broadcastStatus) elements.broadcastStatus.style.display = isBroadcasting ? 'block' : 'none';
-        if (!isBroadcasting && elements.broadcastRoomIdDisplay) {
-            elements.broadcastRoomIdDisplay.textContent = '';
-        }
-    };
-
-    const updateUISpectate = (isSpectating) => {
-        if(elements.broadcastListWrapper) elements.broadcastListWrapper.style.display = isSpectating ? 'none' : 'block';
-        if(elements.spectateView) elements.spectateView.style.display = isSpectating ? 'block' : 'none';
-    };
-
     const startRecording = async () => {
         try {
-            state.replayStream = await navigator.mediaDevices.getDisplayMedia({
-                video: { mediaSource: "tab" },
-                audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-                preferCurrentTab: true,
-            });
+            state.replayStream = await navigator.mediaDevices.getDisplayMedia({ video: { mediaSource: "tab" }, audio: true });
             updateUIRecording(true);
             state.replayStream.getVideoTracks()[0].onended = () => stopRecording();
             state.recordedChunks = [];
+            const supportedMimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(type => MediaRecorder.isTypeSupported(type));
+            if (!supportedMimeType) throw new Error("このブラウザでサポートされている録画コーデックが見つかりません。");
             
-            const mimeTypes = [
-                'video/webm;codecs=vp9,opus',
-                'video/webm;codecs=vp8,opus',
-                'video/webm;codecs=vp9',
-                'video/webm',
-            ];
-            const supportedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
-
-            if (!supportedMimeType) {
-                throw new Error("このブラウザでサポートされている録画コーデックが見つかりません。");
-            }
-            console.log(`Using supported MIME type: ${supportedMimeType}`);
-            const options = { mimeType: supportedMimeType };
-
-            state.mediaRecorder = new MediaRecorder(state.replayStream, options);
-            state.mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) state.recordedChunks.push(event.data);
-            };
+            state.mediaRecorder = new MediaRecorder(state.replayStream, { mimeType: supportedMimeType });
+            state.mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) state.recordedChunks.push(event.data); };
             state.mediaRecorder.onstop = saveReplay;
-            state.mediaRecorder.start(5000);
+            state.mediaRecorder.start();
         } catch (err) {
             console.error("Error starting recording:", err);
             window.showCustomDialog('録画エラー', `録画を開始できませんでした: ${err.message}`);
@@ -127,7 +129,7 @@ export function initialize() {
     };
 
     const stopRecording = () => {
-        if (state.mediaRecorder?.state === "recording") state.mediaRecorder.stop();
+        state.mediaRecorder?.stop();
         state.replayStream?.getTracks().forEach(track => track.stop());
         state.replayStream = null;
         updateUIRecording(false);
@@ -136,33 +138,22 @@ export function initialize() {
     const saveReplay = async () => {
         if(elements.recordStatus) elements.recordStatus.textContent = "ステータス: 処理中...";
         if (state.recordedChunks.length === 0) {
-            console.warn("No chunks recorded, aborting save.");
             updateUIRecording(false);
             return;
         }
         const replayId = `replay_${Date.now()}`;
         try {
             const db = await openDB();
-            // FIX: Use a single transaction for both stores to ensure atomicity
             const tx = db.transaction([META_STORE_NAME, CHUNKS_STORE_NAME], 'readwrite');
-            const metaStore = tx.objectStore(META_STORE_NAME);
-            const chunkStore = tx.objectStore(CHUNKS_STORE_NAME);
-
-            metaStore.put({ id: replayId, timestamp: Date.now() });
+            tx.objectStore(META_STORE_NAME).put({ id: replayId, timestamp: Date.now() });
             for (const chunk of state.recordedChunks) {
-                chunkStore.add({ replayId, chunk });
+                tx.objectStore(CHUNKS_STORE_NAME).add({ replayId, chunk });
             }
-
-            await new Promise((resolve, reject) => { 
-                tx.oncomplete = resolve;
-                tx.onerror = (e) => reject(e.target.error);
-            });
-
+            await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = (e) => reject(e.target.error); });
             state.recordedChunks = [];
             await updateReplayList();
             window.showCustomDialog('録画完了', 'リプレイが保存されました。');
         } catch (e) {
-            console.error("Replay save error:", e);
             window.showCustomDialog('保存エラー', `リプレイの保存に失敗しました: ${e.message || e}`);
         } finally {
             updateUIRecording(false);
@@ -173,69 +164,40 @@ export function initialize() {
         if (!elements.replaysList) return;
         try {
             const db = await openDB();
-            const request = db.transaction(META_STORE_NAME, 'readonly').objectStore(META_STORE_NAME).getAll();
             const replays = await new Promise((resolve, reject) => {
+                const request = db.transaction(META_STORE_NAME, 'readonly').objectStore(META_STORE_NAME).getAll();
                 request.onsuccess = () => resolve(request.result.sort((a, b) => b.timestamp - a.timestamp));
                 request.onerror = (e) => reject(e.target.error);
             });
-            elements.replaysList.innerHTML = '';
-            if (replays.length === 0) {
-                elements.replaysList.innerHTML = '<li>保存されたリプレイはありません。</li>';
-            } else {
-                replays.forEach(replay => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `
-                        <div class="replay-item-info"><strong>${new Date(replay.timestamp).toLocaleString()}</strong></div>
-                        <div class="replay-item-actions">
-                            <button class="play-replay-button button-style" data-id="${replay.id}"><i class="fas fa-play"></i> 再生</button>
-                            <button class="delete-replay-button button-style" data-id="${replay.id}"><i class="fas fa-trash"></i> 削除</button>
-                        </div>`;
-                    elements.replaysList.appendChild(li);
-                });
-            }
+            elements.replaysList.innerHTML = replays.length === 0 ? '<li>保存されたリプレイはありません。</li>' : replays.map(replay => `
+                <li>
+                    <div class="replay-item-info"><strong>${new Date(replay.timestamp).toLocaleString()}</strong></div>
+                    <div class="replay-item-actions">
+                        <button class="play-replay-button button-style" data-id="${replay.id}"><i class="fas fa-play"></i> 再生</button>
+                        <button class="delete-replay-button button-style" data-id="${replay.id}"><i class="fas fa-trash"></i> 削除</button>
+                    </div>
+                </li>`).join('');
         } catch (error) {
-            console.error("Failed to update replay list:", error);
             elements.replaysList.innerHTML = `<li>リプレイリストの読み込みに失敗しました。</li>`;
         }
     };
 
-    const playReplayWithMSE = async (replayId) => {
+    const playReplay = async (replayId) => {
         if (!elements.replayPlayerWrapper || !elements.replayVideo) return;
         try {
             const db = await openDB();
-            const request = db.transaction(CHUNKS_STORE_NAME, 'readonly').objectStore(CHUNKS_STORE_NAME).index('replayId').getAll(replayId);
             const chunks = await new Promise((resolve, reject) => {
+                 const request = db.transaction(CHUNKS_STORE_NAME, 'readonly').objectStore(CHUNKS_STORE_NAME).index('replayId').getAll(replayId);
                  request.onsuccess = () => resolve(request.result.map(r => r.chunk));
                  request.onerror = (e) => reject(e.target.error);
             });
             if (chunks.length === 0) return window.showCustomDialog('エラー', '再生データが見つかりません。');
-
+            
             elements.replayPlayerWrapper.style.display = 'block';
-            const mediaSource = new MediaSource();
-            elements.replayVideo.src = URL.createObjectURL(mediaSource);
-            mediaSource.addEventListener('sourceopen', () => {
-                URL.revokeObjectURL(elements.replayVideo.src);
-                const sourceBuffer = mediaSource.addSourceBuffer('video/webm;codecs=vp9,opus');
-                let i = 0;
-                const appendNextChunk = async () => {
-                    if (i >= chunks.length) {
-                        if (!sourceBuffer.updating && mediaSource.readyState === 'open') mediaSource.endOfStream();
-                        return;
-                    }
-                    if (!sourceBuffer.updating) {
-                        try {
-                            const buffer = await chunks[i].arrayBuffer();
-                            sourceBuffer.appendBuffer(buffer);
-                            i++;
-                        } catch (error) { console.error("Buffer append error:", error); }
-                    }
-                };
-                sourceBuffer.addEventListener('updateend', appendNextChunk);
-                appendNextChunk();
-            });
+            const blob = new Blob(chunks, { type: chunks[0].type });
+            elements.replayVideo.src = URL.createObjectURL(blob);
             elements.replayVideo.play();
         } catch (error) {
-            console.error("Error playing replay:", error);
             window.showCustomDialog('再生エラー', `リプレイの再生中にエラーが発生しました: ${error.message}`);
         }
     };
@@ -244,23 +206,17 @@ export function initialize() {
         try {
             const db = await openDB();
             const tx = db.transaction([META_STORE_NAME, CHUNKS_STORE_NAME], 'readwrite');
-            const metaStore = tx.objectStore(META_STORE_NAME);
-            const chunkStore = tx.objectStore(CHUNKS_STORE_NAME);
-            
-            metaStore.delete(replayId);
-            const index = chunkStore.index('replayId');
+            tx.objectStore(META_STORE_NAME).delete(replayId);
+            const index = tx.objectStore(CHUNKS_STORE_NAME).index('replayId');
             const request = index.openKeyCursor(IDBKeyRange.only(replayId));
             request.onsuccess = () => {
                 const cursor = request.result;
                 if (cursor) {
-                    chunkStore.delete(cursor.primaryKey);
+                    tx.objectStore(CHUNKS_STORE_NAME).delete(cursor.primaryKey);
                     cursor.continue();
                 }
             };
-            await new Promise((res, rej) => {
-                tx.oncomplete = res;
-                tx.onerror = (e) => rej(e.target.error);
-            });
+            await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = (e) => rej(e.target.error); });
             await updateReplayList();
             window.showCustomDialog('成功', 'リプレイを削除しました。');
         } catch (error) {
@@ -268,162 +224,65 @@ export function initialize() {
         }
     };
 
-    const startBroadcast = async () => {
-        if (!window.tcgAssistant.currentUserId) return window.showCustomDialog('エラー', '配信にはログインが必要です。');
-        if (!window.tcgAssistant.ws || window.tcgAssistant.ws.readyState !== WebSocket.OPEN) return window.showCustomDialog('エラー', 'サーバーに接続していません。');
-        
-        try {
-            updateUIBroadcast(true);
-            state.broadcastStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true, preferCurrentTab: true });
-            state.broadcastStream.getVideoTracks()[0].onended = () => stopBroadcast();
-            window.tcgAssistant.ws.send(JSON.stringify({ type: 'start_broadcast' }));
-        } catch (err) {
-            console.error("Broadcast failed to start:", err);
-            window.showCustomDialog('配信エラー', `配信を開始できませんでした: ${err.message}`);
-            updateUIBroadcast(false);
+    const loadRegisteredDecks = async () => {
+        const decks = getDecks();
+        const sortedDecks = [...decks].sort((a, b) => a.name.localeCompare(b.name));
+        if (elements.registeredDecksList) {
+            elements.registeredDecksList.innerHTML = sortedDecks.length === 0 ? `<li>まだ登録されたデッキがありません。</li>` : sortedDecks.map(deck => `
+                <li>${deck.name} (${deck.type}) <button class="delete-deck-button button-style" data-name="${deck.name}" title="削除"><i class="fas fa-trash-alt"></i></button></li>
+            `).join('');
+        }
+        if (elements.myDeckSelect && elements.opponentDeckSelect) {
+            const optionsHtml = sortedDecks.map(deck => `<option value="${deck.name}">${deck.name} (${deck.type})</option>`).join('');
+            elements.myDeckSelect.innerHTML = '<option value="">登録済みデッキから選択</option>' + optionsHtml;
+            elements.opponentDeckSelect.innerHTML = '<option value="">登録済みデッキから選択</option>' + optionsHtml;
         }
     };
 
-    const stopBroadcast = () => {
-        if (window.tcgAssistant.ws && state.currentRoomId) {
-            window.tcgAssistant.ws.send(JSON.stringify({ type: 'stop_broadcast', roomId: state.currentRoomId }));
+    const loadBattleRecords = async () => {
+        const records = getRecords();
+        if (elements.battleRecordsList) {
+            elements.battleRecordsList.innerHTML = records.length === 0 ? `<li>まだ対戦記録がありません。</li>` : [...records].reverse().map((record, revIdx) => {
+                const origIdx = records.length - 1 - revIdx;
+                return `<li>
+                    <strong>${record.timestamp}</strong><br>
+                    自分: ${record.myDeck} vs 相手: ${record.opponentDeck}<br>
+                    結果: ${record.result === 'win' ? '勝利' : '敗北'} (${record.firstSecond === 'first' ? '先攻' : '後攻'})
+                    <button class="delete-record-button button-style" data-index="${origIdx}" title="削除"><i class="fas fa-trash-alt"></i></button>
+                </li>`;
+            }).join('');
         }
-        state.broadcastStream?.getTracks().forEach(track => track.stop());
-        state.spectatorConnections.forEach(pc => pc.close());
-        state.spectatorConnections.clear();
-        state.broadcastStream = null;
-        state.currentRoomId = null;
-        updateUIBroadcast(false);
-    };
-    
-    const startSpectating = (roomId) => {
-        if (!window.tcgAssistant.ws) return window.showCustomDialog('エラー', 'サーバーに接続していません。');
-        stopSpectating();
-        state.currentRoomId = roomId;
-        updateUISpectate(true);
-        window.tcgAssistant.ws.send(JSON.stringify({ type: 'join_spectate_room', roomId }));
+        calculateAndDisplayStats(records);
     };
 
-    const stopSpectating = () => {
-        state.spectateConnection?.close();
-        state.spectateConnection = null;
-        state.currentRoomId = null;
-        updateUISpectate(false);
-        if(elements.spectateVideo) elements.spectateVideo.srcObject = null;
+    const calculateAndDisplayStats = (records) => {
+        if (!elements.statsContainer) return;
+        const totalGames = records.length;
+        const wins = records.filter(r => r.result === 'win').length;
+        elements.totalGames.textContent = totalGames;
+        elements.totalWins.textContent = wins;
+        elements.totalLosses.textContent = totalGames - wins;
+        elements.winRate.textContent = `${totalGames > 0 ? (wins / totalGames * 100).toFixed(1) : '0.0'}%`;
     };
-    
-    const updateBroadcastList = (list) => {
-        if (!elements.broadcastList) return;
-        elements.broadcastList.innerHTML = '';
-        if (!list || list.length === 0) {
-            elements.broadcastList.innerHTML = '<li>現在、配信中のルームはありません。</li>';
-            return;
+
+    const displayMinigameStats = async () => {
+        const container = elements.minigameStatsContainer;
+        if (!container) return;
+        const { minigameStats } = await a.storage.local.get({minigameStats: {}});
+        const quizTypes = { cardName: 'カード名当て', enlarge: 'イラスト拡大', silhouette: 'シルエット', mosaic: 'モザイク' };
+        let html = '<ul>';
+        for (const [type, data] of Object.entries(minigameStats)) {
+            const total = data.wins + data.losses;
+            const winRate = total > 0 ? ((data.wins / total) * 100).toFixed(1) : '0.0';
+            const avgHints = data.wins > 0 ? (data.totalHints / data.wins).toFixed(2) : '0.00';
+            html += `<li><h4>${quizTypes[type] || type}</h4><p>プレイ回数: ${total}回</p><p>正解率: ${winRate}%</p>${type === 'cardName' ? `<p>平均ヒント数: ${avgHints}個</p>` : ''}</li>`;
         }
-        list.forEach(room => {
-            const li = document.createElement('li');
-            li.className = 'broadcast-list-item';
-            li.innerHTML = `
-                <div class="broadcast-item-info">
-                    <i class="fas fa-user-circle"></i>
-                    <span>配信者: <strong>${room.broadcasterUsername}</strong></span>
-                </div>
-                <button class="start-spectate-button-in-list button-style" data-room-id="${room.roomId}"><i class="fas fa-eye"></i> 観戦する</button>`;
-            elements.broadcastList.appendChild(li);
-        });
+        html += '</ul>';
+        container.innerHTML = Object.keys(minigameStats).length > 0 ? html : '<p>まだミニゲームのプレイ記録がありません。</p>';
     };
 
-    const handleNewSpectator = async ({ spectatorId }) => {
-        console.log(`New spectator joined: ${spectatorId}`);
-        const pc = new RTCPeerConnection(RTC_CONFIG);
-        state.spectatorConnections.set(spectatorId, pc);
-
-        state.broadcastStream.getTracks().forEach(track => pc.addTrack(track, state.broadcastStream));
-
-        pc.onicecandidate = event => {
-            if (event.candidate) {
-                window.tcgAssistant.ws.send(JSON.stringify({
-                    type: 'webrtc_signal_to_spectator',
-                    roomId: state.currentRoomId,
-                    spectatorId: spectatorId,
-                    signal: { candidate: event.candidate }
-                }));
-            }
-        };
-
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-        window.tcgAssistant.ws.send(JSON.stringify({
-            type: 'webrtc_signal_to_spectator',
-            roomId: state.currentRoomId,
-            spectatorId: spectatorId,
-            signal: { sdp: pc.localDescription }
-        }));
-    };
-
-    const handleSpectatorLeft = ({ spectatorId }) => {
-        console.log(`Spectator left: ${spectatorId}`);
-        const pc = state.spectatorConnections.get(spectatorId);
-        if (pc) {
-            pc.close();
-            state.spectatorConnections.delete(spectatorId);
-        }
-    };
-
-    const handleBroadcastSignal = async ({ from, signal }) => {
-        if (from === 'broadcaster') {
-            if (signal.sdp) {
-                state.spectateConnection = new RTCPeerConnection(RTC_CONFIG);
-                state.spectateConnection.onicecandidate = event => {
-                    if (event.candidate) {
-                        window.tcgAssistant.ws.send(JSON.stringify({ type: 'webrtc_signal_to_broadcaster', roomId: state.currentRoomId, signal: { candidate: event.candidate } }));
-                    }
-                };
-                state.spectateConnection.ontrack = event => {
-                    if (elements.spectateVideo && elements.spectateVideo.srcObject !== event.streams[0]) {
-                        elements.spectateVideo.srcObject = event.streams[0];
-                    }
-                };
-                await state.spectateConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-                const answer = await state.spectateConnection.createAnswer();
-                await state.spectateConnection.setLocalDescription(answer);
-                window.tcgAssistant.ws.send(JSON.stringify({ type: 'webrtc_signal_to_broadcaster', roomId: state.currentRoomId, signal: { sdp: answer } }));
-            } else if (signal.candidate && state.spectateConnection) {
-                await state.spectateConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-            }
-        } else {
-            const pc = state.spectatorConnections.get(from);
-            if (pc) {
-                if (signal.sdp) {
-                    if (pc.signalingState !== 'stable') await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-                } else if (signal.candidate) {
-                    await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
-                }
-            }
-        }
-    };
-    
-    const handleWsMessageForBroadcast = (message) => {
-        switch(message.type) {
-            case 'broadcast_started':
-                state.currentRoomId = message.roomId;
-                if(elements.broadcastRoomIdDisplay) elements.broadcastRoomIdDisplay.textContent = `ルームID: ${message.roomId}`;
-                break;
-            case 'new_spectator': handleNewSpectator(message); break;
-            case 'spectator_left': handleSpectatorLeft(message); break;
-            case 'broadcast_signal': handleBroadcastSignal(message); break;
-            case 'broadcast_stopped':
-                if (state.currentRoomId === message.roomId) {
-                    window.showCustomDialog('配信終了', '配信者が配信を終了しました。');
-                    stopSpectating();
-                }
-                break;
-            case 'broadcast_list_update': updateBroadcastList(message.list); break;
-        }
-    };
-    
     const setupEventListeners = () => {
-        elements.sectionContainer.addEventListener('click', async (e) => {
+        elements.sectionContainer?.addEventListener('click', async (e) => {
             const target = e.target.closest('button');
             if (!target) return;
             const id = target.id;
@@ -432,42 +291,70 @@ export function initialize() {
             if (id === 'start-replay-record-button') startRecording();
             else if (id === 'stop-replay-record-button') stopRecording();
             else if (id === 'close-replay-player-button') {
-                elements.replayPlayerWrapper.style.display = 'none';
+                if(elements.replayPlayerWrapper) elements.replayPlayerWrapper.style.display = 'none';
                 if (elements.replayVideo) { elements.replayVideo.pause(); elements.replayVideo.src = ''; }
             }
-            else if (classList.contains('play-replay-button')) playReplayWithMSE(target.dataset.id);
+            else if (classList.contains('play-replay-button')) playReplay(target.dataset.id);
             else if (classList.contains('delete-replay-button')) {
                 if (await window.showCustomDialog('確認', 'このリプレイを本当に削除しますか？', true)) deleteReplay(target.dataset.id);
             }
-            else if (id === 'start-broadcast-button') startBroadcast();
-            else if (id === 'stop-broadcast-button') stopBroadcast();
-            else if (classList.contains('start-spectate-button-in-list')) startSpectating(target.dataset.roomId);
-            else if (id === 'stop-spectate-button') stopSpectating();
-            else if (id === 'refresh-broadcast-list-button' && window.tcgAssistant.ws?.readyState === WebSocket.OPEN) {
-                window.tcgAssistant.ws.send(JSON.stringify({ type: 'get_broadcast_list' }));
+            else if (id === 'register-deck-button') {
+                const deckName = elements.newDeckNameInput.value.trim();
+                const deckType = elements.newDeckTypeSelect.value;
+                if (!deckName || !deckType) return window.showCustomDialog('エラー', 'デッキ名とタイプは必須です。');
+                const decks = getDecks();
+                if (decks.some(d => d.name === deckName)) return window.showCustomDialog('エラー', '同じ名前のデッキが既に登録されています。');
+                saveDecks([...decks, { name: deckName, type: deckType }]);
+                window.showCustomDialog('成功', 'デッキを登録しました。');
+                elements.newDeckNameInput.value = '';
+                await loadRegisteredDecks();
+            }
+            else if (classList.contains('delete-deck-button')) {
+                const deckName = target.dataset.name;
+                if (await window.showCustomDialog('確認', `デッキ「${deckName}」を削除しますか？`, true)) {
+                    saveDecks(getDecks().filter(d => d.name !== deckName));
+                    await loadRegisteredDecks();
+                }
+            }
+            else if (id === 'save-battle-record-button') {
+                if (!elements.myDeckSelect.value || !elements.opponentDeckSelect.value || !elements.firstSecondSelect.value) return window.showCustomDialog('エラー', '必須項目を入力してください。');
+                const newRecord = { timestamp: new Date().toLocaleString(), myDeck: elements.myDeckSelect.value, opponentDeck: elements.opponentDeckSelect.value, result: elements.winLossSelect.value, firstSecond: elements.firstSecondSelect.value, notes: elements.notesTextarea.value.trim() };
+                saveRecords([...getRecords(), newRecord]);
+                window.showCustomDialog('成功', '対戦記録を保存しました。');
+                elements.notesTextarea.value = '';
+                showBattleRecordTab('past-records');
+            }
+            else if (classList.contains('delete-record-button')) {
+                const index = parseInt(target.dataset.index, 10);
+                if (await window.showCustomDialog('確認', 'この記録を削除しますか？', true)) {
+                    const records = getRecords();
+                    if (index >= 0 && index < records.length) {
+                        records.splice(index, 1);
+                        saveRecords(records);
+                        await loadBattleRecords();
+                    }
+                }
             }
         });
         
-        elements.sectionContainer.querySelectorAll('.battle-record-tab-button').forEach(button => {
+        elements.sectionContainer?.querySelectorAll('.battle-record-tab-button').forEach(button => {
             button.addEventListener('click', () => showBattleRecordTab(button.dataset.tab));
         });
-        
-        if (window.tcgAssistant.ws) {
-            window.tcgAssistant.ws.addEventListener('message', (event) => handleWsMessageForBroadcast(JSON.parse(event.data)));
-        }
     };
 
     const showBattleRecordTab = (tabId) => {
-        elements.sectionContainer.querySelectorAll('.battle-record-tab-content').forEach(c => c.classList.remove('active'));
-        elements.sectionContainer.querySelectorAll('.battle-record-tab-button').forEach(b => b.classList.remove('active'));
+        elements.sectionContainer?.querySelectorAll('.battle-record-tab-content').forEach(c => c.classList.remove('active'));
+        elements.sectionContainer?.querySelectorAll('.battle-record-tab-button').forEach(b => b.classList.remove('active'));
         const targetContent = getElement(`battle-record-tab-${tabId}`);
-        const targetButton = elements.sectionContainer.querySelector(`.battle-record-tab-button[data-tab="${tabId}"]`);
+        const targetButton = elements.sectionContainer?.querySelector(`.battle-record-tab-button[data-tab="${tabId}"]`);
         if (targetContent) targetContent.classList.add('active');
         if (targetButton) targetButton.classList.add('active');
 
-        if (tabId === 'replay') updateReplayList();
-        if (tabId === 'spectate' && window.tcgAssistant.ws?.readyState === WebSocket.OPEN) {
-             window.tcgAssistant.ws.send(JSON.stringify({ type: 'get_broadcast_list' }));
+        switch(tabId) {
+            case 'replay': updateReplayList(); break;
+            case 'deck-management': case 'new-record': loadRegisteredDecks(); break;
+            case 'past-records': case 'stats-summary': loadBattleRecords(); break;
+            case 'minigame-record': displayMinigameStats(); break;
         }
     };
 

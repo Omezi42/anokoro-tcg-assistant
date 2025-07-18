@@ -1,43 +1,45 @@
 {
   "manifest_version": 3,
   "name": "あの頃の自作TCG拡張機能",
-  "version": "1.1.0",
+  "version": "4.0.0",
   "description": "unityroomの『あの頃の自作TCG』の体験を向上させるための拡張機能です。",
   "permissions": [
     "storage",
     "notifications",
-    "scripting",
-    "activeTab"
+    "scripting"
   ],
   "host_permissions": [
     "https://unityroom.com/games/anokorotcg*",
     "https://omezi42.github.io/*"
   ],
   "background": {
-    "scripts": ["js/background.js"]
+    "scripts": [
+      "js/background.js"
+    ]
   },
   "content_scripts": [
     {
-      "matches": ["https://unityroom.com/games/anokorotcg*"],
-      "css": ["css/style.css"],
-      "js": ["js/main.js"],
-      "run_at": "document_idle"
+      "matches": [
+        "https://unityroom.com/games/anokorotcg*"
+      ],
+      "css": [
+        "css/style.css"
+      ],
+      "js": [
+        "js/main.js"
+      ]
     }
   ],
   "action": {
     "default_popup": "html/popup.html",
     "default_icon": {
       "16": "images/icon16.png",
-      "24": "images/icon24.png",
-      "32": "images/icon32.png",
       "48": "images/icon48.png",
       "128": "images/icon128.png"
     }
   },
   "icons": {
     "16": "images/icon16.png",
-    "24": "images/icon24.png",
-    "32": "images/icon32.png",
     "48": "images/icon48.png",
     "128": "images/icon128.png"
   },
@@ -46,23 +48,17 @@
       "resources": [
         "json/*.json",
         "images/*.png",
-        "css/*.css",
-        "html/*.html",
         "html/sections/*.html",
-        "js/*.js",
-        "js/sections/*.js"
+        "js/sections/*.js",
+        "css/*.css"
       ],
-      "matches": ["https://unityroom.com/games/anokorotcg*"]
+      "matches": [
+        "https://unityroom.com/games/anokorotcg*"
+      ]
     }
   ],
   "options_page": "html/options.html",
   "commands": {
-    "_execute_action": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+F",
-        "mac": "MacCtrl+Shift+F"
-      }
-    },
     "toggle-sidebar": {
       "suggested_key": {
         "default": "Ctrl+Shift+S",

@@ -29,8 +29,24 @@
         userBattleRecords: [],
         userRegisteredDecks: [],
         ws: null,
-        activeSection: 'home'
+        activeSection: 'home',
+        // 画像取得用のヘルパー関数をグローバルに定義
+        fetchImage: async (url) => {
+            try {
+                const response = await a.runtime.sendMessage({ action: "fetchImageAsDataURL", url });
+                if (response && response.success) {
+                    return response.dataUrl;
+                }
+                throw new Error(response?.error || 'Background script returned an error.');
+            } catch (e) {
+                console.error(`Failed to communicate with background script for image fetch: ${url}`, e);
+                window.showCustomDialog("通信エラー", `拡張機能のバックグラウンドプロセスとの通信に失敗しました。拡張機能を再読み込みしてください。<br><br>エラー: ${e.message}`);
+                return null;
+            }
+        }
     };
+
+    // --- 共通関数の定義 ---
 
     const injectResources = () => {
         const fontAwesomeLink = document.createElement('link');
@@ -42,52 +58,41 @@
         googleFontsLink.rel = 'stylesheet';
         googleFontsLink.href = 'https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap';
         document.head.appendChild(googleFontsLink);
-        console.log("main.js: Resources injected.");
     };
 
     window.showCustomDialog = (title, message, isConfirm = false) => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('tcg-custom-dialog-overlay');
-            if (!overlay) {
-                console.error("Custom dialog overlay not found.");
-                return resolve(false);
-            }
+            if (!overlay) return resolve(false);
             const dialogTitle = overlay.querySelector('#tcg-dialog-title');
             const dialogMessage = overlay.querySelector('#tcg-dialog-message');
             const buttonsWrapper = overlay.querySelector('#tcg-dialog-buttons');
-
             dialogTitle.textContent = title;
             dialogMessage.innerHTML = message;
             buttonsWrapper.innerHTML = '';
-
             const okButton = document.createElement('button');
-            okButton.textContent = 'OK';
-            okButton.onclick = () => {
-                overlay.classList.remove('show');
-                resolve(true);
-            };
+            okButton.textContent = isConfirm ? 'はい' : 'OK';
+            okButton.onclick = () => { overlay.classList.remove('show'); resolve(true); };
             buttonsWrapper.appendChild(okButton);
-
             if (isConfirm) {
                 const cancelButton = document.createElement('button');
                 cancelButton.textContent = 'キャンセル';
-                cancelButton.onclick = () => {
-                    overlay.classList.remove('show');
-                    resolve(false);
-                };
+                cancelButton.onclick = () => { overlay.classList.remove('show'); resolve(false); };
                 buttonsWrapper.appendChild(cancelButton);
             }
             overlay.classList.add('show');
         });
     };
 
-    window.showCardDetailModal = (card, currentIndex, searchResults) => {
+    // カード詳細モーダル表示（画像取得をバックグラウンドに依頼）
+    window.showCardDetailModal = async (card, currentIndex, searchResults) => {
         if (!card) return;
         
         const existingModal = document.getElementById('tcg-card-detail-modal-overlay');
         if (existingModal) existingModal.remove();
 
-        const cardImageUrl = a.runtime.getURL(`images/cards/${encodeURIComponent(card.image_filename)}.png`);
+        const externalUrl = `https://omezi42.github.io/tcg-assistant-images/cards/${encodeURIComponent(card.name)}.png`;
+        const cardImageUrl = await window.tcgAssistant.fetchImage(externalUrl) || 'https://placehold.co/200x280/eee/333?text=No+Image';
         
         const getInfo = (prefix) => card.info.find(i => i.startsWith(prefix))?.replace(prefix, '').replace('です。', '') || 'N/A';
         const getEffect = () => card.info.find(i => i.startsWith("このカードの効果は、「"))?.replace("このカードの効果は、「", "").replace("」です。", "") || '（効果なし）';
@@ -97,7 +102,7 @@
             <div class="tcg-card-detail-modal-content">
                 <button id="tcg-card-detail-close-button" title="閉じる">&times;</button>
                 <div class="card-preview-pane">
-                     <img src="${cardImageUrl}" alt="${card.name}" onerror="this.src='https://placehold.co/200x280/eee/333?text=No+Image'">
+                     <img src="${cardImageUrl}" alt="${card.name}">
                 </div>
                 <div class="card-info-pane">
                     <div class="card-info-header">
@@ -123,7 +128,6 @@
         document.body.appendChild(overlay);
 
         const closeModal = () => overlay.remove();
-
         overlay.querySelector('#tcg-card-detail-close-button').addEventListener('click', closeModal);
         overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
@@ -131,9 +135,9 @@
         if (loreButton) {
             loreButton.addEventListener('click', () => {
                 const effectDisplay = overlay.querySelector('.card-info-effect');
-                const isShowingLore = loreButton.textContent === '世界観';
-                effectDisplay.textContent = isShowingLore ? getLore() : getEffect();
-                loreButton.textContent = isShowingLore ? '効果' : '世界観';
+                const isShowingEffect = loreButton.textContent === '世界観';
+                effectDisplay.textContent = isShowingEffect ? getLore() : getEffect();
+                loreButton.textContent = isShowingEffect ? '効果' : '世界観';
             });
         }
 
@@ -152,17 +156,11 @@
 
     window.showSection = async (sectionId) => {
         if (!sectionId) return;
-        console.log(`Showing section: ${sectionId}`);
         window.tcgAssistant.activeSection = sectionId;
         a.storage.local.set({ activeSection: sectionId });
 
-        document.querySelectorAll('.tcg-menu-icon').forEach(icon => {
-            icon.classList.toggle('active', icon.dataset.section === sectionId);
-        });
-
-        document.querySelectorAll('.tcg-section').forEach(section => {
-            section.classList.remove('active');
-        });
+        document.querySelectorAll('.tcg-menu-icon').forEach(icon => icon.classList.toggle('active', icon.dataset.section === sectionId));
+        document.querySelectorAll('.tcg-section').forEach(section => section.classList.remove('active'));
 
         const sectionsWrapper = document.getElementById('tcg-sections-wrapper');
         let targetSection = document.getElementById(`tcg-${sectionId}-section`);
@@ -174,51 +172,50 @@
             sectionsWrapper.appendChild(targetSection);
         }
 
+        const loadAndInit = async () => {
+            try {
+                const modulePath = a.runtime.getURL(`js/sections/${sectionId}.js`);
+                const sectionModule = await import(modulePath);
+                if (sectionModule && typeof sectionModule.initialize === 'function') {
+                    sectionModule.initialize();
+                }
+            } catch (error) {
+                console.error(`Error loading module for ${sectionId}:`, error);
+            }
+        };
+
         if (targetSection.innerHTML.trim() === '') {
             try {
                 const response = await fetch(a.runtime.getURL(`html/sections/${sectionId}.html`));
                 if (!response.ok) throw new Error(`HTML fetch failed: ${response.statusText}`);
                 targetSection.innerHTML = await response.text();
+                await loadAndInit();
             } catch (error) {
-                console.error(`Error loading HTML for section ${sectionId}:`, error);
                 targetSection.innerHTML = `<p style="color: red;">セクションの読み込みに失敗しました。</p>`;
             }
+        } else {
+            await loadAndInit();
         }
         
         targetSection.classList.add('active');
-
-        try {
-            const modulePath = a.runtime.getURL(`js/sections/${sectionId}.js`);
-            const sectionModule = await import(modulePath);
-            if (sectionModule.initialize) {
-                sectionModule.initialize();
-            }
-        } catch (error) {
-            console.error(`Error loading or initializing module for section ${sectionId}:`, error);
-        }
     };
 
     window.toggleSidebar = (sectionId = null, forceOpen = false) => {
         const contentArea = document.getElementById('tcg-content-area');
         const birdToggle = document.getElementById('tcg-menu-toggle-bird');
         if (!contentArea || !birdToggle) return;
-
         const shouldOpen = forceOpen || !window.tcgAssistant.isSidebarOpen;
-        
         window.tcgAssistant.isSidebarOpen = shouldOpen;
         contentArea.classList.toggle('active', shouldOpen);
         birdToggle.classList.toggle('open', shouldOpen);
         a.storage.local.set({ isSidebarOpen: shouldOpen });
-
         if (shouldOpen) {
-            const targetSection = sectionId || window.tcgAssistant.activeSection;
-            window.showSection(targetSection);
+            window.showSection(sectionId || window.tcgAssistant.activeSection);
         }
     };
 
     const injectUI = async () => {
         if (window.tcgAssistant.uiInjected) return;
-
         const birdImageUrl = a.runtime.getURL('images/irust_桜小鳥.png');
         const uiHtml = `
             <div id="tcg-content-area">
@@ -243,11 +240,8 @@
                     <div class="dialog-buttons" id="tcg-dialog-buttons"></div>
                 </div>
             </div>`;
-
         document.body.insertAdjacentHTML('beforeend', uiHtml);
         window.tcgAssistant.uiInjected = true;
-        console.log("main.js: UI injected.");
-
         attachEventListeners();
         await initializeFeatures();
     };
@@ -255,63 +249,38 @@
     const attachEventListeners = () => {
         const birdContainer = document.getElementById('tcg-bird-container');
         const birdToggle = document.getElementById('tcg-menu-toggle-bird');
-        let isDragging = false;
-        let wasDragged = false;
-        let offsetX, offsetY;
-
+        let isDragging = false, wasDragged = false, offsetX, offsetY;
         birdToggle.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            wasDragged = false;
+            isDragging = true; wasDragged = false;
             birdToggle.classList.add('is-dragging');
             const rect = birdContainer.getBoundingClientRect();
-            offsetX = e.clientX - rect.left;
-            offsetY = e.clientY - rect.top;
+            offsetX = e.clientX - rect.left; offsetY = e.clientY - rect.top;
             e.preventDefault();
         });
-
         document.addEventListener('mousemove', (e) => {
             if (isDragging) {
                 wasDragged = true;
+                const parentRect = document.body.getBoundingClientRect();
                 let newX = e.clientX - offsetX;
                 let newY = e.clientY - offsetY;
-                
-                const parentRect = document.body.getBoundingClientRect();
                 newX = Math.max(0, Math.min(newX, parentRect.width - birdContainer.offsetWidth));
                 newY = Math.max(0, Math.min(newY, parentRect.height - birdContainer.offsetHeight));
-
-                birdContainer.style.left = `${newX}px`;
-                birdContainer.style.top = `${newY}px`;
-                birdContainer.style.right = 'auto';
-                birdContainer.style.bottom = 'auto';
+                birdContainer.style.left = `${newX}px`; birdContainer.style.top = `${newY}px`;
+                birdContainer.style.right = 'auto'; birdContainer.style.bottom = 'auto';
             }
         });
-
         document.addEventListener('mouseup', () => {
             if (isDragging) {
                 isDragging = false;
                 birdToggle.classList.remove('is-dragging');
-                a.storage.local.set({
-                    birdPosition: {
-                        top: birdContainer.style.top,
-                        left: birdContainer.style.left
-                    }
-                });
+                a.storage.local.set({ birdPosition: { top: birdContainer.style.top, left: birdContainer.style.left } });
             }
         });
-
         birdToggle.addEventListener('click', (e) => {
-            if (wasDragged) {
-                e.stopPropagation();
-                wasDragged = false;
-                return;
-            }
+            if (wasDragged) { e.stopPropagation(); wasDragged = false; return; }
             window.toggleSidebar();
         });
-
-        birdToggle.addEventListener('dblclick', () => {
-            showRandomChatter();
-        });
-
+        birdToggle.addEventListener('dblclick', () => showRandomChatter());
         document.querySelectorAll('.tcg-menu-icon').forEach(icon => {
             icon.addEventListener('click', (e) => {
                 const sectionId = e.currentTarget.dataset.section;
@@ -328,70 +297,39 @@
     const showChatter = (html, answerCardName = null) => {
         const bubble = document.getElementById('tcg-bird-speech-bubble');
         if (!bubble) return;
-
-        // 吹き出しの位置をコンテナに合わせて調整
         const container = document.getElementById('tcg-bird-container');
         const containerRect = container.getBoundingClientRect();
-        const screenCenter = window.innerWidth / 2;
-        
-        bubble.classList.remove('align-left', 'align-right');
-        if (containerRect.left + (containerRect.width / 2) < screenCenter) {
-            bubble.classList.add('align-left');
-        } else {
-            bubble.classList.add('align-right');
-        }
-
+        bubble.classList.toggle('align-left', containerRect.left + (containerRect.width / 2) < window.innerWidth / 2);
+        bubble.classList.toggle('align-right', containerRect.left + (containerRect.width / 2) >= window.innerWidth / 2);
         bubble.innerHTML = html;
         bubble.classList.remove('hidden');
-
-        const hideBubble = () => {
-            bubble.classList.add('hidden');
-            bubble.onclick = null;
-        };
-
+        const hideBubble = () => { bubble.classList.add('hidden'); bubble.onclick = null; };
         if (answerCardName) {
-            // 1回目のクリックで答えを表示
             bubble.onclick = () => {
                 bubble.innerHTML = `正解は「<strong>${answerCardName}</strong>」でした！<small>（クリックで閉じる）</small>`;
-                // 2回目のクリックで閉じる
                 bubble.onclick = hideBubble;
                 setTimeout(hideBubble, 5000);
             };
         } else {
-            // 豆知識は1回のクリックで閉じる
             bubble.onclick = hideBubble;
             setTimeout(hideBubble, 7000);
         }
     };
 
     const showLoreQuiz = () => {
-        if (!window.tcgAssistant.allCards || window.tcgAssistant.allCards.length === 0) {
-            console.log("Card data not ready for quiz.");
-            return;
-        }
-        const cardsWithLore = window.tcgAssistant.allCards.filter(c => 
-            c.info.some(i => i.startsWith("このカードの世界観は、「") && i.length > 20)
-        );
-        if (cardsWithLore.length === 0) return;
-
+        const cardsWithLore = window.tcgAssistant.allCards?.filter(c => c.info.some(i => i.startsWith("このカードの世界観は、「") && i.length > 20));
+        if (!cardsWithLore || cardsWithLore.length === 0) return;
         const card = cardsWithLore[Math.floor(Math.random() * cardsWithLore.length)];
         const lore = card.info.find(i => i.startsWith("このカードの世界観は、「")).replace("このカードの世界観は、「", "").replace("」です。", "");
-        
-        const quizHtml = `「${lore}」<br>このカードはな～んだ？<small>（クリックで答えを見る）</small>`;
-        showChatter(quizHtml, card.name);
+        showChatter(`「${lore}」<br>このカードはな～んだ？<small>（クリックで答えを見る）</small>`, card.name);
     };
 
     const showRandomChatter = () => {
         const { trivia, allCards } = window.tcgAssistant;
-        if (allCards.length === 0 && trivia.length === 0) {
-            console.log("No data for chatter.");
-            return;
-        }
-
-        if (Math.random() < 0.5 && trivia.length > 0) {
-            const randomTrivia = trivia[Math.floor(Math.random() * trivia.length)];
-            showChatter(randomTrivia);
-        } else if (allCards.length > 0) {
+        if ((!allCards || allCards.length === 0) && (!trivia || trivia.length === 0)) return;
+        if (Math.random() < 0.5 && trivia?.length > 0) {
+            showChatter(trivia[Math.floor(Math.random() * trivia.length)]);
+        } else if (allCards?.length > 0) {
             showLoreQuiz();
         }
     };
@@ -400,42 +338,24 @@
         try {
             const cardResponse = await fetch(a.runtime.getURL('json/cards.json'));
             window.tcgAssistant.allCards = await cardResponse.json();
-            console.log(`main.js: ${window.tcgAssistant.allCards.length} cards loaded.`);
-            
             const triviaResponse = await fetch(a.runtime.getURL('json/trivia.json'));
             window.tcgAssistant.trivia = await triviaResponse.json();
-            console.log(`main.js: ${window.tcgAssistant.trivia.length} trivia loaded.`);
-
             document.dispatchEvent(new CustomEvent('cardsLoaded'));
         } catch (error) {
-            console.error("main.js: Failed to load data:", error);
-            window.showCustomDialog('エラー', `カードまたは豆知識データの読み込みに失敗しました: ${error.message}`);
+            window.showCustomDialog('エラー', `データ読み込みエラー: ${error.message}`);
         }
-
         const result = await a.storage.local.get(['isSidebarOpen', 'activeSection', 'birdPosition']);
         window.tcgAssistant.activeSection = result.activeSection || 'home';
-
         const birdContainer = document.getElementById('tcg-bird-container');
-        if (result.birdPosition && result.birdPosition.top && result.birdPosition.left) {
+        if (result.birdPosition?.top && result.birdPosition?.left) {
             birdContainer.style.top = result.birdPosition.top;
             birdContainer.style.left = result.birdPosition.left;
-            birdContainer.style.right = 'auto';
-            birdContainer.style.bottom = 'auto';
-        } else {
-            birdContainer.style.right = '20px';
-            birdContainer.style.bottom = '20px';
-            birdContainer.style.top = 'auto';
-            birdContainer.style.left = 'auto';
         }
-
         if (result.isSidebarOpen) {
             window.toggleSidebar(null, true);
         } else {
-            document.querySelectorAll('.tcg-menu-icon').forEach(icon => {
-                icon.classList.toggle('active', icon.dataset.section === window.tcgAssistant.activeSection);
-            });
+            document.querySelectorAll('.tcg-menu-icon').forEach(icon => icon.classList.toggle('active', icon.dataset.section === window.tcgAssistant.activeSection));
         }
-        
         setInterval(showRandomChatter, 90000);
     };
 

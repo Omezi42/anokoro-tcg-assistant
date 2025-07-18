@@ -9,17 +9,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const rateDisplay = document.getElementById('rate-display');
+    const matchingCountDisplay = document.getElementById('matching-count-display'); // 追加
     const goToGameButton = document.getElementById('go-to-game-button');
     const buttons = document.querySelectorAll('.popup-button');
     const optionsButton = document.getElementById('options-button');
 
-    // レートをストレージから取得して表示
-    a.storage.local.get('currentRate', (data) => {
-        if (rateDisplay) {
-            rateDisplay.textContent = data.currentRate || '----';
+    // レートとマッチング人数をストレージから取得して表示
+    const updatePopupInfo = () => {
+        a.storage.local.get(['currentRate', 'matchingCount'], (data) => {
+            if (rateDisplay) {
+                rateDisplay.textContent = data.currentRate || '----';
+            }
+            if (matchingCountDisplay) {
+                matchingCountDisplay.textContent = data.matchingCount !== undefined ? data.matchingCount : '--';
+            }
+        });
+    };
+
+    // ストレージの変更を監視してUIをリアルタイムで更新
+    a.storage.local.onChanged.addListener((changes, areaName) => {
+        if (areaName === 'local' && (changes.currentRate || changes.matchingCount)) {
+            updatePopupInfo();
         }
     });
-    
+
     // backgroundにメッセージを送るヘルパー
     const sendMessageToActiveTab = (message) => {
         a.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -56,4 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
             a.runtime.openOptionsPage();
         });
     }
+
+    // 初回表示時の情報更新
+    updatePopupInfo();
 });

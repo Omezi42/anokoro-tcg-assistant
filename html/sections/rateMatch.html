@@ -60,7 +60,8 @@
 
     <!-- マッチング中の表示 -->
     <div id="matching-status" style="display: none;">
-        <p id="matching-status-text">対戦相手を検索中...</p>
+        <!-- マッチング人数を表示する要素を追加 -->
+        <p id="matching-status-text">対戦相手を検索中... (<span id="queue-count-display">--</span>人)</p>
         <div class="spinner"></div>
         <button id="cancel-matching-button-in-status">マッチングキャンセル</button>
     </div>

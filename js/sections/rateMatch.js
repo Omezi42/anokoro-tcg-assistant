@@ -45,6 +45,7 @@ export function initialize() {
         usernameDisplay: getElement('username-display'),
         opponentUsernameDisplay: getElement('opponent-username-display'),
         webrtcConnectionStatus: getElement('webrtc-connection-status'),
+        queueCountDisplay: getElement('queue-count-display'), // 追加
     };
     const chatPhraseButtons = document.querySelectorAll('.chat-phrase-button');
 
@@ -62,7 +63,6 @@ export function initialize() {
 
         newWs.onopen = () => {
             console.log("WebSocket connected.");
-            // FIX: Request ranking data as soon as the connection is open.
             requestRanking();
             a.storage.local.get(['loggedInUserId', 'loggedInUsername'], (result) => {
                 if (result.loggedInUserId && result.loggedInUsername) {
@@ -75,6 +75,8 @@ export function initialize() {
             console.log("WebSocket disconnected.");
             clearMatchState();
             updateUI();
+            // 切断時にキュー人数をリセット
+            a.storage.local.set({ matchingCount: '--' });
             setTimeout(connectWebSocket, 5000);
         };
         newWs.onerror = (error) => console.error("WebSocket error:", error);
@@ -102,6 +104,12 @@ export function initialize() {
             }
             loadMatchHistory(userMatchHistory);
         }
+        // マッチング人数をUIに表示
+        a.storage.local.get('matchingCount', (data) => {
+            if (elements.queueCountDisplay) {
+                elements.queueCountDisplay.textContent = data.matchingCount !== undefined ? data.matchingCount : '--';
+            }
+        });
     };
     
     const loadMatchHistory = (history) => { 
@@ -254,7 +262,6 @@ export function initialize() {
                     a.storage.local.remove(['loggedInUserId', 'loggedInUsername', 'currentRate']);
                 }
                 updateUI();
-                // FIX: No need to call requestRanking() here, it's already called onopen or by refresh button.
                 break;
 
             case 'logout_response':
@@ -315,6 +322,14 @@ export function initialize() {
 
             case 'ranking_data':
                 if (message.success) displayRanking(message.data);
+                break;
+            
+            case 'queue_count_update': // キュー人数更新メッセージのハンドリングを追加
+                window.tcgAssistant.matchingCount = message.count;
+                a.storage.local.set({ matchingCount: message.count }); // ローカルストレージに保存
+                if (elements.queueCountDisplay) {
+                    elements.queueCountDisplay.textContent = message.count;
+                }
                 break;
                 
             case 'error':
@@ -416,7 +431,7 @@ export function initialize() {
 
     connectWebSocket();
     addEventListeners();
-    updateUI();
+    updateUI(); // 初回ロード時にUIを更新
     
     document.addEventListener('updateRateMatchUI', updateUI);
 }

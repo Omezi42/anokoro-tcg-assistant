@@ -33,15 +33,15 @@
   "action": {
     "default_popup": "html/popup.html",
     "default_icon": {
-      "16": "images/icon16.png",
-      "48": "images/icon48.png",
-      "128": "images/icon128.png"
+      "16": "images/illust_桜小鳥.png",
+      "48": "images/illust_桜小鳥.png",
+      "128": "images/illust_桜小鳥.png"
     }
   },
   "icons": {
-    "16": "images/icon16.png",
-    "48": "images/icon48.png",
-    "128": "images/icon128.png"
+    "16": "images/illust_桜小鳥.png",
+    "48": "images/illust_桜小鳥.png",
+    "128": "images/illust_桜小鳥.png"
   },
   "web_accessible_resources": [
     {
@@ -69,7 +69,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "anokoro-tcg-assistant@omezi42.com"
+      "id": "anokoro-tcg@your-domain.com"
     }
   }
 }

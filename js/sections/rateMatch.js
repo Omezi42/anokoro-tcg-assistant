@@ -97,13 +97,25 @@ export function initialize() {
             
             const isMatching = elements.matchingStatusDiv.dataset.active === 'true';
 
-            elements.preMatchUiDiv.style.display = !currentMatch.id && !isMatching ? 'block' : 'none';
-            elements.matchingStatusDiv.style.display = isMatching ? 'flex' : 'none';
-            elements.postMatchUiDiv.style.display = currentMatch.id ? 'block' : 'none';
-
+            // UI表示ロジックをより明確に
             if (currentMatch.id) {
+                // 対戦中
+                elements.preMatchUiDiv.style.display = 'none';
+                elements.matchingStatusDiv.style.display = 'none';
+                elements.postMatchUiDiv.style.display = 'block';
                 elements.opponentUsernameDisplay.textContent = currentMatch.opponentUsername || '不明';
+            } else if (isMatching) {
+                // マッチング中
+                elements.preMatchUiDiv.style.display = 'none';
+                elements.matchingStatusDiv.style.display = 'flex';
+                elements.postMatchUiDiv.style.display = 'none';
+            } else {
+                // マッチング前
+                elements.preMatchUiDiv.style.display = 'block';
+                elements.matchingStatusDiv.style.display = 'none';
+                elements.postMatchUiDiv.style.display = 'none';
             }
+            
             loadMatchHistory(userMatchHistory);
         }
         // マッチング人数をUIに表示
@@ -289,7 +301,13 @@ export function initialize() {
 
             case 'match_found':
                 clearMatchState();
-                Object.assign(currentMatch, message);
+                
+                // [FIX] Map server response (matchId) to client state (id)
+                currentMatch.id = message.matchId;
+                currentMatch.opponentUserId = message.opponentUserId;
+                currentMatch.opponentUsername = message.opponentUsername;
+                currentMatch.isInitiator = message.isInitiator;
+
                 // 対戦相手決定時の通知
                 a.storage.sync.get('notifications', (items) => {
                     if (items.notifications) {
